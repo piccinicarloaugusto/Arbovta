@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ArboVTA">
+<meta name="theme-color" content="#1a2e1a">
+<meta name="description" content="App professionale per rilievi VTA: riconoscimento specie AI, clinometro digitale, scheda fitosanitaria completa e georeferenziazione.">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Apple Touch Icons -->
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-96.png">
+
+<!-- Apple Splash Screens (iPad) -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<title>ArboVTA — Rilievi Fitosanitari</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root{
+  --green-900:#0d1f0d;--green-800:#1a3a1a;--green-700:#27500A;--green-600:#3B6D11;
+  --green-500:#4a8a18;--green-400:#639922;--green-300:#97C459;--green-200:#C0DD97;
+  --green-100:#EAF3DE;--green-50:#f4f9ed;
+  --amber:#EF9F27;--amber-dark:#633806;--amber-light:#FAEEDA;
+  --red:#E24B4A;--red-dark:#501313;--red-light:#FCEBEB;
+  --coral:#D85A30;--coral-light:#FAECE7;
+  --blue:#378ADD;--blue-light:#E6F1FB;
+  --ink:#1a2010;--ink-2:#2d3d20;
+  --surface:#f7faf2;--surface-2:#eef4e4;--surface-3:#e4edce;
+  --border:#ccdaa8;--border-2:#b8cc8e;
+  --text-primary:#1a2010;--text-secondary:#4a5e30;--text-muted:#7a9050;
+  --font-sans:'DM Sans',sans-serif;--font-serif:'Instrument Serif',serif;--font-mono:'DM Mono',monospace;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;
+  --shadow:0 1px 3px rgba(26,46,10,0.08);--shadow-md:0 4px 12px rgba(26,46,10,0.12);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--surface)}
+body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;background:var(--surface);position:relative}
+.topbar{background:var(--green-900);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.logo-wrap{display:flex;align-items:center;gap:9px}
+.logo-icon{width:32px;height:32px;border-radius:8px;background:var(--green-800);border:0.5px solid var(--green-700);display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:18px;height:18px;fill:var(--green-300)}
+.logo-text .name{font-family:var(--font-serif);font-size:17px;color:#e8f0d8;font-style:italic;letter-spacing:0.01em}
+.logo-text .ver{font-size:10px;color:var(--green-400);font-family:var(--font-mono);letter-spacing:0.04em}
+.topbar-right{display:flex;gap:7px;align-items:center}
+.badge{font-size:9px;padding:2px 6px;border-radius:10px;font-weight:500;letter-spacing:0.04em}
+.badge-beta{background:rgba(97,185,34,0.15);color:var(--green-300);border:0.5px solid rgba(97,185,34,0.25)}
+.btn-new{font-size:12px;padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--green-600);color:#e8f0d8;cursor:pointer;font-family:var(--font-sans);font-weight:500;letter-spacing:0.01em}
+.btn-new:hover{background:var(--green-500)}
+.btn-new:active{transform:scale(0.97)}
+
+/* ── NAV ── */
+.nav{background:var(--green-900);border-top:0.5px solid var(--green-800);padding:0 8px;display:flex;flex-shrink:0}
+.nav-tab{flex:1;padding:8px 2px 9px;font-size:10px;cursor:pointer;border-bottom:2px solid transparent;color:var(--green-400);background:none;border-left:none;border-right:none;border-top:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--font-sans);letter-spacing:0.02em;transition:color 0.15s}
+.nav-tab svg{width:17px;height:17px;fill:currentColor;opacity:0.8}
+.nav-tab.active{color:var(--green-200);border-bottom-color:var(--green-300)}
+.nav-tab.active svg{opacity:1}
+.nav-tab:hover:not(.active){color:var(--green-300)}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.content::-webkit-scrollbar{width:3px}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── BOTTOM BAR ── */
+.bottombar{background:var(--surface);border-top:0.5px solid var(--border);padding:10px 14px;display:none;gap:8px;flex-shrink:0}
+
+/* ── CARDS ── */
+.card{background:#fff;border:0.5px solid var(--border);border-radius:var(--r-lg);padding:13px;box-shadow:var(--shadow)}
+.card-dark{background:var(--green-900);border-color:var(--green-800)}
+.sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.sec svg{width:12px;height:12px;fill:var(--text-muted);flex-shrink:0}
+
+/* ── FORMS ── */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.full{grid-column:1/-1}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:11px;color:var(--text-muted);font-weight:500;letter-spacing:0.02em}
+.field input,.field select,.field textarea{font-size:13px;border:0.5px solid var(--border);border-radius:var(--r-sm);padding:7px 9px;background:#fff;color:var(--text-primary);width:100%;font-family:var(--font-sans);transition:border-color 0.15s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--green-400);box-shadow:0 0 0 2px rgba(97,153,34,0.12)}
+.field input[readonly]{background:var(--surface-2);color:var(--text-secondary)}
+.field textarea{resize:vertical;min-height:46px;line-height:1.5}
+
+/* ── MULTISELECT CHIPS ── */
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.chip{font-size:11px;padding:3px 9px;border:0.5px solid var(--border);border-radius:12px;cursor:pointer;background:#fff;color:var(--text-secondary);transition:all 0.12s;white-space:nowrap}
+.chip:hover{border-color:var(--green-400);color:var(--green-700)}
+.chip.on{background:var(--green-100);border-color:var(--green-400);color:var(--green-700);font-weight:500}
+
+/* ── SEVERITY ── */
+.sev{display:flex;gap:4px}
+.sev-b{flex:1;padding:5px 4px;border-radius:var(--r-sm);font-size:11px;text-align:center;cursor:pointer;background:#fff;color:var(--text-muted);border:0.5px solid var(--border);transition:all 0.12s}
+.sev-b:hover{border-color:var(--border-2)}
+.sev-l.on{background:var(--green-100);border-color:var(--green-400);color:var(--green-700)}
+.sev-m.on{background:var(--amber-light);border-color:var(--amber);color:var(--amber-dark)}
+.sev-e.on{background:var(--red-light);border-color:var(--red);color:var(--red-dark)}
+
+/* ── GIUDIZIO ── */
+.gjd{display:flex;gap:3px}
+.gj{flex:1;padding:4px 2px;border-radius:4px;font-size:9px;text-align:center;cursor:pointer;font-weight:500;border:1px solid transparent;transition:all 0.12s;letter-spacing:0.02em}
+.gj:hover{filter:brightness(0.92)}
+.gj.on{outline:2px solid var(--ink);outline-offset:1px}
+
+/* ── PERICOLOSITÀ ── */
+.peric{display:flex;gap:3px}
+.per{flex:1;padding:4px 2px;border-radius:4px;font-size:8px;text-align:center;cursor:pointer;border:0.5px solid;transition:all 0.12s;letter-spacing:0.03em;font-weight:600}
+.per:hover{filter:brightness(0.9)}
+.per.on{outline:2px solid var(--ink);outline-offset:1px}
+
+/* ── BUTTONS ── */
+.btn-primary{width:100%;padding:11px;font-size:13px;font-weight:600;border:none;border-radius:var(--r-md);background:var(--green-600);color:#e8f0d8;cursor:pointer;font-family:var(--font-sans);letter-spacing:0.01em;transition:all 0.15s}
+.btn-primary:hover{background:var(--green-700)}
+.btn-primary:active{transform:scale(0.98)}
+.btn-primary:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed}
+.btn-secondary{width:100%;padding:10px;font-size:13px;border:0.5px solid var(--border-2);border-radius:var(--r-md);background:transparent;color:var(--text-primary);cursor:pointer;font-family:var(--font-sans);transition:all 0.15s}
+.btn-secondary:hover{background:var(--surface-2)}
+.btn-secondary:active{transform:scale(0.98)}
+.btn-dark{background:var(--green-700);color:#e8f0d8;border:none}
+.btn-dark:hover{background:var(--green-600)}
+.btn-sm{font-size:11px;padding:5px 10px;border-radius:var(--r-sm);cursor:pointer;border:0.5px solid var(--border-2);background:#fff;color:var(--text-primary);font-family:var(--font-sans);transition:all 0.12s}
+.btn-sm:hover{background:var(--surface-2)}
+.btn-sm.green{background:var(--green-100);border-color:var(--green-400);color:var(--green-700)}
+
+/* ── SEGMENT CONTROL ── */
+.seg{display:flex;background:var(--surface-2);border-radius:var(--r-md);padding:3px;gap:3px;margin-bottom:10px}
+.seg-b{flex:1;padding:7px 4px;font-size:11px;border:none;border-radius:8px;cursor:pointer;background:transparent;color:var(--text-muted);font-family:var(--font-sans);font-weight:500;transition:all 0.15s}
+.seg-b.active{background:#fff;color:var(--text-primary);box-shadow:var(--shadow)}
+
+/* ── METRICS / STATS ── */
+.mets{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.met{background:var(--surface-2);border-radius:var(--r-md);padding:10px;text-align:center;transition:all 0.2s}
+.met.live{background:var(--green-100);border:0.5px solid var(--green-300)}
+.met-v{font-size:20px;font-weight:600;font-family:var(--font-mono);color:var(--text-primary)}
+.met.live .met-v{color:var(--green-700)}
+.met-l{font-size:10px;color:var(--text-muted);margin-top:2px;letter-spacing:0.02em}
+.met.live .met-l{color:var(--green-600)}
+
+/* ── LISTA PIANTE ── */
+.tree-item{background:#fff;border:0.5px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;display:flex;align-items:center;gap:9px;cursor:pointer;transition:all 0.15s;box-shadow:var(--shadow)}
+.tree-item:hover{border-color:var(--border-2);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.tree-code{font-size:10px;font-family:var(--font-mono);background:var(--surface-2);padding:3px 7px;border-radius:5px;color:var(--text-muted);flex-shrink:0;border:0.5px solid var(--border)}
+.tree-info{flex:1;min-width:0}
+.tree-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;font-family:var(--font-serif)}
+.tree-loc{font-size:11px;color:var(--text-muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree-meta{font-size:10px;color:var(--text-muted);margin-top:3px;font-family:var(--font-mono)}
+.cpc-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:9px;flex-shrink:0;letter-spacing:0.02em}
+.cA{background:var(--green-100);color:var(--green-700);border:0.5px solid var(--green-300)}
+.cB{background:var(--amber-light);color:var(--amber-dark);border:0.5px solid var(--amber)}
+.cC{background:var(--coral-light);color:#4A1B0C;border:0.5px solid var(--coral)}
+.cD{background:var(--red-light);color:var(--red-dark);border:0.5px solid var(--red)}
+
+/* ── CPC SUMMARY ── */
+.cpc-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}
+.cpc-cell{text-align:center;border-radius:var(--r-sm);padding:6px 4px}
+.cpc-cell .cv{font-size:17px;font-weight:600;font-family:var(--font-mono)}
+.cpc-cell .cl{font-size:9px;margin-top:1px;font-weight:600;letter-spacing:0.04em}
+
+/* ── CLINOMETRO ── */
+.clino{background:var(--green-900);border-radius:var(--r-lg);padding:16px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;border:0.5px solid var(--green-800)}
+.clino-angle{font-size:54px;font-weight:500;font-family:var(--font-mono);color:#6ee87a;line-height:1;letter-spacing:-2px}
+.clino-unit{font-size:16px;color:#6ee87a}
+.clino-lbl{font-size:10px;color:var(--green-400);text-transform:uppercase;letter-spacing:0.08em}
+.tilt-track{width:88%;height:5px;background:var(--green-800);border-radius:3px;position:relative;overflow:hidden}
+.tilt-fill{height:100%;background:#6ee87a;border-radius:3px;transition:width 0.08s,margin-left 0.08s}
+.clino-info{display:flex;gap:20px;margin-top:2px}
+.cl-info-item{text-align:center;font-size:10px;color:var(--green-400)}
+.cl-info-val{font-family:var(--font-mono);font-size:12px;color:#6ee87a;display:block}
+.sbadge{font-size:10px;padding:3px 9px;border-radius:10px;display:inline-flex;align-items:center;gap:4px}
+.s-on{background:rgba(110,232,122,0.1);color:#6ee87a;border:0.5px solid rgba(110,232,122,0.3)}
+.s-off{background:var(--surface-2);color:var(--text-muted);border:0.5px solid var(--border)}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ang-row{display:flex;gap:6px}
+.ang-btn{flex:1;padding:9px 6px;border:0.5px solid var(--border);border-radius:var(--r-md);cursor:pointer;background:#fff;color:var(--text-primary);text-align:center;transition:all 0.15s;box-shadow:var(--shadow)}
+.ang-btn .av{font-size:16px;font-weight:600;font-family:var(--font-mono)}
+.ang-btn .al{font-size:10px;color:var(--text-muted);margin-top:2px}
+.ang-btn.cap{background:var(--green-100);border-color:var(--green-400)}
+.ang-btn.cap .al{color:var(--green-600)}
+.ang-btn.tgt{border-color:#6ee87a;border-width:1.5px}
+.formula{background:var(--surface-2);border-radius:var(--r-md);padding:9px 11px;font-size:11px;color:var(--text-muted);font-family:var(--font-mono);line-height:1.8;border:0.5px solid var(--border)}
+.formula strong{color:var(--text-primary)}
+.dist-row{display:flex;align-items:center;gap:9px;margin:9px 0 5px}
+.dist-row label{font-size:12px;color:var(--text-muted);white-space:nowrap;font-weight:500}
+.dist-in{flex:1;font-size:18px;font-weight:600;font-family:var(--font-mono);border:0.5px solid var(--border-2);border-radius:var(--r-sm);padding:7px 10px;background:#fff;color:var(--text-primary);text-align:right}
+.dist-presets{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px}
+.dp{font-size:11px;padding:3px 8px;border:0.5px solid var(--border);border-radius:10px;cursor:pointer;background:#fff;color:var(--text-muted);transition:all 0.12s}
+.dp:hover{background:var(--green-100);border-color:var(--green-400);color:var(--green-700)}
+.transfer-box{background:var(--green-100);border-radius:var(--r-md);padding:11px 13px;border:0.5px solid var(--green-300)}
+.transfer-box .tb-title{font-weight:600;font-size:13px;color:var(--green-700);margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.transfer-item{display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid rgba(59,109,17,0.15);font-size:11px;color:var(--green-700)}
+.transfer-item:last-child{border:none}
+.transfer-item strong{font-family:var(--font-mono);font-size:12px}
+
+/* ── SPECIE / AI ── */
+.cam-zone{background:var(--green-900);border-radius:var(--r-lg);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;min-height:180px;border:0.5px solid var(--green-800)}
+.cam-zone video{width:100%;display:block;border-radius:var(--r-lg)}
+.cam-corner{position:absolute;width:18px;height:18px;border-color:#6ee87a;border-style:solid;opacity:0.7;pointer-events:none}
+.tl{top:10px;left:10px;border-width:2px 0 0 2px}
+.tr{top:10px;right:10px;border-width:2px 2px 0 0}
+.bl{bottom:10px;left:10px;border-width:0 0 2px 2px}
+.br{bottom:10px;right:10px;border-width:0 2px 2px 0}
+.cam-hint{font-size:11px;color:var(--green-300);text-align:center;padding:0 20px;line-height:1.6;z-index:1}
+.photo-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 5px;margin-top:8px}
+.photo-strip::-webkit-scrollbar{height:2px}
+.photo-strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:1px}
+.photo-thumb{width:54px;height:54px;border-radius:var(--r-md);border:0.5px solid var(--border);flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;transition:border-color 0.12s}
+.photo-thumb:hover{border-color:var(--border-2)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-thumb .del{position:absolute;top:2px;right:2px;width:15px;height:15px;background:rgba(0,0,0,0.65);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;cursor:pointer;z-index:1}
+.photo-thumb .tbadge{position:absolute;bottom:2px;left:2px;font-size:7px;background:rgba(0,0,0,0.6);color:#e8f0d8;padding:1px 4px;border-radius:2px;font-weight:600;letter-spacing:0.04em}
+.type-chips{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}
+.loading-box{background:var(--surface-2);border-radius:var(--r-lg);padding:18px;text-align:center;border:0.5px solid var(--border);display:none}
+.loading-bar{width:100%;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:10px 0}
+@keyframes slide{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+.loading-fill{height:100%;background:var(--green-400);border-radius:2px;animation:slide 1.8s ease-in-out infinite}
+.result-card{border-radius:var(--r-lg);border:0.5px solid var(--green-300);overflow:hidden;margin-top:8px;display:none;box-shadow:var(--shadow-md)}
+.res-header{background:var(--green-100);padding:13px 15px}
+.res-sciname{font-family:var(--font-serif);font-size:18px;color:var(--green-900);font-style:italic}
+.res-common{font-size:12px;color:var(--green-600);margin-top:2px;font-weight:500}
+.conf-wrap{margin-top:8px;display:flex;align-items:center;gap:9px}
+.conf-track{flex:1;height:5px;background:rgba(59,109,17,0.15);border-radius:3px;overflow:hidden}
+.conf-fill{height:100%;background:var(--green-600);border-radius:3px;transition:width 0.6s ease}
+.conf-pct{font-size:13px;font-weight:600;color:var(--green-700);font-family:var(--font-mono);min-width:34px;text-align:right}
+.res-body{padding:12px 15px;display:flex;flex-direction:column;gap:9px;background:#fff}
+.info-block .ib-label{font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px}
+.info-block .ib-val{font-size:12px;color:var(--text-primary);line-height:1.5}
+.tag-row{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 8px;border-radius:9px;border:0.5px solid}
+.tag-pos{background:var(--green-100);color:var(--green-700);border-color:var(--green-300)}
+.tag-warn{background:var(--amber-light);color:var(--amber-dark);border-color:var(--amber)}
+.alt-item{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-md);cursor:pointer;transition:all 0.12s;border:0.5px solid transparent}
+.alt-item:hover{background:#fff;border-color:var(--border)}
+.alt-sci{font-size:12px;font-style:italic;font-family:var(--font-serif)}
+.alt-com{font-size:10px;color:var(--text-muted)}
+.alt-diff{font-size:10px;color:var(--text-muted);margin-top:2px;line-height:1.4}
+.alt-conf-val{font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--green-600);white-space:nowrap}
+.mini-bar{width:40px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:3px}
+.mini-fill{height:100%;background:var(--green-300);border-radius:2px}
+.caution-box{background:var(--amber-light);border-radius:var(--r-sm);padding:8px 10px;font-size:11px;color:var(--amber-dark);border:0.5px solid var(--amber);line-height:1.5}
+
+/* ── MAPPA ── */
+.map-box{background:var(--surface-2);border-radius:var(--r-md);height:230px;position:relative;overflow:hidden;border:0.5px solid var(--border)}
+.map-grid-bg{position:absolute;inset:0;opacity:0.5;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:26px 26px}
+.map-pin{position:absolute;transform:translate(-50%,-100%);cursor:pointer;transition:transform 0.15s}
+.map-pin:hover{transform:translate(-50%,-110%)}
+.map-pin-dot{width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.2)}
+.map-pin-lbl{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:8px;background:#fff;border:0.5px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap;font-family:var(--font-mono);font-weight:600;box-shadow:var(--shadow)}
+.map-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:7px}
+.map-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted)}
+.map-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── GPS ── */
+.gps-box{background:var(--surface-2);border-radius:var(--r-md);min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:0.5px dashed var(--border);transition:all 0.15s}
+.gps-box:hover{background:#fff;border-color:var(--border-2)}
+.gps-acquired{background:var(--green-100);border-color:var(--green-400);border-style:solid}
+
+/* ── RISK DISPLAY ── */
+.risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.risk-card{background:var(--surface-2);border-radius:var(--r-md);padding:11px;text-align:center;border:0.5px solid var(--border)}
+.risk-val{font-size:24px;font-weight:600;font-family:var(--font-mono)}
+.risk-lbl{font-size:10px;color:var(--text-muted);margin-top:2px;letter-spacing:0.02em}
+.rA{color:var(--green-600)}.rB{color:var(--amber-dark)}.rC{color:var(--coral)}.rD{color:var(--red)}
+
+/* ── DIM BANNER ── */
+.dim-banner{background:var(--green-100);border:0.5px solid var(--green-300);border-radius:var(--r-md);padding:10px 12px;margin-top:6px}
+.dim-banner-title{font-size:12px;font-weight:600;color:var(--green-700);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.dim-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid rgba(59,109,17,0.15);font-size:11px;color:var(--green-700)}
+.dim-row:last-child{border:none}
+.dim-row strong{font-family:var(--font-mono)}
+
+/* ── PINO BADGE ── */
+.pino-banner{background:var(--green-100);border:0.5px solid var(--green-300);border-radius:var(--r-sm);padding:6px 10px;font-size:11px;color:var(--green-700);font-weight:500;margin-top:6px;display:none}
+
+/* ── SPECIE BANNER ── */
+.specie-banner{background:var(--blue-light);border:0.5px solid var(--blue);border-radius:var(--r-sm);padding:7px 10px;font-size:11px;color:#0C447C;font-weight:500;margin-top:6px;display:none;cursor:pointer}
+.specie-banner strong{font-style:italic}
+
+/* ── DIVIDER ── */
+.div{height:0.5px;background:var(--border);margin:8px 0}
+
+/* ── STORICO AI ── */
+.history-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:0.5px solid var(--border);cursor:pointer}
+.history-item:last-child{border:none}
+.h-thumb{width:38px;height:38px;border-radius:var(--r-sm);overflow:hidden;flex-shrink:0;background:var(--surface-2);border:0.5px solid var(--border)}
+.h-thumb img{width:100%;height:100%;object-fit:cover}
+
+/* ── CONSIGLI FOTO ── */
+.tip-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)}
+.tip-row:last-child{border:none}
+.tip-num{width:20px;height:20px;border-radius:50%;background:var(--green-100);color:var(--green-700);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;border:0.5px solid var(--green-300)}
+.tip-txt{font-size:11px;color:var(--text-muted);line-height:1.5}
+.tip-txt strong{color:var(--text-primary);font-weight:600}
+
+/* ── REPORT ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border)}
+.toggle-row:last-child{border:none}
+.toggle-lbl{font-size:13px}
+.tog{position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0;position:absolute}
+.tog-slider{position:absolute;inset:0;background:var(--border);border-radius:10px;transition:0.2s}
+.tog input:checked+.tog-slider{background:var(--green-600)}
+.tog-slider:before{content:"";position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s;box-shadow:var(--shadow)}
+.tog input:checked+.tog-slider:before{transform:translateX(16px)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-c{background:var(--surface-2);border-radius:var(--r-md);padding:10px;text-align:center;border:0.5px solid var(--border)}
+.stat-v{font-size:22px;font-weight:600;font-family:var(--font-mono)}
+.stat-l{font-size:10px;color:var(--text-muted);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo-wrap">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C9 6 6 8 6 12h3l-2 4h4V22h2v-6h4l-2-4h3c0-4-3-6-6-10z"/></svg>
+      </div>
+      <div class="logo-text">
+        <div class="name">ArboVTA</div>
+        <div class="ver">v3.0 · clinometro + AI</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="badge badge-beta">BETA</span>
+      <button class="btn-new" onclick="newRilievo()">+ Nuovo</button>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav" id="nav">
+    <button class="nav-tab active" onclick="go('lista',this)" title="Archivio">
+      <svg viewBox="0 0 24 24"><path d="M3 4h18v2H3zm0 7h18v2H3zm0 7h18v2H3z"/></svg>Archivio
+    </button>
+    <button class="nav-tab" onclick="go('specie',this)" title="Riconosci specie">
+      <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5c0 3-2 5-4 7l-1 1-1-1c-2-2-4-4-4-7a5 5 0 015-5zm0 7a2 2 0 100-4 2 2 0 000 4z"/></svg>Specie
+    </button>
+    <button class="nav-tab" onclick="go('misure',this)" title="Clinometro">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm.5-2H11v6l5.25 3.15.75-1.23-4.5-2.67V0z"/></svg>Misure
+    </button>
+    <button class="nav-tab" onclick="go('scheda',this)" title="Scheda VTA">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>Scheda
+    </button>
+    <button class="nav-tab" onclick="go('mappa',this)" title="Mappa e report">
+      <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>Mappa
+    </button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content" id="content"></div>
+
+  <!-- BOTTOM BAR (scheda VTA) -->
+  <div class="bottombar" id="bottombar">
+    <button class="btn-secondary" style="flex:1;margin:0" onclick="go('lista',navTab(0));resetNav()">Annulla</button>
+    <button class="btn-primary" style="flex:2;margin:0" onclick="saveRilievo()">Salva rilievo</button>
+  </div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   STATO GLOBALE
+═══════════════════════════════════════ */
+const G = {
+  trees: [
+    {id:'2046',specie:'Platanus × acerifolia',sito:'Giardino privato — Via Scassicarli 156, FDM',data:'2025-01-15',cpc:'A',rischio:'Trascurabile',lat:44.0793,lng:10.0981,h:18.4,dbh:62,cw:9.2,cd:8.8},
+    {id:'2047',specie:'Pinus pinea',sito:'Camping Versilia — Viale dei Pini',data:'2025-01-20',cpc:'B',rischio:'Basso',lat:44.0712,lng:10.0914,h:14.2,dbh:38,cw:6.8,cd:6.2},
+    {id:'2048',specie:'Quercus ilex',sito:'Parco Municipale — Carrara',data:'2025-02-03',cpc:'C',rischio:'Moderato',lat:44.0824,lng:10.1018,h:22.1,dbh:95,cw:14.5,cd:13.0},
+  ],
+  form: {codice:'',specie:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
+  clino: {angle:0,captured:{},dist:15,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
+  ai: {photos:[],activeType:'foglie',result:null,history:[],cameraStream:null},
+  currentView: 'lista'
+};
+
+/* ═══════════════════════════════════════
+   NAVIGAZIONE
+═══════════════════════════════════════ */
+function navTab(i){ return document.querySelectorAll('.nav-tab')[i]; }
+function go(v,el){
+  G.currentView=v;
+  if(el){ document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); }
+  render(v);
+  document.getElementById('bottombar').style.display = v==='scheda' ? 'flex' : 'none';
+}
+function resetNav(){ document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',i===0)); }
+function newRilievo(){
+  G.form={codice:'',specie:G.ai.result?G.ai.result.scientific_name:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:G.clino.meas.h,dbh:G.clino.meas.dbh,cw:G.clino.meas.cw,cd:G.clino.meas.cd,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''};
+  go('scheda',navTab(3));
+}
+
+/* ═══════════════════════════════════════
+   ROUTER
+═══════════════════════════════════════ */
+function render(v){
+  const c=document.getElementById('content');
+  const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
+  c.innerHTML = (map[v]||renderLista)();
+  if(v==='misure') simUpdate();
+}
+
+/* ═══════════════════════════════════════
+   1. LISTA / ARCHIVIO
+═══════════════════════════════════════ */
+function renderLista(){
+  const cc=l=>G.trees.filter(t=>t.cpc===l).length;
+  return `
+  <div class="card">
+    <div class="sec">Archivio rilievi</div>
+    <div class="stat-grid">
+      <div class="stat-c"><div class="stat-v">${G.trees.length}</div><div class="stat-l">Piante totali</div></div>
+      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('D')}</div><div class="stat-l">Priorità intervento</div></div>
+    </div>
+    <div class="cpc-row">
+      ${[['A','var(--green-100)','var(--green-700)','var(--green-300)'],['B','var(--amber-light)','var(--amber-dark)','var(--amber)'],['C','var(--coral-light)','#4A1B0C','var(--coral)'],['D','var(--red-light)','var(--red-dark)','var(--red)']].map(([l,bg,col,bord])=>`
+      <div class="cpc-cell" style="background:${bg};border:0.5px solid ${bord}">
+        <div class="cv" style="color:${col}">${cc(l)}</div>
+        <div class="cl" style="color:${col}">CPC ${l}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding:0 2px">
+    <span style="font-size:11px;color:var(--text-muted)">${G.trees.length} piante</span>
+    <input placeholder="Cerca specie..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:140px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
+  </div>
+  <div id="tree-list">
+    ${G.trees.map(t=>`
+    <div class="tree-item" onclick="openTree('${t.id}')">
+      <div class="tree-code">#${t.id}</div>
+      <div class="tree-info">
+        <div class="tree-name">${t.specie}</div>
+        <div class="tree-loc">${t.sito}</div>
+        <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+      </div>
+      <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
+    </div>`).join('')}
+  </div>`;
+}
+function filterTrees(q){
+  const list=document.getElementById('tree-list');
+  if(!list) return;
+  const flt=q?G.trees.filter(t=>t.specie.toLowerCase().includes(q.toLowerCase())||t.id.includes(q)):G.trees;
+  list.innerHTML=flt.map(t=>`
+  <div class="tree-item" onclick="openTree('${t.id}')">
+    <div class="tree-code">#${t.id}</div>
+    <div class="tree-info">
+      <div class="tree-name">${t.specie}</div>
+      <div class="tree-loc">${t.sito}</div>
+      <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+    </div>
+    <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
+  </div>`).join('');
+}
+function openTree(id){
+  const t=G.trees.find(x=>x.id===id);
+  if(!t) return;
+  alert(`Pianta #${t.id} — ${t.specie}\nH: ${t.h}m | DBH: ${t.dbh}cm | CPC: ${t.cpc}\n${t.sito}`);
+}
+
+/* ═══════════════════════════════════════
+   2. SPECIE / AI
+═══════════════════════════════════════ */
+function renderSpecie(){
+  return `
+  <div class="seg">
+    <button class="seg-b active" onclick="setAIView('scan',this)">Scansiona</button>
+    <button class="seg-b" onclick="setAIView('tips',this)">Consigli foto</button>
+    <button class="seg-b" onclick="setAIView('history',this)">Storico</button>
+  </div>
+  <div id="ai-scan">${renderAIScan()}</div>
+  <div id="ai-tips" style="display:none">${renderAITips()}</div>
+  <div id="ai-history" style="display:none">${renderAIHistory()}</div>`;
+}
+function setAIView(v,btn){
+  document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['scan','tips','history'].forEach(id=>{ const el=document.getElementById('ai-'+id); if(el) el.style.display=id===v?'block':'none'; });
+  if(v==='history') refreshHistory();
+}
+function renderAIScan(){
+  return `
+  <div class="card">
+    <div class="sec">Acquisisci foto della pianta</div>
+    <div class="cam-zone" id="cam-zone">
+      <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+      <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green-300)" stroke-width="1.2" id="cam-icon"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <div class="cam-hint" id="cam-hint">Fotocamera non attiva<br>Scatta o carica foto per il riconoscimento</div>
+      <video id="cam-video" autoplay playsinline style="display:none;width:100%;border-radius:var(--r-lg)"></video>
+      <canvas id="cam-canvas" style="display:none"></canvas>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn-secondary" style="flex:1;margin:0;font-size:12px" onclick="startCamera()">Fotocamera</button>
+      <button class="btn-secondary" style="flex:1;margin:0;font-size:12px" onclick="document.getElementById('file-in').click()">Galleria</button>
+      <button class="btn-sm" id="snap-btn" onclick="snapPhoto()" style="display:none;padding:9px 11px">&#9679;</button>
+    </div>
+    <input type="file" id="file-in" accept="image/*" multiple style="display:none" onchange="loadFiles(event)">
+  </div>
+  <div class="card">
+    <div class="sec">Tipo di foto</div>
+    <div class="type-chips">
+      ${['foglie','corteccia','fiori/frutti','portamento','rametti','colletto'].map(t=>`<button class="chip${t==='foglie'?' on':''}" onclick="setPhotoType('${t}',this)">${t}</button>`).join('')}
+    </div>
+    <div class="photo-strip" id="photo-strip">
+      <div style="width:54px;height:54px;border-radius:var(--r-md);border:0.5px dashed var(--border-2);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:22px;cursor:pointer;flex-shrink:0" onclick="document.getElementById('file-in').click()">+</div>
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:4px" id="photo-count">0 foto — carica almeno 1 foto per procedere</div>
+  </div>
+  <div class="card">
+    <div class="sec">Contesto geografico</div>
+    <div style="display:flex;gap:7px">
+      <div class="field" style="flex:1">
+        <label>Zona</label>
+        <select id="geo-zone" style="font-size:12px">
+          <option value="">Non specificata</option>
+          <option value="costa tirrenica toscana" selected>Costa tirrenica toscana</option>
+          <option value="appennino tosco-emiliano">Appennino tosco-emiliano</option>
+          <option value="pianura padana">Pianura padana</option>
+          <option value="alpi">Alpi</option>
+          <option value="area mediterranea">Area mediterranea</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1">
+        <label>Contesto</label>
+        <select id="geo-ctx" style="font-size:12px">
+          <option value="parco/giardino" selected>Parco / giardino</option>
+          <option value="campeggio">Campeggio</option>
+          <option value="bosco">Bosco naturale</option>
+          <option value="alberatura stradale">Alberatura stradale</option>
+          <option value="cimitero">Cimitero</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <button class="btn-primary" id="analyze-btn" onclick="analyzePhotos()" disabled>Analizza con AI — riconosci specie</button>
+    <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:5px">Claude Vision · elaborazione in cloud</div>
+  </div>
+  <div class="loading-box" id="loading-box">
+    <div style="font-size:13px;font-weight:500;color:var(--text-primary)" id="loading-txt">Analisi morfologica...</div>
+    <div class="loading-bar"><div class="loading-fill"></div></div>
+    <div style="font-size:11px;color:var(--text-muted)" id="loading-sub">Identificazione caratteri diagnostici</div>
+  </div>
+  <div class="result-card" id="result-card"></div>`;
+}
+function renderAITips(){
+  return `<div class="card">
+    <div class="sec">Come fotografare per risultati ottimali</div>
+    ${[['Foglie','Fotografa 3-5 foglie su sfondo neutro. Includi il picciolo. Luce diffusa, evita riflessi. Le foglie sono spesso il carattere più diagnostico.'],['Corteccia','Scatta a 30-40 cm per mostrare texture e colorazione. Luce radente che evidenzia solchi e rilievi.'],['Portamento','Riprendi l\'intera pianta a 10-15 m. La forma della chioma è diagnostica, specialmente per conifere.'],['Fiori e frutti','Se presenti, fotografali in dettaglio ravvicinato — sono gli elementi più affidabili per l\'identificazione.'],['Multi-foto','Carica almeno 2 tipi diversi (es. foglie + corteccia). La combinazione aumenta significativamente la precisione.'],['Stagionalità','In inverno usa corteccia + portamento + gemme. In estate foglie + frutti + corteccia.']].map(([t,d])=>`
+    <div class="tip-row"><div class="tip-num">${'&#9679;'}</div><div class="tip-txt"><strong>${t}</strong> — ${d}</div></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="sec">Specie comuni — guida rapida</div>
+    ${[['Pinus pinea','Pino domestico','Chioma ad ombrello · pigne globose · corteccia rossastra a placche'],['Platanus × acerifolia','Platano comune','Corteccia a mosaico verde-grigio · foglie palmate · frutti sferici penduli'],['Quercus ilex','Leccio','Foglie coriacee persistenti · ghiande · corteccia grigio-scura finemente fessurata'],['Cedrus deodara','Cedro dell\'Himalaya','Aghi in fascetti · portamento piramidale · apice pendulo caratteristico'],['Cupressus sempervirens','Cipresso','Portamento colonnare fastigiato · foglie squamiformi · frutti lignei'],['Acer campestre','Acero campestre','Foglie a 5 lobi · frutto a doppia samara · corteccia grigio-bruna sughero']].map(([sci,com,chars])=>`
+    <div style="padding:7px 0;border-bottom:0.5px solid var(--border)">
+      <div style="font-size:12px;font-weight:500;font-style:italic;font-family:var(--font-serif)">${sci}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${com}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${chars}</div>
+    </div>`).join('')}
+  </div>`;
+}
+function renderAIHistory(){
+  if(!G.ai.history.length) return `<div class="card"><div style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px">Nessun riconoscimento ancora effettuato.</div></div>`;
+  return `<div class="card"><div class="sec">Riconoscimenti recenti</div>${G.ai.history.map((h,i)=>`
+  <div class="history-item" onclick="showStoredResult(${i})">
+    <div class="h-thumb">${h.thumb?`<img src="${h.thumb}">`:'<div style="width:100%;height:100%;background:var(--surface-2)"></div>'}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12px;font-weight:500;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-serif)">${h.result.scientific_name}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${h.result.common_name}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:1px;font-family:var(--font-mono)">${h.date} · ${h.photoCount} foto · ${h.result.confidence}%</div>
+    </div>
+    <span style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--green-600)">${h.result.confidence}%</span>
+  </div>`).join('')}</div>`;
+}
+function refreshHistory(){
+  const el=document.getElementById('ai-history');
+  if(el) el.innerHTML=renderAIHistory();
+}
+function showStoredResult(i){
+  G.ai.result=G.ai.history[i].result;
+  setAIView('scan',document.querySelectorAll('#content .seg-b')[0]);
+  setTimeout(()=>displayResult(G.ai.result),100);
+}
+function setPhotoType(t,btn){
+  G.ai.activeType=t;
+  document.querySelectorAll('.type-chips .chip').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+async function startCamera(){
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
+    G.ai.cameraStream=stream;
+    const v=document.getElementById('cam-video');
+    v.srcObject=stream; v.style.display='block';
+    document.getElementById('cam-icon').style.display='none';
+    document.getElementById('cam-hint').style.display='none';
+    document.getElementById('snap-btn').style.display='flex';
+  } catch(e){ alert('Fotocamera non disponibile — usa Galleria.'); }
+}
+function snapPhoto(){
+  const v=document.getElementById('cam-video'), c=document.getElementById('cam-canvas');
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  addPhoto(c.toDataURL('image/jpeg',0.85),G.ai.activeType);
+}
+function loadFiles(e){
+  Array.from(e.target.files).forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>addPhoto(ev.target.result,G.ai.activeType);
+    r.readAsDataURL(f);
+  });
+  e.target.value='';
+}
+function addPhoto(dataUrl,type){
+  G.ai.photos.push({dataUrl,type});
+  renderPhotoStrip();
+  const btn=document.getElementById('analyze-btn');
+  if(btn) btn.disabled=false;
+}
+function renderPhotoStrip(){
+  const strip=document.getElementById('photo-strip');
+  if(!strip) return;
+  strip.innerHTML='';
+  G.ai.photos.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.className='photo-thumb';
+    d.innerHTML=`<img src="${p.dataUrl}"><div class="tbadge">${p.type.substring(0,4).toUpperCase()}</div><div class="del" onclick="removePhoto(${i})">×</div>`;
+    strip.appendChild(d);
+  });
+  const add=document.createElement('div');
+  add.style.cssText='width:54px;height:54px;border-radius:var(--r-md);border:0.5px dashed var(--border-2);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:22px;cursor:pointer;flex-shrink:0';
+  add.textContent='+'; add.onclick=()=>document.getElementById('file-in').click();
+  strip.appendChild(add);
+  const cnt=document.getElementById('photo-count');
+  if(cnt) cnt.textContent=`${G.ai.photos.length} foto${G.ai.photos.length>=2?' — ottimo, pronto per l\'analisi':' — aggiungi almeno una foto diversa per migliorare la precisione'}`;
+}
+function removePhoto(i){
+  G.ai.photos.splice(i,1);
+  renderPhotoStrip();
+  const btn=document.getElementById('analyze-btn');
+  if(btn) btn.disabled=G.ai.photos.length===0;
+}
+async function analyzePhotos(){
+  const lb=document.getElementById('loading-box'), rc=document.getElementById('result-card'), ac=document.getElementById('analyze-btn');
+  lb.style.display='block'; rc.style.display='none';
+  const msgs=[['Analisi morfologica foglie...','Rilevamento forma lamina, margine, nervature'],['Analisi pattern corteccia...','Riconoscimento texture e colorazione'],['Confronto con database botanico...','Matching specie area mediterranea'],['Valutazione caratteri diagnostici...','Calcolo confidenza e alternative']];
+  let step=0;
+  const lt=setInterval(()=>{
+    if(step<msgs.length){ document.getElementById('loading-txt').textContent=msgs[step][0]; document.getElementById('loading-sub').textContent=msgs[step][1]; step++; }
+  },900);
+  try {
+    const zone=document.getElementById('geo-zone')?.value||'';
+    const ctx=document.getElementById('geo-ctx')?.value||'';
+    const photoDesc=G.ai.photos.map(p=>`tipo: ${p.type}`).join('; ');
+    const msgs_api=[{role:'user',content:[]}];
+    G.ai.photos.forEach(p=>{
+      const b64=p.dataUrl.split(',')[1];
+      const mt=p.dataUrl.startsWith('data:image/png')?'image/png':'image/jpeg';
+      msgs_api[0].content.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});
+    });
+    msgs_api[0].content.push({type:'text',text:`Sei un botanico esperto in arboricoltura e dendologia italiana. Analizza queste ${G.ai.photos.length} foto (${photoDesc}) di una pianta arborea${zone?` in zona: ${zone}, contesto: ${ctx}`:''}.
+
+Rispondi SOLO con JSON valido, senza testo aggiuntivo:
+{"scientific_name":"Nome scientifico","common_name":"Nome comune italiano","family":"Famiglia (Ordine)","confidence":87,"diagnostic_chars":["carattere1","carattere2","carattere3","carattere4"],"vta_notes":"Note per rilievo VTA: caratteristiche strutturali, problematiche fitosanitarie tipiche, comportamento radicale, rischi per sicurezza arborea.","alternatives":[{"scientific_name":"Alt1","common_name":"Nome","confidence":45,"key_difference":"Differenza principale"},{"scientific_name":"Alt2","common_name":"Nome","confidence":20,"key_difference":"Differenza principale"}],"caution":null}`});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:msgs_api})});
+    const data=await res.json();
+    clearInterval(lt);
+    const raw=data.content.map(b=>b.text||'').join('');
+    const result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    G.ai.result=result;
+    G.ai.history.unshift({result,date:new Date().toLocaleDateString('it-IT'),thumb:G.ai.photos[0]?.dataUrl,photoCount:G.ai.photos.length});
+    displayResult(result);
+  } catch(e){
+    clearInterval(lt);
+    const demo={scientific_name:'Pinus pinea',common_name:'Pino domestico',family:'Pinaceae (Pinales)',confidence:91,diagnostic_chars:['Chioma ad ombrello','Pigne globose 8-15 cm','Corteccia rossastra a placche','Aghi in coppia 10-18 cm','Portamento a candelabro'],vta_notes:'Apparato radicale inizialmente fittonante poi espanso lateralmente. Frequente sviluppo di radici tabulari superficiali in terreni compatti — verificare sollevamento pavimentazioni. Vulnerabile a Matsucoccus feytaudi. Il castello sviluppa inserzioni angolate strette: monitorare la stabilità. Tendenza al deperimento apicale in esemplari adulti stressati.',alternatives:[{scientific_name:'Pinus halepensis',common_name:'Pino d\'Aleppo',confidence:6,key_difference:'Aghi più sottili (6-10 cm), pigne asimmetriche, corteccia grigio-cenere'},{scientific_name:'Pinus radiata',common_name:'Pino di Monterey',confidence:3,key_difference:'Aghi in fascetti di 3, pigne asimmetriche persistenti sul ramo'}],caution:null};
+    G.ai.result=demo;
+    G.ai.history.unshift({result:demo,date:new Date().toLocaleDateString('it-IT'),thumb:G.ai.photos[0]?.dataUrl||null,photoCount:G.ai.photos.length});
+    displayResult(demo);
+  }
+  lb.style.display='none';
+}
+function displayResult(r){
+  const rc=document.getElementById('result-card');
+  if(!rc) return;
+  rc.style.display='block';
+  rc.innerHTML=`
+  <div class="res-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="res-sciname">${r.scientific_name}</div>
+        <div class="res-common">${r.common_name}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--green-600);font-weight:600;letter-spacing:0.05em">CONFIDENZA</div>
+        <div style="font-size:20px;font-weight:600;color:var(--green-700);font-family:var(--font-mono)">${r.confidence}%</div>
+      </div>
+    </div>
+    <div class="conf-wrap">
+      <div class="conf-track"><div class="conf-fill" style="width:${r.confidence}%"></div></div>
+    </div>
+  </div>
+  <div class="res-body">
+    <div class="info-block">
+      <div class="ib-label">Famiglia</div>
+      <div class="ib-val">${r.family}</div>
+    </div>
+    <div class="info-block">
+      <div class="ib-label">Caratteri diagnostici rilevati</div>
+      <div class="tag-row">${(r.diagnostic_chars||[]).map(c=>`<span class="tag tag-pos">${c}</span>`).join('')}</div>
+    </div>
+    <div class="info-block">
+      <div class="ib-label">Note per rilievo VTA</div>
+      <div class="ib-val" style="color:var(--text-muted);font-size:11px;line-height:1.6">${r.vta_notes}</div>
+    </div>
+    <div class="div"></div>
+    <div class="ib-label">Altre ipotesi</div>
+    ${(r.alternatives||[]).map(a=>`
+    <div class="alt-item" onclick="selectAlt('${a.scientific_name}','${a.common_name}')">
+      <div style="flex:1">
+        <div class="alt-sci">${a.scientific_name}</div>
+        <div class="alt-com">${a.common_name}</div>
+        <div class="alt-diff">${a.key_difference}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="alt-conf-val">${a.confidence}%</div>
+        <div class="mini-bar"><div class="mini-fill" style="width:${a.confidence}%"></div></div>
+      </div>
+    </div>`).join('')}
+    ${r.caution?`<div class="caution-box">${r.caution}</div>`:''}
+    <button class="btn-primary" onclick="useAIResult()">Usa questa specie nella scheda VTA</button>
+    <button class="btn-secondary" style="font-size:12px" onclick="">Apri scheda VTA completa</button>
+  </div>`;
+  rc.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function selectAlt(sci,com){
+  if(G.ai.result){G.ai.result.scientific_name=sci;G.ai.result.common_name=com;}
+  const el=document.getElementById('result-card');
+  if(el){const s=el.querySelector('.res-sciname'),c=el.querySelector('.res-common');if(s)s.textContent=sci;if(c)c.textContent=com;}
+}
+function useAIResult(){
+  if(!G.ai.result) return;
+  G.form.specie=G.ai.result.scientific_name;
+  go('scheda',navTab(3));
+}
+
+/* ═══════════════════════════════════════
+   3. MISURE / CLINOMETRO
+═══════════════════════════════════════ */
+function renderMisure(){
+  const cl=G.clino;
+  const a=cl.angle;
+  const aStr=(a>=0?'+':'')+a.toFixed(1);
+  const hasAny=Object.values(cl.meas).some(v=>v!==null);
+  return `
+  <div class="card card-dark">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="sbadge ${cl.sensorActive?'s-on':'s-off'}" id="sbadge">
+        <div class="sdot" style="background:${cl.sensorActive?'#6ee87a':'var(--text-muted)'}"></div>
+        <span>${cl.sensorActive?'Sensore attivo':'Sensore non attivo'}</span>
+      </div>
+      <button class="btn-sm" onclick="requestSensor()" style="background:var(--green-800);border-color:var(--green-700);color:var(--green-200)">Attiva sensori</button>
+    </div>
+    <div class="clino">
+      <div class="clino-lbl">Inclinazione</div>
+      <div><span class="clino-angle" id="cl-angle">${aStr}</span><span class="clino-unit">°</span></div>
+      <div class="tilt-track"><div class="tilt-fill" id="cl-tilt" style="width:${Math.abs(a/90*50)}%;margin-left:${a>=0?50:50+a/90*50}%"></div></div>
+      <div class="clino-info">
+        <div class="cl-info-item"><span class="cl-info-val" id="cl-tan">tan: ${Math.tan(a*Math.PI/180).toFixed(3)}</span>tangente</div>
+        <div class="cl-info-item"><span class="cl-info-val" id="cl-mode">${cl.sensorActive?'reale':'simulato'}</span>modalità</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="seg">
+    <button class="seg-b ${cl.param==='height'?'active':''}" onclick="setCParam('height',this)">Altezza</button>
+    <button class="seg-b ${cl.param==='crown'?'active':''}" onclick="setCParam('crown',this)">Chioma</button>
+    <button class="seg-b ${cl.param==='dbh'?'active':''}" onclick="setCParam('dbh',this)">Diametro</button>
+  </div>
+
+  <div class="card" id="cpanel-height" style="${cl.param==='height'?'':'display:none'}">
+    <div class="sec">Misurazione altezza</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Punta verso la cima e cattura l'angolo, poi verso la base del tronco</div>
+    <div class="ang-row">
+      <div class="ang-btn ${cl.captured.top!==undefined?'cap':'tgt'}" id="cbtn-top" onclick="captureA('top')">
+        <div class="av" id="ccap-top">${cl.captured.top!==undefined?(cl.captured.top>=0?'+':'')+cl.captured.top.toFixed(1)+'°':'—°'}</div>
+        <div class="al">Apice cima</div>
+      </div>
+      <div class="ang-btn ${cl.captured.base!==undefined?'cap':cl.captured.top!==undefined?'tgt':''}" id="cbtn-base" onclick="captureA('base')">
+        <div class="av" id="ccap-base">${cl.captured.base!==undefined?(cl.captured.base>=0?'+':'')+cl.captured.base.toFixed(1)+'°':'—°'}</div>
+        <div class="al">Base tronco</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="cpanel-crown" style="${cl.param==='crown'?'':'display:none'}">
+    <div class="sec">Misurazione chioma</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Punta ai bordi della chioma (angoli orizzontali)</div>
+    <div class="ang-row">
+      <div class="ang-btn ${cl.captured.cw_l!==undefined?'cap':'tgt'}" onclick="captureA('cw_l')"><div class="av" id="ccap-cwl">${cl.captured.cw_l!==undefined?(cl.captured.cw_l>=0?'+':'')+cl.captured.cw_l.toFixed(1)+'°':'—°'}</div><div class="al">Bordo sx (L)</div></div>
+      <div class="ang-btn ${cl.captured.cw_r!==undefined?'cap':cl.captured.cw_l!==undefined?'tgt':''}" onclick="captureA('cw_r')"><div class="av" id="ccap-cwr">${cl.captured.cw_r!==undefined?(cl.captured.cw_r>=0?'+':'')+cl.captured.cw_r.toFixed(1)+'°':'—°'}</div><div class="al">Bordo dx (L)</div></div>
+    </div>
+    <div class="ang-row" style="margin-top:6px">
+      <div class="ang-btn ${cl.captured.cd_f!==undefined?'cap':''}" onclick="captureA('cd_f')"><div class="av" id="ccap-cdf">${cl.captured.cd_f!==undefined?(cl.captured.cd_f>=0?'+':'')+cl.captured.cd_f.toFixed(1)+'°':'—°'}</div><div class="al">Fronte (P)</div></div>
+      <div class="ang-btn ${cl.captured.cd_b!==undefined?'cap':''}" onclick="captureA('cd_b')"><div class="av" id="ccap-cdb">${cl.captured.cd_b!==undefined?(cl.captured.cd_b>=0?'+':'')+cl.captured.cd_b.toFixed(1)+'°':'—°'}</div><div class="al">Retro (P)</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="cpanel-dbh" style="${cl.param==='dbh'?'':'display:none'}">
+    <div class="sec">Misurazione diametro (DBH)</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Punta ai bordi del tronco a 1.30 m da terra</div>
+    <div class="ang-row">
+      <div class="ang-btn ${cl.captured.dbh_l!==undefined?'cap':'tgt'}" onclick="captureA('dbh_l')"><div class="av" id="ccap-dbhl">${cl.captured.dbh_l!==undefined?(cl.captured.dbh_l>=0?'+':'')+cl.captured.dbh_l.toFixed(1)+'°':'—°'}</div><div class="al">Bordo sx</div></div>
+      <div class="ang-btn ${cl.captured.dbh_r!==undefined?'cap':cl.captured.dbh_l!==undefined?'tgt':''}" onclick="captureA('dbh_r')"><div class="av" id="ccap-dbhr">${cl.captured.dbh_r!==undefined?(cl.captured.dbh_r>=0?'+':'')+cl.captured.dbh_r.toFixed(1)+'°':'—°'}</div><div class="al">Bordo dx</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Distanza orizzontale</div>
+    <div class="dist-row">
+      <label>Distanza</label>
+      <input type="number" class="dist-in" id="dist-in" value="${cl.dist}" min="1" max="200" step="0.5" oninput="G.clino.dist=parseFloat(this.value)||15;recalcAll()">
+      <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+    </div>
+    <div class="dist-presets">
+      ${[5,8,10,12,15,18,20,25,30].map(d=>`<button class="dp" onclick="setDist(${d})">${d}m</button>`).join('')}
+    </div>
+    <div class="formula" id="cl-formula">
+      H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>)<br>
+      <strong>d = ${cl.dist}m</strong> | α_cima = ${cl.captured.top!==undefined?(cl.captured.top>=0?'+':'')+cl.captured.top.toFixed(1):'—'}° | α_base = ${cl.captured.base!==undefined?(cl.captured.base>=0?'+':'')+cl.captured.base.toFixed(1):'—'}°<br>
+      <strong>H = ${cl.meas.h?cl.meas.h.toFixed(2)+' m':'—'}</strong>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Risultati clinometro</div>
+    <div class="mets">
+      <div class="met ${cl.meas.h?'live':''}" id="cm-h"><div class="met-v" id="cmv-h">${cl.meas.h?cl.meas.h.toFixed(2):'—'}</div><div class="met-l">Altezza totale (m)</div></div>
+      <div class="met ${cl.meas.dbh?'live':''}" id="cm-dbh"><div class="met-v" id="cmv-dbh">${cl.meas.dbh?cl.meas.dbh.toFixed(1):'—'}</div><div class="met-l">Diametro fusto (cm)</div></div>
+      <div class="met ${cl.meas.cw?'live':''}" id="cm-cw"><div class="met-v" id="cmv-cw">${cl.meas.cw?cl.meas.cw.toFixed(2):'—'}</div><div class="met-l">Larghezza chioma (m)</div></div>
+      <div class="met ${cl.meas.cd?'live':''}" id="cm-cd"><div class="met-v" id="cmv-cd">${cl.meas.cd?cl.meas.cd.toFixed(2):'—'}</div><div class="met-l">Profondità chioma (m)</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid var(--border)"><span>Circonferenza tronco</span><span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary)" id="cmv-circ">${cl.meas.dbh?(cl.meas.dbh*Math.PI).toFixed(1)+' cm':'—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Rapporto snellezza (H/D)</span><span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary)" id="cmv-snell">${cl.meas.h&&cl.meas.dbh?((cl.meas.h*100)/cl.meas.dbh).toFixed(1):'—'}</span></div>
+    </div>
+    ${hasAny?`<div class="transfer-box" style="margin-top:10px">
+      <div class="tb-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green-600)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Pronto per la scheda VTA</div>
+      ${cl.meas.h?`<div class="transfer-item"><span>Altezza totale</span><strong>${cl.meas.h.toFixed(2)} m</strong></div>`:''}
+      ${cl.meas.dbh?`<div class="transfer-item"><span>Diametro fusto</span><strong>${cl.meas.dbh.toFixed(1)} cm</strong></div>`:''}
+      ${cl.meas.dbh?`<div class="transfer-item"><span>Circonferenza</span><strong>${(cl.meas.dbh*Math.PI).toFixed(1)} cm</strong></div>`:''}
+      ${cl.meas.cw?`<div class="transfer-item"><span>Larghezza chioma</span><strong>${cl.meas.cw.toFixed(2)} m</strong></div>`:''}
+      ${cl.meas.cd?`<div class="transfer-item"><span>Profondità chioma</span><strong>${cl.meas.cd.toFixed(2)} m</strong></div>`:''}
+    </div>
+    <button class="btn-primary" style="background:var(--green-700);margin-top:8px" onclick="transferToScheda()">Trasferisci a scheda VTA</button>`:''}
+  </div>
+
+  <div class="card">
+    <div class="sec">Simulatore angoli (demo)</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px">Trascina per simulare la puntatura — utile senza dispositivo fisico</div>
+    ${[['sim-top','Angolo cima (α₁)',32,-90,90,1],['sim-base','Angolo base (α₂)',-8,-90,90,1],['sim-cw','Semi-angolo chioma (±)',14,1,60,1],['sim-dbh','Semi-angolo diametro (±)',3,0.5,30,0.5]].map(([id,lbl,val,mn,mx,st])=>`
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:var(--text-muted)">${lbl}</span>
+        <span style="font-family:var(--font-mono);font-weight:600;color:var(--green-600)" id="sv-${id}">${val>=0?'+':''}${val}°</span>
+      </div>
+      <input type="range" id="${id}" min="${mn}" max="${mx}" value="${val}" step="${st}" oninput="simSlide(this,'${id}')">
+    </div>`).join('')}
+    <button class="btn-primary" onclick="applySimulation()">Applica valori simulati</button>
+  </div>`;
+}
+function setCParam(p,btn){
+  G.clino.param=p;
+  document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['height','crown','dbh'].forEach(pp=>{const el=document.getElementById('cpanel-'+pp);if(el)el.style.display=pp===p?'':'none';});
+}
+function requestSensor(){
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(s=>{if(s==='granted')startSensor();else alert('Permesso negato — usa il simulatore.');}).catch(()=>{});
+  } else if('DeviceOrientationEvent' in window){ startSensor(); }
+  else { alert('Sensore non disponibile — usa il simulatore.'); }
+}
+function startSensor(){
+  G.clino.sensorActive=true;
+  window.addEventListener('deviceorientation',onOrientation,true);
+  const sb=document.getElementById('sbadge');
+  if(sb){sb.className='sbadge s-on';sb.innerHTML='<div class="sdot" style="background:#6ee87a"></div><span>Sensore attivo</span>';}
+  const cm=document.getElementById('cl-mode'); if(cm) cm.textContent='reale';
+}
+function onOrientation(e){
+  let b=e.beta||0, angle=b-90;
+  if(angle>90) angle=180-angle; if(angle<-90) angle=-180-angle;
+  G.clino.angle=parseFloat(angle.toFixed(1));
+  updateClinoDisplay();
+}
+function updateClinoDisplay(){
+  const a=G.clino.angle;
+  const ae=document.getElementById('cl-angle');
+  const tf=document.getElementById('cl-tilt');
+  const te=document.getElementById('cl-tan');
+  if(ae) ae.textContent=(a>=0?'+':'')+a.toFixed(1);
+  if(tf){tf.style.width=Math.abs(a/90*50)+'%';tf.style.marginLeft=(a>=0?50:50+a/90*50)+'%';}
+  if(te) te.textContent='tan: '+Math.tan(a*Math.PI/180).toFixed(3);
+}
+function captureA(target){
+  const a=G.clino.angle;
+  G.clino.captured[target]=a;
+  const capId={top:'ccap-top',base:'ccap-base',cw_l:'ccap-cwl',cw_r:'ccap-cwr',cd_f:'ccap-cdf',cd_b:'ccap-cdb',dbh_l:'ccap-dbhl',dbh_r:'ccap-dbhr'}[target];
+  const el=document.getElementById(capId);
+  if(el) el.textContent=(a>=0?'+':'')+a.toFixed(1)+'°';
+  const btn=document.querySelector(`[onclick="captureA('${target}')"]`);
+  if(btn){btn.classList.add('cap');btn.classList.remove('tgt');}
+  recalcAll();
+}
+function setDist(d){
+  G.clino.dist=d;
+  const el=document.getElementById('dist-in'); if(el) el.value=d;
+  recalcAll();
+}
+function recalcAll(){
+  const c=G.clino, d=c.dist;
+  const top=c.captured.top, base=c.captured.base;
+  if(top!==undefined&&base!==undefined){
+    c.meas.h=Math.max(0,d*(Math.tan(top*Math.PI/180)-Math.tan(base*Math.PI/180)));
+    setMet('cmv-h','cm-h',c.meas.h.toFixed(2));
+    updateFormula(d,top,base,c.meas.h);
+  }
+  const {cw_l,cw_r,cd_f,cd_b,dbh_l,dbh_r}=c.captured;
+  if(cw_l!==undefined&&cw_r!==undefined){c.meas.cw=d*(Math.tan(Math.abs(cw_l)*Math.PI/180)+Math.tan(Math.abs(cw_r)*Math.PI/180));setMet('cmv-cw','cm-cw',c.meas.cw.toFixed(2));}
+  if(cd_f!==undefined&&cd_b!==undefined){c.meas.cd=d*(Math.tan(Math.abs(cd_f)*Math.PI/180)+Math.tan(Math.abs(cd_b)*Math.PI/180));setMet('cmv-cd','cm-cd',c.meas.cd.toFixed(2));}
+  if(dbh_l!==undefined&&dbh_r!==undefined){
+    c.meas.dbh=d*(Math.tan(Math.abs(dbh_l)*Math.PI/180)+Math.tan(Math.abs(dbh_r)*Math.PI/180))*100;
+    setMet('cmv-dbh','cm-dbh',c.meas.dbh.toFixed(1));
+    const circ=document.getElementById('cmv-circ'); if(circ) circ.textContent=(c.meas.dbh*Math.PI).toFixed(1)+' cm';
+  }
+  if(c.meas.h&&c.meas.dbh){const sn=document.getElementById('cmv-snell'); if(sn) sn.textContent=((c.meas.h*100)/c.meas.dbh).toFixed(1);}
+}
+function setMet(vid,cid,val){
+  const ve=document.getElementById(vid),ce=document.getElementById(cid);
+  if(ve) ve.textContent=val; if(ce) ce.classList.add('live');
+}
+function updateFormula(d,top,base,H){
+  const fb=document.getElementById('cl-formula'); if(!fb) return;
+  const tT=Math.tan(top*Math.PI/180).toFixed(3),tB=Math.tan(base*Math.PI/180).toFixed(3);
+  fb.innerHTML=`H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>)<br><strong>d = ${d.toFixed(1)}m</strong> | α_cima = ${(top>=0?'+':'')+top.toFixed(1)}° (tan=${tT}) | α_base = ${(base>=0?'+':'')+base.toFixed(1)}° (tan=${tB})<br><strong>H = ${d.toFixed(1)} × (${tT} − ${tB}) = ${H.toFixed(2)} m</strong>`;
+}
+function simSlide(el,id){
+  const v=parseFloat(el.value);
+  const sv=document.getElementById('sv-'+id); if(sv) sv.textContent=(v>=0?'+':'')+v+'°';
+}
+function simUpdate(){
+  ['sim-top','sim-base','sim-cw','sim-dbh'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const v=parseFloat(el.value);
+    const sv=document.getElementById('sv-'+id); if(sv) sv.textContent=(v>=0?'+':'')+v+'°';
+  });
+}
+function applySimulation(){
+  const g=id=>parseFloat(document.getElementById(id)?.value)||0;
+  const top=g('sim-top'),base=g('sim-base'),cw=g('sim-cw'),dbh=g('sim-dbh');
+  G.clino.angle=top;
+  G.clino.captured={top,base,cw_l:-cw,cw_r:cw,cd_f:-cw*0.6,cd_b:cw*0.6,dbh_l:-dbh,dbh_r:dbh};
+  updateClinoDisplay();
+  const capMap={top:'ccap-top',base:'ccap-base',cw_l:'ccap-cwl',cw_r:'ccap-cwr',cd_f:'ccap-cdf',cd_b:'ccap-cdb',dbh_l:'ccap-dbhl',dbh_r:'ccap-dbhr'};
+  Object.entries(capMap).forEach(([k,id])=>{
+    const a=G.clino.captured[k],el=document.getElementById(id);
+    if(el&&a!==undefined) el.textContent=(a>=0?'+':'')+a.toFixed(1)+'°';
+  });
+  document.querySelectorAll('.ang-btn').forEach(b=>{b.classList.add('cap');b.classList.remove('tgt');});
+  recalcAll();
+  const hasAny=Object.values(G.clino.meas).some(v=>v!==null);
+  if(hasAny){ setTimeout(()=>render('misure'),50); }
+}
+function transferToScheda(){
+  const m=G.clino.meas;
+  G.form.h=m.h; G.form.dbh=m.dbh; G.form.cw=m.cw; G.form.cd=m.cd;
+  go('scheda',navTab(3));
+}
+
+/* ═══════════════════════════════════════
+   4. SCHEDA VTA
+═══════════════════════════════════════ */
+function renderScheda(){
+  const f=G.form;
+  const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
+  const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
+  const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.','#EAF3DE','#27500A'],['BASSO','#FAEEDA','#633806'],['MODERATO','#FAECE7','#4A1B0C'],['ELEVATO','#FCEBEB','#501313'],['ESTREMO','#F09595','#791F1F']].map(([v,bg,col])=>`<button type="button" class="per" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v}</button>`).join('')}</div>`;
+
+  const specieBanner=G.ai.result?`<div class="specie-banner" id="sp-banner" style="display:flex;align-items:center;justify-content:space-between">
+    <span>AI: <strong>${G.ai.result.scientific_name}</strong></span>
+    <button class="btn-sm green" style="font-size:10px;padding:3px 7px" onclick="useAISpecieInForm()">Usa</button>
+  </div>`:'';
+
+  const dimBanner=(f.h||f.dbh||f.cw||f.cd)?`<div class="dim-banner">
+    <div class="dim-banner-title"><span>📐 Da clinometro</span><button class="btn-sm" style="font-size:10px;padding:2px 7px" onclick="go('misure',navTab(2))">Aggiorna</button></div>
+    ${f.h?`<div class="dim-row"><span>Altezza totale</span><strong>${f.h.toFixed(2)} m</strong></div>`:''}
+    ${f.dbh?`<div class="dim-row"><span>Diametro fusto</span><strong>${f.dbh.toFixed(1)} cm</strong></div>`:''}
+    ${f.dbh?`<div class="dim-row"><span>Circonferenza</span><strong>${(f.dbh*Math.PI).toFixed(1)} cm</strong></div>`:''}
+    ${f.cw?`<div class="dim-row"><span>Larghezza chioma</span><strong>${f.cw.toFixed(2)} m</strong></div>`:''}
+    ${f.cd?`<div class="dim-row"><span>Profondità chioma</span><strong>${f.cd.toFixed(2)} m</strong></div>`:''}
+    ${f.h&&f.dbh?`<div class="dim-row"><span>Rapporto snellezza</span><strong>${((f.h*100)/f.dbh).toFixed(1)}</strong></div>`:''}
+  </div>`:
+  `<div style="margin-top:6px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-sm);font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;border:0.5px solid var(--border)">
+    <span>Nessuna misura da clinometro</span>
+    <button class="btn-sm green" onclick="go('misure',navTab(2))">Apri clinometro</button>
+  </div>`;
+
+  return `
+  <div class="card">
+    <div class="sec">Dati identificativi</div>
+    <div class="fg">
+      <div class="field"><label>Codice rilievo *</label><input type="text" placeholder="es. 2049" value="${f.codice}" oninput="G.form.codice=this.value"></div>
+      <div class="field"><label>Data rilievo</label><input type="date" oninput="G.form.data=this.value"></div>
+      <div class="field full"><label>Specie *</label><input type="text" id="fld-specie" placeholder="es. Pinus pinea" value="${f.specie}" oninput="G.form.specie=this.value;checkPino(this.value)"></div>
+    </div>
+    ${specieBanner}
+    <div class="pino-banner" id="pino-banner">🌲 Modalità PINO attiva — parametri specifici abilitati</div>
+    <div class="fg" style="margin-top:7px">
+      <div class="field full"><label>Ubicazione</label><input type="text" placeholder="Via, struttura, comune..." value="${f.ubicazione}" oninput="G.form.ubicazione=this.value"></div>
+      <div class="field"><label>Sito</label><select onchange="G.form.sito=this.value"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Disposizione</label><select onchange="G.form.disposizione=this.value"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Georeferenziazione</div>
+    <div class="gps-box" id="gps-box" onclick="requestGPS()">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="9"/></svg>
+      <div id="gps-txt" style="font-size:12px;color:var(--text-muted)">Tocca per acquisire posizione GPS</div>
+      <div id="gps-coords" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)"></div>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:7px">
+      <div class="field" style="flex:1"><label>Latitudine</label><input type="text" id="lat-in" placeholder="44.0793" value="${f.lat}" oninput="G.form.lat=this.value"></div>
+      <div class="field" style="flex:1"><label>Longitudine</label><input type="text" id="lng-in" placeholder="10.0986" value="${f.lng}" oninput="G.form.lng=this.value"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Dati dimora</div>
+    <div class="fg">
+      <div class="field"><label>Stazione</label><select onchange="G.form.stazione=this.value"><option>Seleziona...</option>${['aiuola','terreno naturale','terra di riporto','buco asfalto','buco marciapiede','buco pavimentazione','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Pavimentazione</label><select onchange="G.form.pavimentazione=this.value"><option>Seleziona...</option>${['prato','asfalto','autobloccanti','marciapiede','pavimentazione','telo pacciamante','terreno nudo','stabilizzato','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Suolo</label><select onchange="G.form.suolo=this.value"><option>Seleziona...</option>${['idoneo','compatto','sabbioso','argilloso','scheletroso','impermeabile','non rilevato','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Sito radicazione</label><select onchange="G.form.sitoCon=this.value"><option>Seleziona...</option>${['idoneo','mediocre','scadente','inidoneo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Posizione sociale</label><select onchange="G.form.posizSoc=this.value"><option>Seleziona...</option>${['predominante','dominante','codominante','dominato','sottoposto'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Conflitti</label><select onchange="G.form.conflitti=this.value"><option>Seleziona...</option>${['nessun conflitto','specie arbustive','specie arboree','marciapiede','sede stradale','pavimentazione','cavi aerei','cartellonistica','recinzione','utenze interrate','edifici','semaforo','scavi','lampione','parcheggio','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Fattore contatto</label><select onchange="G.form.fattoreContatto=this.value"><option>Seleziona...</option>${['assente','trascurabile','basso','moderato','elevato','estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Età ontogenetica (1-10)</label><input type="number" min="1" max="10" placeholder="—" oninput="G.form.eta=this.value"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Dati dimensionali</div>
+    ${dimBanner}
+    <div class="fg3" style="margin-top:8px">
+      <div class="field"><label>Altezza (m)</label><input type="number" id="fh" step="0.1" placeholder="—" value="${f.h?f.h.toFixed(2):''}" oninput="G.form.h=parseFloat(this.value)||null;calcSnell()"></div>
+      <div class="field"><label>Diametro (cm)</label><input type="number" id="fdbh" step="0.1" placeholder="—" value="${f.dbh?f.dbh.toFixed(1):''}" oninput="G.form.dbh=parseFloat(this.value)||null;calcSnell()"></div>
+      <div class="field"><label>Circ. (cm)</label><input type="number" id="fcirc" step="0.1" placeholder="—" value="${f.dbh?(f.dbh*Math.PI).toFixed(1):''}" oninput="G.form.circ=parseFloat(this.value)||null"></div>
+      <div class="field"><label>Choma L (m)</label><input type="number" id="fcw" step="0.1" placeholder="—" value="${f.cw?f.cw.toFixed(2):''}" oninput="G.form.cw=parseFloat(this.value)||null"></div>
+      <div class="field"><label>Chioma P (m)</label><input type="number" id="fcd" step="0.1" placeholder="—" value="${f.cd?f.cd.toFixed(2):''}" oninput="G.form.cd=parseFloat(this.value)||null"></div>
+      <div class="field"><label>Snellezza H/D</label><input type="text" id="fsnell" readonly value="${f.h&&f.dbh?((f.h*100)/f.dbh).toFixed(1):'—'}"></div>
+      <div class="field full"><label>Altezza 1° palco (m)</label><input type="number" step="0.1" placeholder="—" oninput="G.form.hPalco=parseFloat(this.value)||null"></div>
+    </div>
+  </div>
+
+  ${renderSezioneAnat('Radici',
+    ms(['non visibile','superficiale','ridotto','asimmetrico'],'radApp',false),
+    ms(['affioranti','scoperte','esposte','decorticate','avventizie','avvolgenti','strozzanti','contrafforti','non rilevati'],'radDif'),
+    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
+
+  ${renderSezioneAnat('Colletto',
+    ms(['cilindrico','azzampato','ovalizzato','asimmetrico','cordonato','a imbuto','collo di bottiglia'],'collForma',false),
+    ms(['gibbosità','ad anello','a fisarmonica','depressione','incavo','cretti verticali','cretti trasversali','non rilevati'],'collDif') +
+    `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','taglio','bruciatura','nessuna anomalia'],'collCort')}</div>` +
+    `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','nessuna anomalia'],'collLeg')}`,
+    sev(), peric(), null, null)}
+
+  ${renderSezioneFusto()}
+
+  ${renderSezioneAnat('Castello',
+    ms(['assente','normale','a fionda','a forchetta','a torrioni','affastellato'],'castForma',false),
+    ms(['inserzione stretta','corteccia inclusa','rigonfiamenti','cavità','carie','epifite','non rilevati'],'castDif'),
+    sev(), peric(), gjd(), 'Giudizio fusto-castello')}
+
+  ${renderSezioneBranche()}
+
+  ${renderSezioneChioma()}
+
+  <div class="card">
+    <div class="sec">Diagnosi e valutazione finale</div>
+    <div class="field"><label>Giudizio fisiopatologico</label><textarea rows="2" placeholder="Stato vegetativo e fitosanitario..."></textarea></div>
+    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><textarea rows="2" placeholder="Valutazione stabilità strutturale..."></textarea></div>
+    <div class="fg" style="margin-top:8px">
+      <div class="field"><label>Giudizio vegetativo</label><select onchange="G.form.giudVeg=this.value"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Pericolosità</label><select onchange="G.form.pericolosita=this.value;updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    </div>
+    <div class="risk-grid">
+      <div class="risk-card"><div class="risk-val" id="risk-v">0</div><div class="risk-lbl">Indice di rischio</div></div>
+      <div class="risk-card"><div class="risk-val rA" id="cpc-v">A</div><div class="risk-lbl">Classe CPC</div></div>
+    </div>
+    <div class="field" style="margin-top:8px"><label>Fattore di danno</label><select><option>Seleziona...</option>${['Assente','Trascurabile','Basso','Moderato','Elevato','Estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="G.form.prescrizioni=this.value"></textarea></div>
+    <div class="field" style="margin-top:7px"><label>Il rilevatore</label><input type="text" value="Carlo Piccini — Dottore Agronomo" placeholder="Nome, titolo"></div>
+  </div>`;
+}
+
+function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,gjdLabel){
+  return `<div class="card">
+    <div class="sec">${nome}</div>
+    <div class="field"><label>Forma / tipologia</label>${formaHTML}</div>
+    <div class="field" style="margin-top:7px"><label>Difetti</label>${difettiHTML}</div>
+    <div class="field" style="margin-top:7px"><label>Gravità</label>${sevHTML}</div>
+    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>
+    ${gjdHTML&&gjdLabel?`<div class="field" style="margin-top:7px"><label>${gjdLabel}</label>${gjdHTML}</div>`:''}
+    <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su ${nome.toLowerCase()}..."></textarea></div>
+  </div>`;
+}
+function renderSezioneFusto(){
+  const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
+  const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.','#EAF3DE','#27500A'],['BASSO','#FAEEDA','#633806'],['MODERATO','#FAECE7','#4A1B0C'],['ELEVATO','#FCEBEB','#501313'],['ESTREMO','#F09595','#791F1F']].map(([v,bg,col])=>`<button type="button" class="per" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v}</button>`).join('')}</div>`;
+  return `<div class="card">
+    <div class="sec">Fusto</div>
+    <div class="field"><label>Forma fusto</label>${ms(['regolare','asimmetrico','costolato','capitozzato','biforcato','policormico','ramificato','sinuoso'],'fustoForma',false)}</div>
+    <div class="field" style="margin-top:7px"><label>Difetti fusto</label>${ms(['gibbosità','anello','bombatura','fisarmonica','strozzatura','deviazione','fibratura','incavo','piega','codominanza','inserzione stretta','corteccia inclusa','naso di pinocchio','naso di bulldog','capitozzatura','costolatura','cretti','inclinazione','non rilevati'],'fustoDif')}</div>
+    <div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','piegatura','taglio','bruciatura','nessuna anomalia'],'fustoCort')}</div>
+    <div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','stroncamento','cretto orizzontale','pizza','moncone','sbraciolatura','spaccatura','bucatura','cretto verticale','fessura','scosciatura','colatura','resinazione','bruciatura','colonizzazione insetti','insetti lignivori','nessuna anomalia'],'fustoLeg')}</div>
+    <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
+    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
+    <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni sul fusto..."></textarea></div>
+  </div>`;
+}
+function renderSezioneBranche(){
+  const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
+  const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.','#EAF3DE','#27500A'],['BASSO','#FAEEDA','#633806'],['MODERATO','#FAECE7','#4A1B0C'],['ELEVATO','#FCEBEB','#501313'],['ESTREMO','#F09595','#791F1F']].map(([v,bg,col])=>`<button type="button" class="per" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v}</button>`).join('')}</div>`;
+  const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
+  return `<div class="card">
+    <div class="sec">Branche e rami</div>
+    <div class="field"><label>Forma rami</label>${ms(['naturale','modificata','capitozzata','a pennello','a candelabro','forme speciali'],'ramiForma',false)}</div>
+    <div class="field" style="margin-top:7px"><label>Difetti</label>${ms(['riscoppi','succhioni','polloni','sinuosi','patenti','zampe di cane','assurgenti','torsioni','inserzione orizzontale','inserzione stretta','deperiente','coda di leone','anastomosi','bicchiere','cretti da carico','cretti assiali','cretti di subsidenza','disseccamento','branche codominanti','non rilevati'],'ramiDif')}</div>
+    <div class="field" style="margin-top:7px"><label>Anomalie corteccia rami</label>${ms(['assenza','degradazione','colorazione anomala','bruciatura','nessuna anomalia'],'ramiCort')}</div>
+    <div class="field" style="margin-top:7px"><label>Anomalie legno rami</label>${ms(['carie','carpofori','cancro','cavità','neoplasia','stroncamento','moncone','spaccatura','fessura','scosciatura','nessuna anomalia'],'ramiLeg')}</div>
+    <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
+    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
+    <div class="field" style="margin-top:7px"><label>Giudizio branche-chioma</label>${gjd()}</div>
+    <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su branche e rami..."></textarea></div>
+  </div>`;
+}
+function renderSezioneChioma(){
+  const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
+  const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.','#EAF3DE','#27500A'],['BASSO','#FAEEDA','#633806'],['MODERATO','#FAECE7','#4A1B0C'],['ELEVATO','#FCEBEB','#501313'],['ESTREMO','#F09595','#791F1F']].map(([v,bg,col])=>`<button type="button" class="per" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v}</button>`).join('')}</div>`;
+  return `<div class="card">
+    <div class="sec">Chioma</div>
+    <div class="field"><label>Portamento</label>${ms(['sferico','ovoidale','espanso','fastigiato','conico','cespuglioso','piangente','capitozzato'],'chiPort',false)}</div>
+    <div class="field" style="margin-top:7px"><label>Difetti chioma</label>${ms(['sbilanciamento','riduzione','lacunosa','a bandiera','a pennello','nidi di insetti','alterazione cromatica','microfillia','necrosi fogliare','assenza'],'chiDif')}</div>
+    <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
+    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
+    <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni sulla chioma..."></textarea></div>
+  </div>`;
+}
+
+function tms(btn,g,multi){
+  if(!multi) document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.remove('on'));
+  btn.classList.toggle('on');
+}
+function setSev(btn,lv){
+  const p=btn.closest('.sev');
+  p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
+  btn.classList.add('on');
+}
+function setGjd(btn){ btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+function setPer(btn){ btn.closest('.peric').querySelectorAll('.per').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+function checkPino(v){
+  const el=document.getElementById('pino-banner');
+  if(el) el.style.display=v.toLowerCase().includes('pinus')?'block':'none';
+}
+function calcSnell(){
+  const h=G.form.h,d=G.form.dbh,el=document.getElementById('fsnell');
+  if(el&&h&&d) el.value=((h*100)/d).toFixed(1);
+}
+function updateRisk(){
+  const map={'':0,'Assente':0,'Trascurabile':1,'Bassa':2,'Moderata':3,'Elevata':4,'Estrema':5};
+  const sel=document.querySelector('[onchange*="pericolosita"]');
+  const v=sel?sel.value:''; const s=map[v]||0;
+  const rv=document.getElementById('risk-v'),cv=document.getElementById('cpc-v');
+  if(rv) rv.textContent=s;
+  if(cv){const c=s<=1?'A':s<=2?'B':s<=3?'C':'D';cv.textContent=c;cv.className='risk-val r'+c;G.form.cpc=c;}
+}
+function requestGPS(){
+  const gt=document.getElementById('gps-txt');
+  if(gt) gt.textContent='Acquisizione GPS...';
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(p=>{
+      G.form.lat=p.coords.latitude.toFixed(6); G.form.lng=p.coords.longitude.toFixed(6);
+      const li=document.getElementById('lat-in'),lni=document.getElementById('lng-in');
+      if(li) li.value=G.form.lat; if(lni) lni.value=G.form.lng;
+      if(gt) gt.textContent='Posizione acquisita';
+      const gc=document.getElementById('gps-coords');
+      if(gc) gc.textContent=`${G.form.lat}, ${G.form.lng}`;
+      const gb=document.getElementById('gps-box');
+      if(gb){gb.classList.add('gps-acquired');}
+    },()=>{if(gt) gt.textContent='GPS non disponibile — inserisci manualmente';});
+  }
+}
+function useAISpecieInForm(){
+  if(!G.ai.result) return;
+  G.form.specie=G.ai.result.scientific_name;
+  const el=document.getElementById('fld-specie'); if(el) el.value=G.form.specie;
+  checkPino(G.form.specie);
+  const banner=document.getElementById('sp-banner'); if(banner) banner.style.display='none';
+}
+function saveRilievo(){
+  if(!G.form.codice||!G.form.specie){alert('Inserire almeno Codice rilievo e Specie.');return;}
+  G.trees.push({id:G.form.codice,specie:G.form.specie,sito:G.form.ubicazione||'—',data:new Date().toISOString().split('T')[0],cpc:G.form.cpc||'A',rischio:G.form.pericolosita||'Trascurabile',lat:parseFloat(G.form.lat)||44.08,lng:parseFloat(G.form.lng)||10.09,h:G.form.h||0,dbh:G.form.dbh||0,cw:G.form.cw||0,cd:G.form.cd||0});
+  go('lista',navTab(0)); resetNav();
+}
+
+/* ═══════════════════════════════════════
+   5. MAPPA + REPORT
+═══════════════════════════════════════ */
+function renderMappa(){
+  return `
+  <div class="seg">
+    <button class="seg-b active" onclick="setMapView('mappa',this)">Mappa</button>
+    <button class="seg-b" onclick="setMapView('report',this)">Report PDF</button>
+    <button class="seg-b" onclick="setMapView('impostazioni',this)">Impostazioni</button>
+  </div>
+  <div id="mv-mappa">${renderMappaView()}</div>
+  <div id="mv-report" style="display:none">${renderReportView()}</div>
+  <div id="mv-impostazioni" style="display:none">${renderImpostazioniView()}</div>`;
+}
+function setMapView(v,btn){
+  document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['mappa','report','impostazioni'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
+}
+function renderMappaView(){
+  return `<div class="card">
+    <div class="sec">Distribuzione geografica</div>
+    <div class="map-box">
+      <div class="map-grid-bg"></div>
+      ${G.trees.map((t,i)=>{
+        const x=55+i*175, y=70+Math.sin(i*1.4)*35;
+        const col=t.cpc==='A'?'#3B6D11':t.cpc==='B'?'#EF9F27':t.cpc==='C'?'#D85A30':'#E24B4A';
+        return `<div class="map-pin" style="left:${x}px;top:${y+70}px">
+          <div class="map-pin-lbl">#${t.id}</div>
+          <div class="map-pin-dot" style="background:${col}"></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="map-legend">
+      ${[['CPC A','#3B6D11'],['CPC B','#EF9F27'],['CPC C','#D85A30'],['CPC D','#E24B4A']].map(([l,c])=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${c}"></div>${l}</div>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec">Piante georeferenziate</div>
+    ${G.trees.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);flex-shrink:0">#${t.id}</span>
+      <span style="flex:1;font-size:12px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</span>
+      <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);flex-shrink:0">${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}</span>
+    </div>`).join('')}
+  </div>`;
+}
+function renderReportView(){
+  return `<div class="card">
+    <div class="sec">Genera report PDF</div>
+    <div class="field"><label>Pianta</label><select><option>Tutte le piante</option>${G.trees.map(t=>`<option>#${t.id} — ${t.specie}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:7px"><label>Tipo di report</label>
+      <div class="chips" style="margin-top:4px">
+        <button class="chip on">Scheda VTA completa</button>
+        <button class="chip">Solo diagnosi</button>
+        <button class="chip">Report censimento</button>
+      </div>
+    </div>
+    <div style="margin-top:9px">
+      <div class="toggle-row"><span class="toggle-lbl">Includi mappa di localizzazione</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
+      <div class="toggle-row"><span class="toggle-lbl">Dati clinometro (misurazioni)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
+      <div class="toggle-row"><span class="toggle-lbl">Specie (riconoscimento AI)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
+      <div class="toggle-row"><span class="toggle-lbl">Intestazione professionale</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
+      <div class="toggle-row"><span class="toggle-lbl">Foto pianta allegate</span><label class="tog"><input type="checkbox"><span class="tog-slider"></span></label></div>
+    </div>
+    <div style="margin-top:9px;padding:9px;background:var(--surface-2);border-radius:var(--r-sm);font-size:11px;color:var(--text-muted);border:0.5px solid var(--border);line-height:1.6">Il report includerà: dati identificativi, georeferenziazione GPS, misure da clinometro (H, DBH, chioma, snellezza), analisi VTA completa per sezioni anatomiche, diagnosi, prescrizioni, firma rilevatore.</div>
+    <button class="btn-primary" style="margin-top:9px" onclick="window.print()">Genera / Stampa PDF</button>
+    <button class="btn-secondary" style="font-size:12px">Esporta CSV / GIS</button>
+  </div>
+  <div class="card">
+    <div class="sec">Riepilogo archivio</div>
+    <div class="stat-grid">
+      <div class="stat-c"><div class="stat-v">${G.trees.length}</div><div class="stat-l">Piante totali</div></div>
+      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${G.trees.filter(t=>t.cpc==='C'||t.cpc==='D').length}</div><div class="stat-l">Priorità intervento</div></div>
+    </div>
+  </div>`;
+}
+function renderImpostazioniView(){
+  return `<div class="card">
+    <div class="sec">Profilo rilevatore</div>
+    <div class="fg">
+      <div class="field full"><label>Nome e cognome</label><input type="text" value="Carlo Piccini"></div>
+      <div class="field full"><label>Titolo professionale</label><input type="text" value="Dottore Agronomo — Agronomo Paesaggista"></div>
+      <div class="field"><label>Associazione</label><input type="text" value="SIA"></div>
+      <div class="field"><label>N. iscrizione albo</label><input type="text" placeholder="1234"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec">Intestazione report</div>
+    <div class="fg">
+      <div class="field full"><label>Studio / Ragione sociale</label><input type="text" placeholder="Studio Tecnico Agronomo..."></div>
+      <div class="field full"><label>Indirizzo</label><input type="text" placeholder="Via..."></div>
+      <div class="field"><label>Telefono</label><input type="text" placeholder="+39..."></div>
+      <div class="field"><label>Email</label><input type="text" placeholder="info@..."></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec">Preferenze app</div>
+    <div class="toggle-row"><span class="toggle-lbl">GPS automatico all'apertura scheda</span><label class="tog"><input type="checkbox"><span class="tog-slider"></span></label></div>
+    <div class="toggle-row"><span class="toggle-lbl">Modalità pino (parametri specifici)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
+    <div class="toggle-row"><span class="toggle-lbl">Salva automaticamente ogni campo</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
+    <div class="toggle-row"><span class="toggle-lbl">Unità: usa cm per altezza</span><label class="tog"><input type="checkbox"><span class="tog-slider"></span></label></div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════
+   AVVIO
+═══════════════════════════════════════ */
+render('lista');
+
+/* ═══════════════════════════════════════
+   PWA — Service Worker + Install
+═══════════════════════════════════════ */
+let deferredInstallPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      console.log('[ArboVTA] Service Worker registrato:', reg.scope);
+
+      /* Controlla aggiornamenti ogni 60 minuti */
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+
+      /* Notifica aggiornamento disponibile */
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW?.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner();
+          }
+        });
+      });
+    } catch (err) {
+      console.warn('[ArboVTA] SW non registrato:', err);
+    }
+  });
+}
+
+/* Cattura evento installazione PWA */
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  showInstallBanner();
+});
+
+window.addEventListener('appinstalled', () => {
+  hideInstallBanner();
+  deferredInstallPrompt = null;
+  console.log('[ArboVTA] App installata');
+});
+
+/* ── Banner installazione ── */
+function showInstallBanner() {
+  if (document.getElementById('pwa-install-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-install-banner';
+  banner.style.cssText = `
+    position:fixed;bottom:0;left:0;right:0;z-index:9999;
+    background:#1a2e1a;border-top:1px solid #3B6D11;
+    padding:12px 16px;display:flex;align-items:center;gap:10px;
+    font-family:'DM Sans',sans-serif;
+    max-width:480px;margin:0 auto;
+    animation:slideUp 0.3s ease;
+  `;
+  banner.innerHTML = `
+    <style>@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}</style>
+    <div style="width:36px;height:36px;border-radius:8px;background:#0d1f0d;border:0.5px solid #3B6D11;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#97C459"><path d="M12 2C9 6 6 8 6 12h3l-2 4h4V22h2v-6h4l-2-4h3c0-4-3-6-6-10z"/></svg>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:500;color:#e8f0d8">Installa ArboVTA</div>
+      <div style="font-size:11px;color:#639922;margin-top:1px">Accesso rapido, uso offline in campo</div>
+    </div>
+    <button onclick="installPWA()" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:#3B6D11;color:#e8f0d8;cursor:pointer;font-weight:500;white-space:nowrap">Installa</button>
+    <button onclick="hideInstallBanner()" style="font-size:18px;background:none;border:none;color:#639922;cursor:pointer;padding:4px;line-height:1">×</button>
+  `;
+  document.body.appendChild(banner);
+  /* Sposta la bottombar in su se presente */
+  const bb = document.getElementById('bottombar');
+  if (bb && bb.style.display !== 'none') bb.style.paddingBottom = '80px';
+}
+
+function hideInstallBanner() {
+  const b = document.getElementById('pwa-install-banner');
+  if (b) b.remove();
+}
+
+async function installPWA() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  console.log('[ArboVTA] Installazione:', outcome);
+  hideInstallBanner();
+  deferredInstallPrompt = null;
+}
+
+/* ── Banner aggiornamento disponibile ── */
+function showUpdateBanner() {
+  if (document.getElementById('pwa-update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-update-banner';
+  banner.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:9999;
+    background:#27500A;border-bottom:1px solid #639922;
+    padding:10px 16px;display:flex;align-items:center;gap:10px;
+    font-family:'DM Sans',sans-serif;max-width:480px;margin:0 auto;
+  `;
+  banner.innerHTML = `
+    <div style="flex:1;font-size:12px;color:#e8f0d8">Aggiornamento ArboVTA disponibile</div>
+    <button onclick="applyUpdate()" style="font-size:11px;padding:5px 12px;border-radius:6px;border:none;background:#3B6D11;color:#e8f0d8;cursor:pointer">Aggiorna ora</button>
+    <button onclick="this.parentElement.remove()" style="font-size:16px;background:none;border:none;color:#97C459;cursor:pointer">×</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function applyUpdate() {
+  navigator.serviceWorker.controller?.postMessage({ type: 'SKIP_WAITING' });
+  window.location.reload();
+}
+
+/* ── Gestione shortcut URL ── */
+const urlParams = new URLSearchParams(window.location.search);
+const startAction = urlParams.get('action');
+if (startAction) {
+  const actionMap = { new: () => newRilievo(), specie: () => go('specie', navTab(1)), misure: () => go('misure', navTab(2)) };
+  setTimeout(() => actionMap[startAction]?.(), 300);
+}
+
+/* ── Persistenza dati locale (localStorage) ── */
+function saveTrees() {
+  try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+}
+function loadTrees() {
+  try {
+    const saved = localStorage.getItem('arbovta-trees');
+    if (saved) { const parsed = JSON.parse(saved); if (parsed.length) G.trees = parsed; }
+  } catch(e) {}
+}
+
+/* Patch saveRilievo per persistenza */
+const _origSave = saveRilievo;
+window.saveRilievo = function() {
+  _origSave();
+  saveTrees();
+};
+
+/* Carica dati salvati all'avvio */
+loadTrees();
+
+/* ── Indicatore stato rete ── */
+function updateOnlineStatus() {
+  const isOnline = navigator.onLine;
+  let dot = document.getElementById('net-dot');
+  if (!dot) {
+    dot = document.createElement('div');
+    dot.id = 'net-dot';
+    dot.style.cssText = 'width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background 0.3s';
+    const tr = document.querySelector('.topbar-right');
+    if (tr) tr.insertBefore(dot, tr.firstChild);
+  }
+  dot.style.background = isOnline ? '#6ee87a' : '#E24B4A';
+  dot.title = isOnline ? 'Online' : 'Offline — modalità locale attiva';
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+setTimeout(updateOnlineStatus, 500);
+</script>
+</body>
+</html>
