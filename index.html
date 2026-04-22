@@ -414,6 +414,7 @@ function render(v){
   const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
   c.innerHTML = (map[v]||renderLista)();
   if(v==='misure') simUpdate();
+  if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,150));
 }
 
 /* ═══════════════════════════════════════
@@ -1253,33 +1254,282 @@ function setMapView(v,btn){
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   ['mappa','report','impostazioni'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
+  if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,100));
 }
 function renderMappaView(){
-  return `<div class="card">
-    <div class="sec">Distribuzione geografica</div>
-    <div class="map-box">
-      <div class="map-grid-bg"></div>
-      ${G.trees.map((t,i)=>{
-        const x=55+i*175, y=70+Math.sin(i*1.4)*35;
-        const col=t.cpc==='A'?'#3B6D11':t.cpc==='B'?'#EF9F27':t.cpc==='C'?'#D85A30':'#E24B4A';
-        return `<div class="map-pin" style="left:${x}px;top:${y+70}px">
-          <div class="map-pin-lbl">#${t.id}</div>
-          <div class="map-pin-dot" style="background:${col}"></div>
-        </div>`;
-      }).join('')}
+  return `
+  <div class="card" style="padding:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="sec" style="margin:0">Mappa satellitare</div>
+      <div style="display:flex;gap:5px">
+        <button class="btn-sm" id="btn-sat" onclick="setTileLayer('satellite')" style="font-size:10px;padding:4px 8px">Satellite</button>
+        <button class="btn-sm" id="btn-osm" onclick="setTileLayer('osm')" style="font-size:10px;padding:4px 8px">Mappa</button>
+        <button class="btn-sm" id="btn-fit" onclick="fitAllTrees()" style="font-size:10px;padding:4px 8px">⌖ Tutto</button>
+      </div>
     </div>
-    <div class="map-legend">
+    <div id="leaflet-map" style="height:320px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border);z-index:0"></div>
+    <div class="map-legend" style="margin-top:8px">
       ${[['CPC A','#3B6D11'],['CPC B','#EF9F27'],['CPC C','#D85A30'],['CPC D','#E24B4A']].map(([l,c])=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${c}"></div>${l}</div>`).join('')}
     </div>
   </div>
+
   <div class="card">
-    <div class="sec">Piante georeferenziate</div>
-    ${G.trees.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)">
-      <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);flex-shrink:0">#${t.id}</span>
-      <span style="flex:1;font-size:12px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</span>
-      <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);flex-shrink:0">${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}</span>
+    <div class="sec">Esporta dati georeferenziati</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.5">Esporta i rilievi in formato GIS per importarli in QGIS, ArcGIS, Google Earth o qualsiasi altro software cartografico.</div>
+    <div style="display:flex;gap:7px">
+      <button class="btn-primary" style="flex:1;margin:0;font-size:12px" onclick="exportGeoJSON()">Esporta GeoJSON</button>
+      <button class="btn-primary" style="flex:1;margin:0;font-size:12px;background:var(--green-700)" onclick="exportKML()">Esporta KML</button>
+    </div>
+    <div style="margin-top:7px;display:flex;gap:7px">
+      <button class="btn-secondary" style="flex:1;margin:0;font-size:12px" onclick="exportCSV()">Esporta CSV</button>
+      <button class="btn-secondary" style="flex:1;margin:0;font-size:12px" onclick="copyCoords()">Copia coordinate</button>
+    </div>
+    <div id="export-feedback" style="display:none;margin-top:7px;padding:7px 10px;background:var(--green-100);border-radius:var(--r-sm);font-size:11px;color:var(--green-700);border:0.5px solid var(--green-300)"></div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Elenco piante georeferenziate</div>
+    ${G.trees.filter(t=>t.lat&&t.lng).map(t=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="centerOnTree(${t.lat},${t.lng},'${t.id}')">
+      <span class="cpc-badge c${t.cpc}" style="font-size:9px;padding:2px 5px">CPC ${t.cpc}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:1px">#${t.id} · ${t.lat.toFixed(5)}, ${t.lng.toFixed(5)}</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </div>`).join('')}
+    ${G.trees.filter(t=>!t.lat||!t.lng).length>0?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px">${G.trees.filter(t=>!t.lat||!t.lng).length} piante senza coordinate GPS</div>`:''}
   </div>`;
+}
+
+/* ── Leaflet map init ── */
+let leafletMap = null;
+let currentTileLayer = null;
+let treeMarkers = [];
+
+function initLeafletMap() {
+  if (!document.getElementById('leaflet-map')) return;
+  if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+
+  /* Calcola centro dai punti */
+  const georef = G.trees.filter(t => t.lat && t.lng);
+  const centerLat = georef.length ? georef.reduce((s,t)=>s+t.lat,0)/georef.length : 44.08;
+  const centerLng = georef.length ? georef.reduce((s,t)=>s+t.lng,0)/georef.length : 10.10;
+
+  leafletMap = L.map('leaflet-map', {
+    center: [centerLat, centerLng],
+    zoom: 16,
+    zoomControl: true,
+    attributionControl: true
+  });
+
+  /* Layer satellitare Esri (default) */
+  setTileLayer('satellite');
+
+  /* Aggiungi marker per ogni pianta */
+  treeMarkers = [];
+  georef.forEach(t => addTreeMarker(t));
+
+  /* Fit bounds se ci sono più piante */
+  if (georef.length > 1) fitAllTrees();
+}
+
+function setTileLayer(type) {
+  if (!leafletMap) return;
+  if (currentTileLayer) leafletMap.removeLayer(currentTileLayer);
+
+  if (type === 'satellite') {
+    currentTileLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics', maxZoom: 21 }
+    );
+    document.getElementById('btn-sat')?.classList.add('green');
+    document.getElementById('btn-osm')?.classList.remove('green');
+  } else {
+    currentTileLayer = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 19 }
+    );
+    document.getElementById('btn-osm')?.classList.add('green');
+    document.getElementById('btn-sat')?.classList.remove('green');
+  }
+  currentTileLayer.addTo(leafletMap);
+}
+
+function addTreeMarker(t) {
+  const cpcColors = {A:'#3B6D11', B:'#EF9F27', C:'#D85A30', D:'#E24B4A'};
+  const col = cpcColors[t.cpc] || '#888';
+
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:28px;height:28px;border-radius:50% 50% 50% 0;
+      background:${col};border:2px solid #fff;
+      transform:rotate(-45deg);
+      box-shadow:0 2px 6px rgba(0,0,0,0.35)">
+    </div>
+    <div style="
+      position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+      font-size:9px;font-weight:700;font-family:monospace;
+      background:#fff;border:0.5px solid #ccc;border-radius:3px;
+      padding:1px 4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15)">
+      #${t.id}
+    </div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -32]
+  });
+
+  const marker = L.marker([t.lat, t.lng], { icon });
+
+  const cpcLabel = {A:'Trascurabile',B:'Basso',C:'Moderato',D:'Elevato'}[t.cpc]||'';
+  marker.bindPopup(`
+    <div style="font-family:'DM Sans',sans-serif;min-width:160px">
+      <div style="font-size:13px;font-weight:600;font-style:italic;color:#1a2010;margin-bottom:4px">${t.specie}</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;background:${col};color:#fff">CPC ${t.cpc}</span>
+        <span style="font-size:10px;color:#666">${cpcLabel}</span>
+      </div>
+      <div style="font-size:11px;color:#444;line-height:1.7">
+        <div><b>Codice:</b> #${t.id}</div>
+        <div><b>H:</b> ${t.h||'—'}m &nbsp;·&nbsp; <b>DBH:</b> ${t.dbh||'—'}cm</div>
+        <div><b>Chioma:</b> ${t.cw||'—'}×${t.cd||'—'}m</div>
+        <div><b>Data:</b> ${t.data||'—'}</div>
+        <div style="margin-top:4px;color:#666;font-size:10px">${t.sito||''}</div>
+      </div>
+    </div>
+  `, { maxWidth: 220 });
+
+  marker.addTo(leafletMap);
+  treeMarkers.push({ id: t.id, marker });
+}
+
+function fitAllTrees() {
+  if (!leafletMap) return;
+  const georef = G.trees.filter(t => t.lat && t.lng);
+  if (!georef.length) return;
+  if (georef.length === 1) {
+    leafletMap.setView([georef[0].lat, georef[0].lng], 17);
+    return;
+  }
+  const bounds = L.latLngBounds(georef.map(t => [t.lat, t.lng]));
+  leafletMap.fitBounds(bounds, { padding: [40, 40] });
+}
+
+function centerOnTree(lat, lng, id) {
+  if (!leafletMap) return;
+  leafletMap.setView([lat, lng], 18);
+  const found = treeMarkers.find(m => m.id === id);
+  if (found) found.marker.openPopup();
+  /* Scrolla alla mappa */
+  document.getElementById('leaflet-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ── Carica Leaflet CSS+JS al primo accesso alla tab mappa ── */
+function ensureLeaflet(callback) {
+  if (window.L) { callback(); return; }
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  document.head.appendChild(css);
+  const script = document.createElement('script');
+  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  script.onload = callback;
+  document.head.appendChild(script);
+}
+
+/* ── Export functions ── */
+function exportGeoJSON() {
+  const georef = G.trees.filter(t => t.lat && t.lng);
+  if (!georef.length) { showExportFeedback('Nessuna pianta georeferenziata da esportare.', false); return; }
+  const geojson = {
+    type: 'FeatureCollection',
+    name: 'ArboVTA_rilievi',
+    crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' }},
+    features: georef.map(t => ({
+      type: 'Feature',
+      properties: {
+        codice: t.id, specie: t.specie, sito: t.sito,
+        cpc: t.cpc, rischio: t.rischio, data: t.data,
+        altezza_m: t.h, dbh_cm: t.dbh,
+        chioma_l_m: t.cw, chioma_p_m: t.cd
+      },
+      geometry: { type: 'Point', coordinates: [t.lng, t.lat] }
+    }))
+  };
+  downloadFile(JSON.stringify(geojson, null, 2), 'arbovta_rilievi.geojson', 'application/geo+json');
+  showExportFeedback(`GeoJSON esportato — ${georef.length} piante. Importabile in QGIS, ArcGIS, Google Earth.`, true);
+}
+
+function exportKML() {
+  const georef = G.trees.filter(t => t.lat && t.lng);
+  if (!georef.length) { showExportFeedback('Nessuna pianta georeferenziata.', false); return; }
+  const cpcColors = {A:'ff3B6D11', B:'ff27B7EF', C:'ff305AD8', D:'ff4A4BE2'};
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>ArboVTA — Rilievi fitosanitari</name>
+  <description>Esportato da ArboVTA v3.0</description>
+  ${['A','B','C','D'].map(c=>`<Style id="cpc${c}">
+    <IconStyle><color>${cpcColors[c]}</color><scale>1.0</scale>
+      <Icon><href>http://maps.google.com/mapfiles/kml/paddle/${c==='A'?'grn':'ylw'}-circle.png</href></Icon>
+    </IconStyle>
+  </Style>`).join('\n  ')}
+  ${georef.map(t=>`<Placemark>
+    <name>#${t.id} — ${t.specie}</name>
+    <description><![CDATA[
+      <b>${t.specie}</b><br>
+      CPC: ${t.cpc} (${t.rischio})<br>
+      H: ${t.h||'—'}m · DBH: ${t.dbh||'—'}cm<br>
+      Chioma: ${t.cw||'—'}×${t.cd||'—'}m<br>
+      Data: ${t.data||'—'}<br>
+      ${t.sito||''}
+    ]]></description>
+    <styleUrl>#cpc${t.cpc}</styleUrl>
+    <Point><coordinates>${t.lng},${t.lat},0</coordinates></Point>
+  </Placemark>`).join('\n  ')}
+</Document>
+</kml>`;
+  downloadFile(kml, 'arbovta_rilievi.kml', 'application/vnd.google-earth.kml+xml');
+  showExportFeedback(`KML esportato — ${georef.length} piante. Apribile in Google Earth Pro.`, true);
+}
+
+function exportCSV() {
+  const header = 'codice,specie,sito,lat,lng,cpc,rischio,altezza_m,dbh_cm,chioma_l_m,chioma_p_m,data';
+  const rows = G.trees.filter(t=>t.lat&&t.lng).map(t =>
+    `${t.id},"${t.specie}","${t.sito}",${t.lat},${t.lng},${t.cpc},${t.rischio},${t.h||''},${t.dbh||''},${t.cw||''},${t.cd||''},${t.data||''}`
+  );
+  downloadFile([header,...rows].join('\n'), 'arbovta_rilievi.csv', 'text/csv;charset=utf-8;');
+  showExportFeedback(`CSV esportato — ${rows.length} piante. Importabile in Excel, QGIS, ArcGIS.`, true);
+}
+
+function copyCoords() {
+  const georef = G.trees.filter(t=>t.lat&&t.lng);
+  const text = georef.map(t=>`#${t.id} ${t.specie}: ${t.lat.toFixed(6)}, ${t.lng.toFixed(6)}`).join('\n');
+  navigator.clipboard?.writeText(text).then(()=>{
+    showExportFeedback(`${georef.length} coordinate copiate negli appunti.`, true);
+  }).catch(()=>showExportFeedback('Copia non disponibile — usa Esporta CSV.', false));
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function showExportFeedback(msg, ok) {
+  const el = document.getElementById('export-feedback');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = ok ? 'var(--green-100)' : 'var(--amber-light)';
+  el.style.color = ok ? 'var(--green-700)' : 'var(--amber-dark)';
+  el.style.borderColor = ok ? 'var(--green-300)' : 'var(--amber)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 4000);
 }
 function renderReportView(){
   return `<div class="card">
