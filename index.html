@@ -1562,7 +1562,27 @@ function renderReportView(){
   </div>`;
 }
 function renderImpostazioniView(){
-  return `<div class="card">
+  return `
+  <div class="card">
+    <div class="sec">Importa da Ginve</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Esporta i rilievi da Ginve come CSV (separatore punto e virgola) e caricali qui. I campi vengono mappati automaticamente.</div>
+    <div style="background:var(--surface-2);border-radius:var(--r-md);padding:14px;border:0.5px dashed var(--border-2);text-align:center;cursor:pointer" onclick="document.getElementById('ginve-csv-in').click()">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom:5px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div style="font-size:12px;color:var(--text-muted)">Tocca per caricare il CSV di Ginve</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px">CSV con separatore ; (punto e virgola)</div>
+    </div>
+    <input type="file" id="ginve-csv-in" accept=".csv,text/csv" style="display:none" onchange="importGinveCSV(event)">
+    <div id="ginve-preview" style="display:none;margin-top:9px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:7px" id="ginve-preview-title"></div>
+      <div id="ginve-preview-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+      <div style="display:flex;gap:7px;margin-top:9px">
+        <button class="btn-primary" style="flex:1;margin:0" onclick="confirmGinveImport()">Importa tutto</button>
+        <button class="btn-secondary" style="flex:0;margin:0;padding:10px 14px" onclick="cancelGinveImport()">Annulla</button>
+      </div>
+    </div>
+    <div id="ginve-feedback" style="display:none;margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);font-size:11px;line-height:1.5"></div>
+  </div>
+  <div class="card">
     <div class="sec">Profilo rilevatore</div>
     <div class="fg">
       <div class="field full"><label>Nome e cognome</label><input type="text" value="Carlo Piccini"></div>
@@ -1587,6 +1607,179 @@ function renderImpostazioniView(){
     <div class="toggle-row"><span class="toggle-lbl">Salva automaticamente ogni campo</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
     <div class="toggle-row"><span class="toggle-lbl">Unità: usa cm per altezza</span><label class="tog"><input type="checkbox"><span class="tog-slider"></span></label></div>
   </div>`;
+}
+
+/* ══════════════════════════════════════════
+   IMPORTATORE GINVE CSV
+══════════════════════════════════════════ */
+let ginveParsed = [];
+
+function importGinveCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      ginveParsed = parseGinveCSV(ev.target.result);
+      showGinvePreview(ginveParsed);
+    } catch(err) {
+      showGinveFeedback('Errore nella lettura del file. Verifica che sia un CSV esportato da Ginve con separatore punto e virgola.', false);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+}
+
+function parseGinveCSV(text) {
+  /* Rimuovi BOM se presente */
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) throw new Error('File vuoto');
+
+  /* Intestazioni — separatore ; */
+  const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
+
+  const cpcMap = {
+    'CLASSE A':'A','CLASSE B':'B','CLASSE C':'C','CLASSE D':'D',
+    'A':'A','B':'B','C':'C','D':'D',
+    'classe a':'A','classe b':'B','classe c':'C','classe d':'D'
+  };
+  const rischioMap = {'A':'Trascurabile','B':'Basso','C':'Moderato','D':'Elevato'};
+
+  function parseAltezza(s) {
+    if (!s || s === '-' || s === '0') return null;
+    /* "2) 6m = 12m" → 12, oppure numero diretto */
+    const match = s.match(/(\d+(?:\.\d+)?)\s*m\s*$/i);
+    if (match) return parseFloat(match[1]);
+    const nums = s.match(/\d+(?:\.\d+)?/g);
+    return nums ? parseFloat(nums[nums.length - 1]) : null;
+  }
+
+  function col(row, name) {
+    const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+    return idx >= 0 ? (row[idx] || '').trim().replace(/"/g, '') : '';
+  }
+
+  const results = [];
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].split(';');
+    if (row.length < 3) continue;
+
+    const cpcRaw = col(row, 'Classe PC');
+    const cpc = cpcMap[cpcRaw] || cpcMap[cpcRaw?.toUpperCase()] || 'A';
+
+    /* Costruisci ubicazione da campi Ginve */
+    const via = col(row, 'Via o Piazza');
+    const comune = col(row, 'Rif. Cart.');
+    const fraz = col(row, 'Circ. o Quart');
+    const tipoUbic = col(row, 'Tipol. Ubicazione');
+    const toponimo = col(row, 'Toponimo');
+    const ubicazione = [tipoUbic, toponimo, via, fraz, comune].filter(Boolean).join(' — ');
+
+    const hRaw = col(row, 'Altezza (m)');
+    const dbhRaw = col(row, 'Diametro Fusto');
+    const cwRaw = col(row, 'Diametro Chioma');
+    const hClasseRaw = col(row, 'Classe Altezza');
+
+    /* Preferisci valore numerico diretto, fallback sulla classe */
+    const h = hRaw && hRaw !== '0' ? parseFloat(hRaw) : parseAltezza(hClasseRaw);
+    const dbh = dbhRaw && dbhRaw !== '0' ? parseFloat(dbhRaw) : null;
+    const cw = cwRaw && cwRaw !== '0' ? parseFloat(cwRaw) : null;
+
+    results.push({
+      id: col(row, 'Identificativo'),
+      specie: col(row, 'Specie'),
+      sito: ubicazione || col(row, 'Tipol. Ubicazione'),
+      data: col(row, 'Ult. Cens') || col(row, 'Data Calcolo') || new Date().toISOString().split('T')[0],
+      cpc,
+      rischio: rischioMap[cpc] || 'Trascurabile',
+      lat: 0, lng: 0,   /* Ginve non esporta coordinate in questo formato */
+      h, dbh, cw, cd: null,
+      disposizione: col(row, 'Disposizione'),
+      stazione: col(row, 'Dimora'),
+      pavimentazione: col(row, 'Tipo Pavimentazione'),
+      portamento: col(row, 'Portamento'),
+      giudVeg: col(row, 'Stato Vegetativo'),
+      giudBiomec: col(row, 'Giudizio Biomeccanico'),
+      pericolosita: col(row, 'Indice di Pericolosità'),
+      _fromGinve: true
+    });
+  }
+  return results;
+}
+
+function showGinvePreview(items) {
+  const preview = document.getElementById('ginve-preview');
+  const title = document.getElementById('ginve-preview-title');
+  const list = document.getElementById('ginve-preview-list');
+  if (!preview || !title || !list) return;
+
+  /* Conta duplicati */
+  const existing = new Set(G.trees.map(t => t.id));
+  const dupes = items.filter(t => existing.has(t.id)).length;
+  const nuovi = items.length - dupes;
+
+  title.textContent = `${items.length} piante trovate — ${nuovi} nuove, ${dupes} già presenti (verranno aggiornate)`;
+
+  const cpcColors = {A:'var(--green-700)',B:'var(--amber-dark)',C:'#4A1B0C',D:'var(--red-dark)'};
+  const cpcBg = {A:'var(--green-100)',B:'var(--amber-light)',C:'var(--coral-light)',D:'var(--red-light)'};
+
+  list.innerHTML = items.map(t => `
+    <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;background:${existing.has(t.id)?'var(--amber-light)':'var(--surface-2)'};border-radius:var(--r-sm);border:0.5px solid var(--border)">
+      <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:6px;background:${cpcBg[t.cpc]};color:${cpcColors[t.cpc]};flex-shrink:0">CPC ${t.cpc}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:500;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</div>
+        <div style="font-size:10px;color:var(--text-muted);">#${t.id} · H:${t.h||'—'}m · DBH:${t.dbh||'—'}cm · ${t.sito?.substring(0,30)||'—'}</div>
+      </div>
+      ${existing.has(t.id)?'<span style="font-size:9px;color:var(--amber-dark);font-weight:600;flex-shrink:0">AGGIORNA</span>':''}
+    </div>`).join('');
+
+  preview.style.display = 'block';
+  document.getElementById('ginve-feedback').style.display = 'none';
+}
+
+function confirmGinveImport() {
+  if (!ginveParsed.length) return;
+  const existing = new Map(G.trees.map(t => [t.id, t]));
+  let added = 0, updated = 0;
+
+  ginveParsed.forEach(t => {
+    if (existing.has(t.id)) {
+      /* Aggiorna mantenendo coordinate se già presenti */
+      const old = existing.get(t.id);
+      const idx = G.trees.findIndex(x => x.id === t.id);
+      G.trees[idx] = { ...t, lat: old.lat || t.lat, lng: old.lng || t.lng };
+      updated++;
+    } else {
+      G.trees.push(t);
+      added++;
+    }
+  });
+
+  saveTrees();
+  document.getElementById('ginve-preview').style.display = 'none';
+  ginveParsed = [];
+  showGinveFeedback(`✓ Importazione completata — ${added} piante aggiunte, ${updated} aggiornate.\n\nNota: le coordinate GPS non sono incluse nell'export Ginve. Potrai aggiungerle manualmente aprendo ogni rilievo in campo oppure importando un file GeoJSON con le coordinate.`, true);
+
+  /* Aggiorna il contatore in lista */
+  setTimeout(() => { if (G.currentView === 'lista') render('lista'); }, 500);
+}
+
+function cancelGinveImport() {
+  ginveParsed = [];
+  document.getElementById('ginve-preview').style.display = 'none';
+}
+
+function showGinveFeedback(msg, ok) {
+  const el = document.getElementById('ginve-feedback');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = ok ? 'var(--green-100)' : 'var(--amber-light)';
+  el.style.color = ok ? 'var(--green-700)' : 'var(--amber-dark)';
+  el.style.borderColor = ok ? 'var(--green-300)' : 'var(--amber)';
+  el.style.border = '0.5px solid';
+  el.textContent = msg;
+}
 }
 
 /* ═══════════════════════════════════════
