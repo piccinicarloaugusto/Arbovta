@@ -1564,14 +1564,28 @@ function renderReportView(){
 function renderImpostazioniView(){
   return `
   <div class="card">
-    <div class="sec">Importa da Ginve</div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Esporta i rilievi da Ginve come CSV (separatore punto e virgola) e caricali qui. I campi vengono mappati automaticamente.</div>
-    <div style="background:var(--surface-2);border-radius:var(--r-md);padding:14px;border:0.5px dashed var(--border-2);text-align:center;cursor:pointer" onclick="document.getElementById('ginve-csv-in').click()">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom:5px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <div style="font-size:12px;color:var(--text-muted)">Tocca per caricare il CSV di Ginve</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:2px">CSV con separatore ; (punto e virgola)</div>
+    <div class="sec">Importa da Ginve / QField</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Importa i tuoi rilievi da Ginve. Supporta tre formati: GeoJSON con coordinate GPS (consigliato), GeoPackage da QField, e CSV da Ginve.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:9px">
+      <div style="background:var(--green-100);border:0.5px solid var(--green-300);border-radius:var(--r-md);padding:9px;text-align:center;cursor:pointer" onclick="document.getElementById('ginve-geojson-in').click()">
+        <div style="font-size:16px;margin-bottom:2px">🗺️</div>
+        <div style="font-size:11px;font-weight:600;color:var(--green-700)">GeoJSON</div>
+        <div style="font-size:9px;color:var(--green-600);margin-top:1px">Con GPS ✓</div>
+      </div>
+      <div style="background:var(--surface-2);border:0.5px solid var(--border-2);border-radius:var(--r-md);padding:9px;text-align:center;cursor:pointer" onclick="document.getElementById('ginve-gpkg-in').click()">
+        <div style="font-size:16px;margin-bottom:2px">📍</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-primary)">GeoPackage</div>
+        <div style="font-size:9px;color:var(--text-muted);margin-top:1px">QField · GPS</div>
+      </div>
+      <div style="background:var(--surface-2);border:0.5px solid var(--border-2);border-radius:var(--r-md);padding:9px;text-align:center;cursor:pointer" onclick="document.getElementById('ginve-csv-in').click()">
+        <div style="font-size:16px;margin-bottom:2px">📄</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-primary)">CSV Ginve</div>
+        <div style="font-size:9px;color:var(--text-muted);margin-top:1px">Senza GPS</div>
+      </div>
     </div>
+    <input type="file" id="ginve-gpkg-in" accept=".gpkg,.db,.sqlite" style="display:none" onchange="importGpkg(event)">
     <input type="file" id="ginve-csv-in" accept=".csv,text/csv" style="display:none" onchange="importGinveCSV(event)">
+    <input type="file" id="ginve-geojson-in" accept=".geojson,.json" style="display:none" onchange="importGeoJSON(event)">
     <div id="ginve-preview" style="display:none;margin-top:9px">
       <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:7px" id="ginve-preview-title"></div>
       <div id="ginve-preview-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
@@ -1610,8 +1624,236 @@ function renderImpostazioniView(){
 }
 
 /* ══════════════════════════════════════════
-   IMPORTATORE GINVE CSV
+   IMPORTATORE GEOJSON (da conversione Ginve/QField)
 ══════════════════════════════════════════ */
+function importGeoJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const gj = JSON.parse(ev.target.result);
+      if (gj.type !== 'FeatureCollection' || !gj.features?.length) {
+        showGinveFeedback('File GeoJSON non valido o vuoto.', false); return;
+      }
+      const cpcMap = {'CLASSE A':'A','CLASSE B':'B','CLASSE C':'C','CLASSE D':'D','A':'A','B':'B','C':'C','D':'D'};
+      const rischioMap = {'A':'Trascurabile','B':'Basso','C':'Moderato','D':'Elevato'};
+
+      ginveParsed = gj.features.map(f => {
+        const p = f.properties || {};
+        const [lng, lat] = f.geometry?.coordinates || [0, 0];
+        const cpc = cpcMap[p.cpc] || cpcMap[(p.cpc||'').toUpperCase()] || 'A';
+        return {
+          id: String(p.codice || p.id || p.IDENTIF || ''),
+          specie: p.specie || p.SPECIE || p.species || '—',
+          sito: p.sito || p.ubicazione || p.TOPONIMO || '—',
+          data: String(p.data || p.DATA_INIZIO || p.date || '').substring(0,10),
+          cpc,
+          rischio: rischioMap[cpc] || 'Trascurabile',
+          lat: lat ? +lat.toFixed(6) : 0,
+          lng: lng ? +lng.toFixed(6) : 0,
+          h: p.altezza_m || p.AL_ALTPI || p.height_m || null,
+          dbh: p.dbh_cm || p.AL_FUSDM || p.dbh || null,
+          cw: p.chioma_l_m || p.AL_CHIDM || p.crown_w || null,
+          cd: p.chioma_p_m || p.AL_CHIDP || p.crown_d || null,
+          disposizione: p.disposizione || '',
+          stazione: p.stazione || '',
+          pavimentazione: p.pavimentazione || '',
+          portamento: p.portamento || '',
+          giudVeg: p.stato_vegetativo || '',
+          giudBiomec: p.giudizio_biomeccanico || '',
+          note: p.note || '',
+          _fromGinve: true,
+          _hasGPS: !!(lat && lng)
+        };
+      }).filter(t => t.id);
+
+      if (!ginveParsed.length) {
+        showGinveFeedback('Nessuna pianta trovata nel GeoJSON.', false); return;
+      }
+      showGinvePreview(ginveParsed);
+      document.getElementById('ginve-feedback').style.display = 'none';
+    } catch(err) {
+      showGinveFeedback('Errore nella lettura del GeoJSON: ' + err.message, false);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+}
+
+/* ══════════════════════════════════════════
+   IMPORTATORE GEOPACKAGE (QField/Ginve)
+══════════════════════════════════════════ */
+async function importGpkg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+
+  showGinveFeedback('Lettura GeoPackage in corso...', true);
+
+  try {
+    /* Leggi file come ArrayBuffer */
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+
+    /* Verifica magic SQLite */
+    const magic = String.fromCharCode(...bytes.slice(0, 16));
+    if (!magic.startsWith('SQLite format 3')) {
+      showGinveFeedback('File non valido — assicurati di caricare un file .gpkg esportato da QField.', false);
+      return;
+    }
+
+    /* Usa sql.js per leggere il database SQLite in-browser */
+    await ensureSqlJs();
+    const SQL = window._sqlJs;
+    const db = new SQL.Database(bytes);
+
+    /* Lookup tables */
+    const essenze = buildLookup(db, 'ALB_ESSENZE', 'id', 'DESCRIZIONE');
+    const cpcLookup = buildLookup(db, 'AL_CLVTA', 'id', 'AL_VTADS');
+    const svLookup = buildLookup(db, 'AL_STVEG', 'id', 'AL_SVEDS');
+    const giuLookup = buildLookup(db, 'AL_GIUDI', 'id', 'AL_GIUDS');
+    const ubiLookup = buildLookupMulti(db, 'UBICAZIONI', 'id', ['TOPONIMO','RIFCARTOGRAFICO']);
+    const dispoLookup = buildLookup(db, 'AL_DISPO', 'id', 'AL_DISDS');
+
+    /* Query principale */
+    const res = db.exec(`
+      SELECT IDENTIF, ID_ESSEN, AL_VTAID, AL_SVEID, AL_GIUID,
+             AL_ALTPI, AL_FUSDM, AL_CHIDM, AL_CHIDP, DATA_INIZIO,
+             SHAPE, ID_UBICAZIONE, AL_NOTGE, AL_DISID
+      FROM ALBERI
+    `);
+
+    if (!res.length || !res[0].values.length) {
+      showGinveFeedback('Nessuna pianta trovata nel GeoPackage.', false);
+      return;
+    }
+
+    const cpcMap = {'CLASSE A':'A','CLASSE B':'B','CLASSE C':'C','CLASSE D':'D','CLASSE C/D':'C'};
+    const rischioMap = {'A':'Trascurabile','B':'Basso','C':'Moderato','D':'Elevato'};
+
+    ginveParsed = res[0].values.map(r => {
+      const [identif, idEss, idVta, idSv, idGiu, altpi, fusdm, chidm, chidp,
+             dataInizio, shape, idUbi, notge, idDispo] = r;
+
+      /* Parse geometria GPKG → WGS84 */
+      let lat = 0, lng = 0;
+      if (shape) {
+        const [x, y] = parseGpkgPoint(shape);
+        if (x && y) [lat, lng] = gaussBoagaToWgs84(x, y);
+      }
+
+      const cpcRaw = cpcLookup[idVta] || '';
+      const cpc = cpcMap[cpcRaw] || 'A';
+      const ubi = ubiLookup[idUbi] || {};
+      const ubicazione = [ubi.TOPONIMO, ubi.RIFCARTOGRAFICO].filter(Boolean).join(' — ');
+
+      return {
+        id: String(identif),
+        specie: toTitleCase(essenze[idEss] || ''),
+        sito: ubicazione,
+        data: String(dataInizio || '').substring(0, 10),
+        cpc, rischio: rischioMap[cpc] || 'Trascurabile',
+        lat: lat ? +lat.toFixed(6) : 0,
+        lng: lng ? +lng.toFixed(6) : 0,
+        h: altpi ? +altpi : null,
+        dbh: fusdm ? +fusdm : null,
+        cw: chidm ? +chidm : null,
+        cd: chidp ? +chidp : null,
+        giudVeg: svLookup[idSv] || '',
+        giudBiomec: giuLookup[idGiu] || '',
+        disposizione: dispoLookup[idDispo] || '',
+        note: notge || '',
+        _fromGinve: true, _hasGPS: !!(lat && lng)
+      };
+    });
+
+    db.close();
+    showGinvePreview(ginveParsed);
+    document.getElementById('ginve-feedback').style.display = 'none';
+
+  } catch(err) {
+    console.error(err);
+    showGinveFeedback('Errore nella lettura del GeoPackage: ' + err.message, false);
+  }
+}
+
+/* ── sql.js loader (SQLite in WebAssembly) ── */
+function ensureSqlJs() {
+  if (window._sqlJs) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js';
+    s.onload = () => {
+      initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}` })
+        .then(SQL => { window._sqlJs = SQL; resolve(); })
+        .catch(reject);
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+/* ── Helpers lookup ── */
+function buildLookup(db, table, keyCol, valCol) {
+  const map = {};
+  try {
+    const res = db.exec(`SELECT ${keyCol}, ${valCol} FROM ${table}`);
+    if (res.length) res[0].values.forEach(r => { map[r[0]] = r[1]; });
+  } catch(e) {}
+  return map;
+}
+function buildLookupMulti(db, table, keyCol, valCols) {
+  const map = {};
+  try {
+    const res = db.exec(`SELECT ${keyCol}, ${valCols.join(',')} FROM ${table}`);
+    if (res.length) res[0].values.forEach(r => {
+      const obj = {};
+      valCols.forEach((c, i) => { obj[c] = r[i+1]; });
+      map[r[0]] = obj;
+    });
+  } catch(e) {}
+  return map;
+}
+
+/* ── Geometry parsing ── */
+function parseGpkgPoint(blob) {
+  const data = blob instanceof Uint8Array ? blob : new Uint8Array(blob);
+  const flags = data[3];
+  const envType = (flags >> 1) & 0x07;
+  const envSizes = [0, 32, 48, 48, 64];
+  const envSize = envSizes[Math.min(envType, 4)];
+  const wkb = data.slice(8 + envSize);
+  const le = wkb[0] === 1;
+  const view = new DataView(wkb.buffer, wkb.byteOffset);
+  const geomType = view.getUint32(1, le);
+  if (geomType === 1) {
+    const x = view.getFloat64(5, le);
+    const y = view.getFloat64(13, le);
+    return [x, y];
+  }
+  return [null, null];
+}
+
+/* ── Gauss-Boaga Ovest (EPSG:3003) → WGS84 ── */
+function gaussBoagaToWgs84(x, y) {
+  const a=6378388,f=1/297,b=a*(1-f),e2=1-(b/a)**2;
+  const k0=0.9996,lon0=9*Math.PI/180,FE=1500000;
+  const x1=x-FE, M=y/k0;
+  const mu=M/(a*(1-e2/4-3*e2**2/64-5*e2**3/256));
+  const e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);
+  const N1=a/Math.sqrt(1-e2*Math.sin(phi1)**2);
+  const T1=Math.tan(phi1)**2,C1=e2/(1-e2)*Math.cos(phi1)**2;
+  const R1=a*(1-e2)/(1-e2*Math.sin(phi1)**2)**1.5,D=x1/(N1*k0);
+  const lat=phi1-(N1*Math.tan(phi1)/R1)*(D**2/2-(5+3*T1+10*C1-4*C1**2-9*e2/(1-e2))*D**4/24);
+  const lon=lon0+(D-(1+2*T1+C1)*D**3/6)/Math.cos(phi1);
+  return [lat*180/Math.PI, lon*180/Math.PI];
+}
+
+function toTitleCase(s) {
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
 let ginveParsed = [];
 
 function importGinveCSV(e) {
@@ -1731,7 +1973,8 @@ function showGinvePreview(items) {
         <div style="font-size:11px;font-weight:500;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</div>
         <div style="font-size:10px;color:var(--text-muted);">#${t.id} · H:${t.h||'—'}m · DBH:${t.dbh||'—'}cm · ${t.sito?.substring(0,30)||'—'}</div>
       </div>
-      ${existing.has(t.id)?'<span style="font-size:9px;color:var(--amber-dark);font-weight:600;flex-shrink:0">AGGIORNA</span>':''}
+      ${t._hasGPS||t.lat?'<span style="font-size:10px;color:var(--green-600);flex-shrink:0" title="Coordinate GPS disponibili">📍</span>':'<span style="font-size:10px;color:var(--text-muted);flex-shrink:0" title="Senza coordinate">—</span>'}
+      ${existing.has(t.id)?'<span style="font-size:9px;color:var(--amber-dark);font-weight:600;flex-shrink:0">AGG.</span>':''}
     </div>`).join('');
 
   preview.style.display = 'block';
@@ -1756,10 +1999,12 @@ function confirmGinveImport() {
     }
   });
 
+  const withGPS = ginveParsed.filter(t => t._hasGPS || (t.lat && t.lng)).length;
   saveTrees();
   document.getElementById('ginve-preview').style.display = 'none';
   ginveParsed = [];
-  showGinveFeedback(`✓ Importazione completata — ${added} piante aggiunte, ${updated} aggiornate.\n\nNota: le coordinate GPS non sono incluse nell'export Ginve. Potrai aggiungerle manualmente aprendo ogni rilievo in campo oppure importando un file GeoJSON con le coordinate.`, true);
+  const gpsMsg = withGPS > 0 ? `${withGPS} piante con coordinate GPS — visibili immediatamente sulla mappa.` : `Nessuna coordinata GPS nel file — aggiungile in campo aprendo ogni rilievo.`;
+  showGinveFeedback(`✓ Importazione completata — ${added} piante aggiunte, ${updated} aggiornate.\n${gpsMsg}`, true);
 
   /* Aggiorna il contatore in lista */
   setTimeout(() => { if (G.currentView === 'lista') render('lista'); }, 500);
