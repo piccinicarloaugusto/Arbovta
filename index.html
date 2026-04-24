@@ -1441,35 +1441,24 @@ function setTileLayer(type) {
   currentTileLayer.addTo(leafletMap);
 }
 
+/* ── Stato modalità spostamento ── */
+let moveMode = { active: false, treeId: null, originalLatLng: null };
+
 function addTreeMarker(t) {
   const cpcColors = {A:'#3B6D11', B:'#EF9F27', C:'#D85A30', D:'#E24B4A'};
   const col = cpcColors[t.cpc] || '#888';
-
   const icon = L.divIcon({
     className: '',
-    html: `<div style="
-      width:28px;height:28px;border-radius:50% 50% 50% 0;
-      background:${col};border:2px solid #fff;
-      transform:rotate(-45deg);
-      box-shadow:0 2px 6px rgba(0,0,0,0.35)">
-    </div>
-    <div style="
-      position:absolute;top:-18px;left:50%;transform:translateX(-50%);
-      font-size:9px;font-weight:700;font-family:monospace;
-      background:#fff;border:0.5px solid #ccc;border-radius:3px;
-      padding:1px 4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15)">
-      #${t.id}
-    </div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -32]
+    html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${col};border:2px solid #fff;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>
+    <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;font-family:monospace;background:#fff;border:0.5px solid #ccc;border-radius:3px;padding:1px 4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15)">#${t.id}</div>`,
+    iconSize: [28,28], iconAnchor: [14,28], popupAnchor: [0,-32]
   });
 
-  const marker = L.marker([t.lat, t.lng], { icon });
-
+  const marker = L.marker([t.lat, t.lng], { icon, draggable: false });
   const cpcLabel = {A:'Trascurabile',B:'Basso',C:'Moderato',D:'Elevato'}[t.cpc]||'';
+
   marker.bindPopup(`
-    <div style="font-family:'DM Sans',sans-serif;min-width:160px">
+    <div style="font-family:'DM Sans',sans-serif;min-width:170px">
       <div style="font-size:13px;font-weight:600;font-style:italic;color:#1a2010;margin-bottom:4px">${t.specie}</div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;background:${col};color:#fff">CPC ${t.cpc}</span>
@@ -1480,37 +1469,117 @@ function addTreeMarker(t) {
         <div><b>H:</b> ${t.h||'—'}m &nbsp;·&nbsp; <b>DBH:</b> ${t.dbh||'—'}cm</div>
         <div><b>Chioma:</b> ${t.cw||'—'}×${t.cd||'—'}m</div>
         <div><b>Data:</b> ${t.data||'—'}</div>
-        <div style="margin-top:4px;color:#666;font-size:10px">${t.sito||''}</div>
+        <div style="margin-top:3px;color:#666;font-size:10px">${t.sito||''}</div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button onclick="startMoveTree('${t.id}')" style="flex:1;padding:6px;font-size:11px;font-weight:600;background:#3B6D11;color:#fff;border:none;border-radius:6px;cursor:pointer">✥ Sposta</button>
+        <button onclick="leafletMap.closePopup();openTree('${t.id}')" style="flex:1;padding:6px;font-size:11px;background:#f0f4e8;color:#3B6D11;border:0.5px solid #639922;border-radius:6px;cursor:pointer">✎ Modifica</button>
       </div>
     </div>
-  `, { maxWidth: 220 });
+  `, { maxWidth: 230, closeButton: true });
+
+  marker.on('dragend', function(e) {
+    const ll = e.target.getLatLng();
+    updateTreeCoords(t.id, ll.lat, ll.lng);
+    showMoveFeedback(t.id, ll.lat, ll.lng);
+  });
 
   marker.addTo(leafletMap);
   treeMarkers.push({ id: t.id, marker });
+}
+
+function startMoveTree(id) {
+  leafletMap.closePopup();
+  const found = treeMarkers.find(m => m.id === id);
+  if (!found) return;
+  found.marker.dragging.enable();
+  found.marker.setOpacity(0.75);
+  moveMode = { active: true, treeId: id, originalLatLng: found.marker.getLatLng() };
+  showMoveBanner(id);
+  leafletMap.setView(found.marker.getLatLng(), Math.max(leafletMap.getZoom(), 19));
+}
+
+function showMoveBanner(id) {
+  let b = document.getElementById('move-banner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'move-banner';
+    b.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:1000;background:#1a2e1a;border:1px solid #639922;border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-family:DM Sans,sans-serif;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.35);white-space:nowrap';
+    document.getElementById('leaflet-map').appendChild(b);
+  }
+  b.innerHTML = '<span style="color:#e8f0d8">✥ Trascina il pin <b style="color:#97C459">#'+id+'</b> nella posizione corretta</span><button onclick="confirmMoveTree()" style="padding:5px 10px;font-size:11px;font-weight:600;background:#3B6D11;color:#e8f0d8;border:none;border-radius:6px;cursor:pointer">✓ Conferma</button><button onclick="cancelMoveTree()" style="padding:5px 8px;font-size:11px;background:rgba(255,255,255,0.1);color:#e8f0d8;border:none;border-radius:6px;cursor:pointer">✕</button>';
+  b.style.display = 'flex';
+}
+
+function confirmMoveTree() {
+  if (!moveMode.active) return;
+  const found = treeMarkers.find(m => m.id === moveMode.treeId);
+  if (!found) return;
+  const ll = found.marker.getLatLng();
+  found.marker.dragging.disable();
+  found.marker.setOpacity(1);
+  updateTreeCoords(moveMode.treeId, ll.lat, ll.lng);
+  showMoveFeedback(moveMode.treeId, ll.lat, ll.lng);
+  hideMoveUI();
+  moveMode = { active: false, treeId: null, originalLatLng: null };
+}
+
+function cancelMoveTree() {
+  if (!moveMode.active) return;
+  const found = treeMarkers.find(m => m.id === moveMode.treeId);
+  if (found && moveMode.originalLatLng) {
+    found.marker.setLatLng(moveMode.originalLatLng);
+    found.marker.dragging.disable();
+    found.marker.setOpacity(1);
+  }
+  hideMoveUI();
+  moveMode = { active: false, treeId: null, originalLatLng: null };
+}
+
+function hideMoveUI() {
+  ['move-banner','move-feedback'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+}
+
+function updateTreeCoords(id, lat, lng) {
+  const idx = G.trees.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  G.trees[idx].lat = parseFloat(lat.toFixed(6));
+  G.trees[idx].lng = parseFloat(lng.toFixed(6));
+  saveTrees();
+}
+
+function showMoveFeedback(id, lat, lng) {
+  let fb = document.getElementById('move-feedback');
+  if (!fb) {
+    fb = document.createElement('div');
+    fb.id = 'move-feedback';
+    fb.style.cssText = 'margin-top:6px;padding:7px 10px;background:var(--green-100);border:0.5px solid var(--green-300);border-radius:var(--r-sm);font-size:11px;color:var(--green-700)';
+    const mapEl = document.getElementById('leaflet-map');
+    if (mapEl && mapEl.parentNode) mapEl.parentNode.insertBefore(fb, mapEl.nextSibling);
+  }
+  fb.innerHTML = '✓ Pianta <strong>#'+id+'</strong> spostata — coordinate salvate: <span style="font-family:monospace">'+lat.toFixed(6)+', '+lng.toFixed(6)+'</span>';
+  setTimeout(() => { const el=document.getElementById('move-feedback'); if(el) el.remove(); }, 5000);
 }
 
 function fitAllTrees() {
   if (!leafletMap) return;
   const georef = G.trees.filter(t => t.lat && t.lng);
   if (!georef.length) return;
-  if (georef.length === 1) {
-    leafletMap.setView([georef[0].lat, georef[0].lng], 17);
-    return;
-  }
-  const bounds = L.latLngBounds(georef.map(t => [t.lat, t.lng]));
-  leafletMap.fitBounds(bounds, { padding: [40, 40] });
+  if (georef.length === 1) { leafletMap.setView([georef[0].lat, georef[0].lng], 19); return; }
+  leafletMap.fitBounds(L.latLngBounds(georef.map(t => [t.lat, t.lng])), { padding: [40,40] });
 }
 
 function centerOnTree(lat, lng, id) {
   if (!leafletMap) return;
-  leafletMap.setView([lat, lng], 18);
+  leafletMap.setView([lat, lng], 19);
   const found = treeMarkers.find(m => m.id === id);
   if (found) found.marker.openPopup();
-  /* Scrolla alla mappa */
-  document.getElementById('leaflet-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('leaflet-map')?.scrollIntoView({ behavior:'smooth', block:'center' });
 }
 
-/* ── Carica Leaflet CSS+JS al primo accesso alla tab mappa ── */
 function ensureLeaflet(callback) {
   if (window.L) { callback(); return; }
   const css = document.createElement('link');
