@@ -399,6 +399,11 @@ function go(v,el){
   if(el){ document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); }
   render(v);
   document.getElementById('bottombar').style.display = v==='scheda' ? 'flex' : 'none';
+  if(v==='scheda'){
+    const isEdit = !!G.form._editingId;
+    const saveBtn = document.querySelector('#bottombar .btn-primary');
+    if(saveBtn) saveBtn.textContent = isEdit ? `Salva modifiche #${G.form._editingId}` : 'Salva rilievo';
+  }
 }
 function resetNav(){ document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',i===0)); }
 function newRilievo(){
@@ -470,9 +475,98 @@ function filterTrees(q){
   </div>`).join('');
 }
 function openTree(id){
-  const t=G.trees.find(x=>x.id===id);
+  const t = G.trees.find(x => x.id === id);
   if(!t) return;
-  alert(`Pianta #${t.id} — ${t.specie}\nH: ${t.h}m | DBH: ${t.dbh}cm | CPC: ${t.cpc}\n${t.sito}`);
+
+  /* Carica tutti i dati della pianta nel form */
+  G.form = {
+    codice:         t.id,
+    specie:         t.specie || '',
+    ubicazione:     t.sito || '',
+    sito:           t.sito || '',
+    disposizione:   t.disposizione || '',
+    stazione:       t.stazione || '',
+    suolo:          t.suolo || '',
+    pavimentazione: t.pavimentazione || '',
+    sitoCon:        t.sitoCon || '',
+    posizSoc:       t.posizSoc || '',
+    conflitti:      t.conflitti || '',
+    fattoreContatto:t.fattoreContatto || '',
+    h:              t.h || null,
+    dbh:            t.dbh || null,
+    cw:             t.cw || null,
+    cd:             t.cd || null,
+    isPino:         (t.specie||'').toLowerCase().includes('pinus'),
+    giudVeg:        t.giudVeg || '',
+    pericolosita:   t.pericolosita || '',
+    cpc:            t.cpc || 'A',
+    prescrizioni:   t.prescrizioni || '',
+    lat:            t.lat ? String(t.lat) : '',
+    lng:            t.lng ? String(t.lng) : '',
+    data:           t.data || '',
+    _editingId:     t.id   /* traccia quale pianta stiamo modificando */
+  };
+
+  /* Porta le misure del clinometro in sincronia se presenti */
+  if(t.h || t.dbh) {
+    G.clino.meas.h   = t.h   || null;
+    G.clino.meas.dbh = t.dbh || null;
+    G.clino.meas.cw  = t.cw  || null;
+    G.clino.meas.cd  = t.cd  || null;
+  }
+
+  go('scheda', navTab(3));
+}
+
+function saveRilievo(){
+  if(!G.form.codice || !G.form.specie){ alert('Inserire almeno Codice rilievo e Specie.'); return; }
+
+  const data = {
+    id:             G.form.codice,
+    specie:         G.form.specie,
+    sito:           G.form.ubicazione || G.form.sito || '—',
+    data:           G.form.data || new Date().toISOString().split('T')[0],
+    cpc:            G.form.cpc || 'A',
+    rischio:        G.form.pericolosita || 'Trascurabile',
+    lat:            parseFloat(G.form.lat) || 0,
+    lng:            parseFloat(G.form.lng) || 0,
+    h:              G.form.h   || 0,
+    dbh:            G.form.dbh || 0,
+    cw:             G.form.cw  || 0,
+    cd:             G.form.cd  || 0,
+    disposizione:   G.form.disposizione || '',
+    stazione:       G.form.stazione || '',
+    pavimentazione: G.form.pavimentazione || '',
+    giudVeg:        G.form.giudVeg || '',
+    pericolosita:   G.form.pericolosita || '',
+    prescrizioni:   G.form.prescrizioni || '',
+  };
+
+  if(G.form._editingId) {
+    /* Modifica pianta esistente */
+    const idx = G.trees.findIndex(x => x.id === G.form._editingId);
+    if(idx >= 0) {
+      G.trees[idx] = { ...G.trees[idx], ...data };
+      saveTrees();
+      go('lista', navTab(0)); resetNav();
+      setTimeout(()=>{
+        /* Feedback visivo breve */
+        const items = document.querySelectorAll('.tree-item');
+        items.forEach(el => {
+          if(el.querySelector('.tree-code')?.textContent.includes(data.id)){
+            el.style.background='var(--green-100)';
+            setTimeout(()=>el.style.background='',1200);
+          }
+        });
+      }, 100);
+      return;
+    }
+  }
+
+  /* Nuova pianta */
+  G.trees.push(data);
+  saveTrees();
+  go('lista', navTab(0)); resetNav();
 }
 
 /* ═══════════════════════════════════════
@@ -1229,11 +1323,6 @@ function useAISpecieInForm(){
   const el=document.getElementById('fld-specie'); if(el) el.value=G.form.specie;
   checkPino(G.form.specie);
   const banner=document.getElementById('sp-banner'); if(banner) banner.style.display='none';
-}
-function saveRilievo(){
-  if(!G.form.codice||!G.form.specie){alert('Inserire almeno Codice rilievo e Specie.');return;}
-  G.trees.push({id:G.form.codice,specie:G.form.specie,sito:G.form.ubicazione||'—',data:new Date().toISOString().split('T')[0],cpc:G.form.cpc||'A',rischio:G.form.pericolosita||'Trascurabile',lat:parseFloat(G.form.lat)||44.08,lng:parseFloat(G.form.lng)||10.09,h:G.form.h||0,dbh:G.form.dbh||0,cw:G.form.cw||0,cd:G.form.cd||0});
-  go('lista',navTab(0)); resetNav();
 }
 
 /* ═══════════════════════════════════════
