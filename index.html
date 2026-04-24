@@ -379,11 +379,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
    STATO GLOBALE
 ═══════════════════════════════════════ */
 const G = {
-  trees: [
-    {id:'2046',specie:'Platanus × acerifolia',sito:'Giardino privato — Via Scassicarli 156, FDM',data:'2025-01-15',cpc:'A',rischio:'Trascurabile',lat:44.0793,lng:10.0981,h:18.4,dbh:62,cw:9.2,cd:8.8},
-    {id:'2047',specie:'Pinus pinea',sito:'Camping Versilia — Viale dei Pini',data:'2025-01-20',cpc:'B',rischio:'Basso',lat:44.0712,lng:10.0914,h:14.2,dbh:38,cw:6.8,cd:6.2},
-    {id:'2048',specie:'Quercus ilex',sito:'Parco Municipale — Carrara',data:'2025-02-03',cpc:'C',rischio:'Moderato',lat:44.0824,lng:10.1018,h:22.1,dbh:95,cw:14.5,cd:13.0},
-  ],
+  trees: [],
   form: {codice:'',specie:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
   clino: {angle:0,captured:{},dist:15,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
   ai: {photos:[],activeType:'foglie',result:null,history:[],cameraStream:null},
@@ -1704,6 +1700,11 @@ function renderImpostazioniView(){
     </div>
   </div>
   <div class="card">
+    <div class="sec">Gestione dati</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Cancella tutto l'archivio locale per ripartire da zero. I dati non potranno essere recuperati.</div>
+    <button class="btn-secondary" style="border-color:var(--red);color:var(--red)" onclick="resetArchivio()">Cancella archivio locale</button>
+  </div>
+  <div class="card">
     <div class="sec">Preferenze app</div>
     <div class="toggle-row"><span class="toggle-lbl">GPS automatico all'apertura scheda</span><label class="tog"><input type="checkbox"><span class="tog-slider"></span></label></div>
     <div class="toggle-row"><span class="toggle-lbl">Modalità pino (parametri specifici)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
@@ -2077,10 +2078,9 @@ function confirmGinveImport() {
 
   ginveParsed.forEach(t => {
     if (existing.has(t.id)) {
-      /* Aggiorna mantenendo coordinate se già presenti */
       const old = existing.get(t.id);
       const idx = G.trees.findIndex(x => x.id === t.id);
-      G.trees[idx] = { ...t, lat: old.lat || t.lat, lng: old.lng || t.lng };
+      G.trees[idx] = { ...t, lat: t.lat || old.lat, lng: t.lng || old.lng };
       updated++;
     } else {
       G.trees.push(t);
@@ -2090,13 +2090,22 @@ function confirmGinveImport() {
 
   const withGPS = ginveParsed.filter(t => t._hasGPS || (t.lat && t.lng)).length;
   saveTrees();
-  document.getElementById('ginve-preview').style.display = 'none';
   ginveParsed = [];
-  const gpsMsg = withGPS > 0 ? `${withGPS} piante con coordinate GPS — visibili immediatamente sulla mappa.` : `Nessuna coordinata GPS nel file — aggiungile in campo aprendo ogni rilievo.`;
-  showGinveFeedback(`✓ Importazione completata — ${added} piante aggiunte, ${updated} aggiornate.\n${gpsMsg}`, true);
+  document.getElementById('ginve-preview').style.display = 'none';
 
-  /* Aggiorna il contatore in lista */
-  setTimeout(() => { if (G.currentView === 'lista') render('lista'); }, 500);
+  const gpsMsg = withGPS > 0
+    ? `${withGPS} piante con coordinate GPS — visibili sulla mappa.`
+    : `Nessuna coordinata GPS — aggiungile in campo.`;
+  showGinveFeedback(`✓ ${added} piante aggiunte, ${updated} aggiornate.\n${gpsMsg}`, true);
+
+  /* Ricarica archivio e mappa con i nuovi dati */
+  setTimeout(() => {
+    if (G.currentView === 'lista') render('lista');
+    if (G.currentView === 'mappa') {
+      render('mappa');
+      ensureLeaflet(() => setTimeout(initLeafletMap, 200));
+    }
+  }, 400);
 }
 
 function cancelGinveImport() {
@@ -2246,8 +2255,27 @@ function saveTrees() {
 function loadTrees() {
   try {
     const saved = localStorage.getItem('arbovta-trees');
-    if (saved) { const parsed = JSON.parse(saved); if (parsed.length) G.trees = parsed; }
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      /* Filtra le piante demo hardcoded (id 2046/2047/2048) se l'utente non le ha create */
+      const demoIds = new Set(['2046','2047','2048']);
+      const real = parsed.filter(t => !demoIds.has(t.id) || t._fromGinve || t._editedByUser);
+      if (real.length) G.trees = real;
+      else if (parsed.length && parsed.every(t => demoIds.has(t.id))) {
+        /* Solo demo in cache — le scartiamo, l'archivio parte vuoto */
+        localStorage.removeItem('arbovta-trees');
+      }
+    }
   } catch(e) {}
+}
+function resetArchivio() {
+  if (!confirm('Cancellare tutto l\'archivio? Questa operazione non è reversibile.')) return;
+  G.trees = [];
+  try { localStorage.removeItem('arbovta-trees'); } catch(e) {}
+  render('lista');
+  go('impostazioni' in G ? 'lista' : 'lista', document.querySelectorAll('.nav-tab')[0]);
+  resetNav();
+  showGinveFeedback('Archivio cancellato. Importa il tuo GeoJSON per ricominciare.', true);
 }
 
 /* Patch saveRilievo per persistenza */
