@@ -1020,6 +1020,7 @@ function renderMisure(){
           box-shadow:0 4px 12px rgba(0,0,0,0.4)">
           ▶ Attiva camera
         </button>
+        <div id="cam-log" style="margin-top:10px;font-size:11px;color:var(--green-400);text-align:center;min-height:16px;font-family:monospace;padding:0 12px"></div>
       </div>
 
       <!-- Video stream -->
@@ -1156,38 +1157,41 @@ function renderMisure(){
 }
 
 function startClinoCamera() {
-  /* Attiva sensore orientamento (Android — nessun permesso richiesto) */
+  const logEl = document.getElementById('cam-log');
+  const setLog = (msg, col) => { if(logEl) { logEl.textContent = msg; logEl.style.color = col||'#6ee87a'; } };
+
+  setLog('Richiesta camera in corso...');
+
   if ('DeviceOrientationEvent' in window &&
       typeof DeviceOrientationEvent.requestPermission !== 'function') {
     startSensor();
-  } else if (typeof DeviceOrientationEvent !== 'undefined' &&
-             typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission()
-      .then(s => { if (s === 'granted') startSensor(); else showSensorBtn(); })
-      .catch(showSensorBtn);
   }
 
-  /* Attiva camera — stesso approccio del tab Specie che funziona */
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showCamPermissionHelp(); return;
+    setLog('ERRORE: getUserMedia non disponibile su questo browser', '#ff6b6b');
+    return;
   }
+
+  setLog('getUserMedia disponibile — chiamata in corso...');
 
   navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
   }).then(stream => {
+    setLog('Stream ottenuto — attivazione video...');
     G.clino._stream = stream;
     const video = document.getElementById('clino-video');
     const placeholder = document.getElementById('cam-placeholder');
-    if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+    if (!video) { setLog('ERRORE: elemento video non trovato', '#ff6b6b'); return; }
     video.srcObject = stream;
     video.style.display = 'block';
-    video.play().catch(() => {});
+    video.play().then(() => setLog('Camera attiva ✓', '#6ee87a')).catch(e => setLog('Play error: '+e.message, '#ff6b6b'));
     if (placeholder) placeholder.style.display = 'none';
   }).catch(err => {
+    setLog('ERRORE: ' + err.name + ' — ' + err.message, '#ff6b6b');
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
       showCamPermissionHelp();
     } else {
-      showCamFallback(err.message);
+      showCamFallback(err.name + ': ' + err.message);
     }
   });
 }
