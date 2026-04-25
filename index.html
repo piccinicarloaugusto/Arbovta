@@ -50,33 +50,80 @@
 html,body{height:100%;overflow:hidden;background:var(--surface)}
 body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 
-/* ── LAYOUT ── */
-.app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;background:var(--surface);position:relative}
-.topbar{background:var(--green-900);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+/* ── LAYOUT — responsive tablet ── */
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%;background:var(--surface);position:relative}
+.topbar{background:var(--green-900);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .logo-wrap{display:flex;align-items:center;gap:9px}
-.logo-icon{width:32px;height:32px;border-radius:8px;background:var(--green-800);border:0.5px solid var(--green-700);display:flex;align-items:center;justify-content:center}
+.logo-icon{width:34px;height:34px;border-radius:8px;background:var(--green-800);border:0.5px solid var(--green-700);display:flex;align-items:center;justify-content:center}
 .logo-icon svg{width:18px;height:18px;fill:var(--green-300)}
-.logo-text .name{font-family:var(--font-serif);font-size:17px;color:#e8f0d8;font-style:italic;letter-spacing:0.01em}
+.logo-text .name{font-family:var(--font-serif);font-size:18px;color:#e8f0d8;font-style:italic;letter-spacing:0.01em}
 .logo-text .ver{font-size:10px;color:var(--green-400);font-family:var(--font-mono);letter-spacing:0.04em}
 .topbar-right{display:flex;gap:7px;align-items:center}
 .badge{font-size:9px;padding:2px 6px;border-radius:10px;font-weight:500;letter-spacing:0.04em}
 .badge-beta{background:rgba(97,185,34,0.15);color:var(--green-300);border:0.5px solid rgba(97,185,34,0.25)}
-.btn-new{font-size:12px;padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--green-600);color:#e8f0d8;cursor:pointer;font-family:var(--font-sans);font-weight:500;letter-spacing:0.01em}
+.btn-new{font-size:13px;padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--green-600);color:#e8f0d8;cursor:pointer;font-family:var(--font-sans);font-weight:500}
 .btn-new:hover{background:var(--green-500)}
 .btn-new:active{transform:scale(0.97)}
 
 /* ── NAV ── */
 .nav{background:var(--green-900);border-top:0.5px solid var(--green-800);padding:0 8px;display:flex;flex-shrink:0}
-.nav-tab{flex:1;padding:8px 2px 9px;font-size:10px;cursor:pointer;border-bottom:2px solid transparent;color:var(--green-400);background:none;border-left:none;border-right:none;border-top:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--font-sans);letter-spacing:0.02em;transition:color 0.15s}
-.nav-tab svg{width:17px;height:17px;fill:currentColor;opacity:0.8}
+.nav-tab{flex:1;padding:9px 4px 10px;font-size:11px;cursor:pointer;border-bottom:2px solid transparent;color:var(--green-400);background:none;border-left:none;border-right:none;border-top:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--font-sans);letter-spacing:0.02em;transition:color 0.15s}
+.nav-tab svg{width:18px;height:18px;fill:currentColor;opacity:0.8}
 .nav-tab.active{color:var(--green-200);border-bottom-color:var(--green-300)}
 .nav-tab.active svg{opacity:1}
 .nav-tab:hover:not(.active){color:var(--green-300)}
 
 /* ── CONTENT ── */
-.content{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.content{flex:1;overflow-y:auto;padding:14px 16px 8px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
 .content::-webkit-scrollbar{width:3px}
 .content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── TABLET (≥ 600px) ── */
+@media (min-width:600px){
+  .content{padding:16px 20px 10px;gap:12px}
+  .fg{grid-template-columns:1fr 1fr 1fr}
+  .fg3{grid-template-columns:repeat(4,1fr)}
+  .mets{grid-template-columns:repeat(4,1fr)}
+  .card{padding:16px}
+  .nav-tab{font-size:12px;padding:10px 8px 11px}
+  .nav-tab svg{width:20px;height:20px}
+  .btn-new{font-size:14px;padding:8px 18px}
+  .logo-text .name{font-size:20px}
+  .tree-item{padding:12px 16px}
+  .tree-name{font-size:14px}
+  .tree-meta{font-size:11px}
+  .cap-btn{padding:16px 16px;font-size:15px}
+  .met-v{font-size:24px}
+  /* Clinometro tablet — viewfinder più alto */
+  .clino-cam-wrap{min-height:480px}
+  .hud-angle{font-size:68px}
+  .hud-unit{font-size:22px}
+  .crosshair-wrap{width:100px;height:100px}
+  .ch-tl,.ch-tr,.ch-bl,.ch-br{width:20px;height:20px}
+  /* Mappa tablet */
+  #leaflet-map{height:400px !important}
+  /* Scheda VTA tablet — 3 colonne */
+  .chips{gap:6px}
+  .chip{font-size:12px;padding:5px 11px}
+  .step-instruction{font-size:13px}
+}
+
+/* ── LANDSCAPE (qualsiasi dispositivo) ── */
+@media (orientation:landscape) and (max-height:500px){
+  .topbar{padding:7px 20px}
+  .logo-text .name{font-size:15px}
+  .logo-text .ver{display:none}
+  .nav-tab{padding:6px 4px 7px;font-size:10px}
+  .nav-tab svg{width:16px;height:16px}
+  .content{padding:10px 16px 6px;gap:8px}
+  .clino-cam-wrap{min-height:calc(100dvh - 140px)}
+}
+
+/* ── TABLET LANDSCAPE ── */
+@media (min-width:600px) and (orientation:landscape){
+  .clino-cam-wrap{min-height:calc(100dvh - 180px)}
+  #leaflet-map{height:calc(100dvh - 300px) !important}
+}
 
 /* ── BOTTOM BAR ── */
 .bottombar{background:var(--surface);border-top:0.5px solid var(--border);padding:10px 14px;display:none;gap:8px;flex-shrink:0}
@@ -449,11 +496,20 @@ function render(v){
   const c=document.getElementById('content');
   const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
   c.innerHTML = (map[v]||renderLista)();
-  if(v==='misure') { setTimeout(()=>startClinoCamera(), 300); }
-  /* Ferma camera clinometro se si lascia il tab */
-  if(v!=='misure' && G.clino._stream) {
+  if(v==='misure') {
+    /* Non avviamo la camera automaticamente — aspettiamo il tap dell'utente
+       perché su Android PWA getUserMedia richiede un gesto esplicito */
+    setTimeout(()=>{
+      /* Avvia solo il sensore di orientamento (non richiede gesto) */
+      if('DeviceOrientationEvent' in window && typeof DeviceOrientationEvent.requestPermission !== 'function'){
+        startSensor();
+      }
+    }, 200);
+  }
+  /* Ferma camera se si lascia il tab Misure */
+  if(v!=='misure' && G.clino._stream){
     G.clino._stream.getTracks().forEach(t=>t.stop());
-    G.clino._stream = null;
+    G.clino._stream=null;
   }
   if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,150));
 }
@@ -954,10 +1010,16 @@ function renderMisure(){
     <div class="clino-cam-wrap" id="clino-cam-wrap">
       <!-- Placeholder prima dell'attivazione camera -->
       <div class="cam-placeholder" id="cam-placeholder">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green-400)" stroke-width="1.5">
-          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
-        </svg>
-        <div style="font-size:12px;color:var(--green-400);margin-top:4px">Attivazione camera...</div>
+        <div style="font-size:48px;margin-bottom:8px">📷</div>
+        <div style="font-size:14px;color:#e8f0d8;font-weight:500;margin-bottom:4px">Tocca per attivare la camera</div>
+        <div style="font-size:11px;color:var(--green-400);margin-bottom:16px">Inquadra la pianta per misurare</div>
+        <button onclick="startClinoCamera()"
+          style="padding:14px 32px;font-size:15px;font-weight:600;
+          background:var(--green-600);color:#e8f0d8;border:none;
+          border-radius:var(--r-md);cursor:pointer;
+          box-shadow:0 4px 12px rgba(0,0,0,0.4)">
+          ▶ Attiva camera
+        </button>
       </div>
 
       <!-- Video stream -->
@@ -1094,49 +1156,79 @@ function renderMisure(){
 }
 
 function startClinoCamera() {
-  /* Tenta attivazione sensore automaticamente (Android non richiede permesso) */
+  /* Attiva sensore orientamento automaticamente su Android */
   if ('DeviceOrientationEvent' in window) {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      /* iOS 13+ — richiede permesso esplicito */
-      DeviceOrientationEvent.requestPermission().then(s => {
-        if (s === 'granted') startSensor();
-        else showSensorBtn();
-      }).catch(showSensorBtn);
+      DeviceOrientationEvent.requestPermission()
+        .then(s => { if (s === 'granted') startSensor(); else showSensorBtn(); })
+        .catch(showSensorBtn);
     } else {
-      /* Android e browser standard — attiva direttamente */
-      startSensor();
+      startSensor(); /* Android — nessun permesso richiesto */
     }
-  } else {
-    showSensorBtn();
   }
 
-  /* Attiva camera */
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showCamFallback(); return;
+    showCamPermissionHelp(); return;
   }
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-  }).then(stream => {
-    G.clino._stream = stream;
-    const video = document.getElementById('clino-video');
-    const placeholder = document.getElementById('cam-placeholder');
-    if (!video) return;
-    video.srcObject = stream;
-    video.style.display = 'block';
-    if (placeholder) placeholder.style.display = 'none';
-  }).catch(() => showCamFallback());
+
+  /* Fallback progressivo camera:
+     1. Camera posteriore con constraints ideali
+     2. Camera posteriore senza constraints
+     3. Qualsiasi camera disponibile
+     4. Istruzioni permesso */
+  const tryCamera = (constraints) =>
+    navigator.mediaDevices.getUserMedia({ video: constraints });
+
+  tryCamera({ facingMode: { exact: 'environment' }, width: { ideal: 1280 } })
+    .catch(() => tryCamera({ facingMode: 'environment' }))
+    .catch(() => tryCamera({ facingMode: { ideal: 'environment' } }))
+    .catch(() => tryCamera(true))
+    .then(stream => {
+      G.clino._stream = stream;
+      const video = document.getElementById('clino-video');
+      const placeholder = document.getElementById('cam-placeholder');
+      if (!video) { stream.getTracks().forEach(t=>t.stop()); return; }
+      video.srcObject = stream;
+      video.style.display = 'block';
+      video.onloadedmetadata = () => video.play().catch(()=>{});
+      if (placeholder) placeholder.style.display = 'none';
+    })
+    .catch(err => {
+      console.warn('Camera error:', err.name, err.message);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        showCamPermissionHelp();
+      } else if (err.name === 'NotFoundError') {
+        showCamFallback('Nessuna camera trovata sul dispositivo.');
+      } else {
+        showCamFallback('Camera non disponibile: ' + err.message);
+      }
+    });
+}
+
+function showCamPermissionHelp() {
+  const ph = document.getElementById('cam-placeholder');
+  if (!ph) return;
+  ph.innerHTML = `
+    <div style="font-size:12px;color:var(--green-300);text-align:center;padding:16px;line-height:1.7;max-width:280px">
+      <div style="font-size:24px;margin-bottom:8px">📷</div>
+      <strong style="color:#e8f0d8">Permesso camera necessario</strong><br>
+      <span style="color:var(--green-400)">Vai in <b>Impostazioni Android → App → ArboVTA → Autorizzazioni → Fotocamera → Consenti</b></span><br>
+      <button class="btn-sm green" onclick="startClinoCamera()" style="margin-top:12px;padding:8px 16px;font-size:12px">
+        Riprova
+      </button>
+    </div>`;
+}
+
+function showCamFallback(msg) {
+  const ph = document.getElementById('cam-placeholder');
+  if (ph) ph.innerHTML = `<div style="font-size:11px;color:var(--green-400);padding:20px;text-align:center;line-height:1.6">
+    ${msg||'Camera non disponibile.'}<br>Il clinometro funziona ugualmente con il sensore di inclinazione.
+  </div>`;
 }
 
 function showSensorBtn() {
   const bar = document.getElementById('sensor-bar');
   if (bar) bar.style.display = 'flex';
-}
-
-function showCamFallback() {
-  const ph = document.getElementById('cam-placeholder');
-  if (ph) ph.innerHTML = `<div style="font-size:11px;color:var(--green-400);padding:20px;text-align:center;line-height:1.6">
-    Camera non disponibile.<br>Il clinometro funziona ugualmente con il sensore di inclinazione.
-  </div>`;
 }
 
 function resetClino() {
