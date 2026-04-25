@@ -543,14 +543,24 @@ function renderLista(){
   </div>
   <div id="tree-list">
     ${G.trees.map(t=>`
-    <div class="tree-item" onclick="openTree('${t.id}')">
-      <div class="tree-code">#${t.id}</div>
-      <div class="tree-info">
-        <div class="tree-name">${t.specie}</div>
-        <div class="tree-loc">${t.sito}</div>
-        <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+    <div class="tree-item" style="position:relative">
+      <div style="flex:1;display:flex;align-items:center;gap:9px;min-width:0" onclick="openTree('${t.id}')">
+        <div class="tree-code">#${t.id}</div>
+        <div class="tree-info">
+          <div class="tree-name">${t.specie}</div>
+          <div class="tree-loc">${t.sito}</div>
+          <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+        </div>
+        <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
       </div>
-      <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
+      <button onclick="deleteTree('${t.id}')"
+        style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;
+        border:0.5px solid var(--border);background:#fff;color:var(--text-muted);
+        font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+        transition:all 0.15s"
+        onmouseenter="this.style.background='var(--red-light)';this.style.color='var(--red)';this.style.borderColor='var(--red)'"
+        onmouseleave="this.style.background='#fff';this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'"
+        title="Elimina rilievo">✕</button>
     </div>`).join('')}
   </div>`;
 }
@@ -559,15 +569,31 @@ function filterTrees(q){
   if(!list) return;
   const flt=q?G.trees.filter(t=>t.specie.toLowerCase().includes(q.toLowerCase())||t.id.includes(q)):G.trees;
   list.innerHTML=flt.map(t=>`
-  <div class="tree-item" onclick="openTree('${t.id}')">
-    <div class="tree-code">#${t.id}</div>
-    <div class="tree-info">
-      <div class="tree-name">${t.specie}</div>
-      <div class="tree-loc">${t.sito}</div>
-      <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+  <div class="tree-item" style="position:relative">
+    <div style="flex:1;display:flex;align-items:center;gap:9px;min-width:0" onclick="openTree('${t.id}')">
+      <div class="tree-code">#${t.id}</div>
+      <div class="tree-info">
+        <div class="tree-name">${t.specie}</div>
+        <div class="tree-loc">${t.sito}</div>
+        <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+      </div>
+      <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
     </div>
-    <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
+    <button onclick="deleteTree('${t.id}')"
+      style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;
+      border:0.5px solid var(--border);background:#fff;color:var(--text-muted);
+      font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center"
+      title="Elimina rilievo">✕</button>
   </div>`).join('');
+}
+
+function deleteTree(id){
+  const t = G.trees.find(x => x.id === id);
+  if(!t) return;
+  if(!confirm(`Eliminare il rilievo #${t.id} — ${t.specie}?\nQuesta operazione non è reversibile.`)) return;
+  G.trees = G.trees.filter(x => x.id !== id);
+  saveTrees();
+  render('lista');
 }
 function openTree(id){
   const t = G.trees.find(x => x.id === id);
