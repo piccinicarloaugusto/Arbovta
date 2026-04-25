@@ -1014,17 +1014,11 @@ function renderMisure(){
       <!-- Placeholder prima dell'attivazione camera -->
       <div class="cam-placeholder" id="cam-placeholder"
         style="justify-content:center;padding:24px;user-select:none;-webkit-user-select:none">
-        <button onclick="startClinoCamera()"
-          style="padding:20px 48px;font-size:18px;font-weight:700;
-          background:var(--green-500);color:#fff;border:none;
-          border-radius:var(--r-lg);cursor:pointer;
-          box-shadow:0 4px 16px rgba(0,0,0,0.5);
-          user-select:none;-webkit-user-select:none;
-          -webkit-tap-highlight-color:transparent;
-          touch-action:manipulation">
-          📷 Attiva camera
+        <button class="btn-secondary" onclick="startClinoCamera()"
+          style="font-size:14px;padding:10px 24px;margin:0">
+          Fotocamera
         </button>
-        <div id="cam-log" style="margin-top:10px;font-size:11px;color:var(--green-400);text-align:center;font-family:monospace;padding:0 12px;user-select:none"></div>
+        <div id="cam-log" style="margin-top:10px;font-size:11px;color:var(--green-400);text-align:center;font-family:monospace"></div>
       </div>
 
       <!-- Video stream -->
@@ -1160,44 +1154,23 @@ function renderMisure(){
   </div>`;
 }
 
-function startClinoCamera() {
-  const logEl = document.getElementById('cam-log');
-  const setLog = (msg, col) => { if(logEl) { logEl.textContent = msg; logEl.style.color = col||'#6ee87a'; } };
-
-  setLog('Richiesta camera in corso...');
-
-  if ('DeviceOrientationEvent' in window &&
-      typeof DeviceOrientationEvent.requestPermission !== 'function') {
+async function startClinoCamera(){
+  /* Attiva sensore orientamento */
+  if('DeviceOrientationEvent' in window && typeof DeviceOrientationEvent.requestPermission !== 'function'){
     startSensor();
   }
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setLog('ERRORE: getUserMedia non disponibile su questo browser', '#ff6b6b');
-    return;
-  }
-
-  setLog('getUserMedia disponibile — chiamata in corso...');
-
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-  }).then(stream => {
-    setLog('Stream ottenuto — attivazione video...');
+  /* Stessa logica identica a startCamera() del tab Specie che funziona */
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
     G.clino._stream = stream;
     const video = document.getElementById('clino-video');
     const placeholder = document.getElementById('cam-placeholder');
-    if (!video) { setLog('ERRORE: elemento video non trovato', '#ff6b6b'); return; }
     video.srcObject = stream;
     video.style.display = 'block';
-    video.play().then(() => setLog('Camera attiva ✓', '#6ee87a')).catch(e => setLog('Play error: '+e.message, '#ff6b6b'));
-    if (placeholder) placeholder.style.display = 'none';
-  }).catch(err => {
-    setLog('ERRORE: ' + err.name + ' — ' + err.message, '#ff6b6b');
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      showCamPermissionHelp();
-    } else {
-      showCamFallback(err.name + ': ' + err.message);
-    }
-  });
+    if(placeholder) placeholder.style.display = 'none';
+  } catch(e) {
+    alert('Fotocamera non disponibile: ' + e.message);
+  }
 }
 
 function showCamPermissionHelp() {
