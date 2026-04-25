@@ -173,25 +173,35 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .cpc-cell .cl{font-size:9px;margin-top:1px;font-weight:600;letter-spacing:0.04em}
 
 /* ── CLINOMETRO CAMERA ── */
-.clino-cam-card{background:var(--green-900);border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);margin-bottom:10px}
-.clino-cam-wrap{position:relative;width:100%;background:#000;min-height:220px;display:flex;align-items:center;justify-content:center}
-.clino-cam-wrap video{width:100%;height:100%;object-fit:cover;display:block}
-.cam-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:6px}
-.clino-overlay{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
-.crosshair-wrap{position:relative;width:64px;height:64px}
-.ch-h{position:absolute;top:50%;left:0;right:0;height:1.5px;background:rgba(110,232,122,0.9);transform:translateY(-50%)}
-.ch-v{position:absolute;left:50%;top:0;bottom:0;width:1.5px;background:rgba(110,232,122,0.9);transform:translateX(-50%)}
-.ch-dot{position:absolute;top:50%;left:50%;width:7px;height:7px;border:1.5px solid rgba(110,232,122,0.9);border-radius:50%;transform:translate(-50%,-50%)}
-.clino-hud{position:absolute;top:10px;left:12px;pointer-events:none}
+.clino-cam-card{border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);margin-bottom:10px;background:#000}
+.clino-cam-wrap{position:relative;width:100%;background:#0d1a0d;min-height:360px;display:flex;align-items:center;justify-content:center}
+.clino-cam-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.cam-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:6px;z-index:1}
+/* Mirino — sempre visibile sopra video */
+.clino-overlay{position:absolute;inset:0;pointer-events:none;z-index:10;display:flex;align-items:center;justify-content:center}
+.crosshair-wrap{position:relative;width:80px;height:80px}
+.ch-h{position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(110,232,122,0.95);transform:translateY(-50%);box-shadow:0 0 4px rgba(110,232,122,0.5)}
+.ch-v{position:absolute;left:50%;top:0;bottom:0;width:2px;background:rgba(110,232,122,0.95);transform:translateX(-50%);box-shadow:0 0 4px rgba(110,232,122,0.5)}
+.ch-dot{position:absolute;top:50%;left:50%;width:8px;height:8px;border:2px solid rgba(110,232,122,0.95);border-radius:50%;transform:translate(-50%,-50%)}
+/* Angoli decorativi ai bordi del mirino */
+.ch-tl,.ch-tr,.ch-bl,.ch-br{position:absolute;width:14px;height:14px;border-color:rgba(110,232,122,0.7);border-style:solid}
+.ch-tl{top:0;left:0;border-width:2px 0 0 2px}
+.ch-tr{top:0;right:0;border-width:2px 2px 0 0}
+.ch-bl{bottom:0;left:0;border-width:0 0 2px 2px}
+.ch-br{bottom:0;right:0;border-width:0 2px 2px 0}
+/* HUD */
+.clino-hud{position:absolute;top:10px;left:12px;pointer-events:none;z-index:11}
 .hud-angle-wrap{line-height:1}
-.hud-angle{font-size:44px;font-weight:500;font-family:var(--font-mono);color:#6ee87a;text-shadow:0 1px 6px rgba(0,0,0,0.8)}
-.hud-unit{font-size:16px;color:#6ee87a}
-.clino-badge{font-size:9px;padding:2px 6px;border-radius:7px;display:inline-flex;align-items:center;gap:3px;backdrop-filter:blur(4px)}
-.hud-tilt-bar{position:absolute;bottom:8px;left:12px;right:12px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden}
-.hud-tilt-fill{height:100%;background:#6ee87a;border-radius:2px;transition:width 0.08s,margin-left 0.08s}
+.hud-angle{font-size:52px;font-weight:500;font-family:var(--font-mono);color:#6ee87a;text-shadow:0 2px 8px rgba(0,0,0,0.9)}
+.hud-unit{font-size:18px;color:#6ee87a;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
+.clino-badge{font-size:10px;padding:3px 8px;border-radius:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);margin-top:5px}
+.hud-tilt-bar{position:absolute;bottom:0;left:0;right:0;height:5px;background:rgba(255,255,255,0.12);z-index:11}
+.hud-tilt-fill{height:100%;background:#6ee87a;transition:width 0.08s,margin-left 0.08s}
+/* Pulsante sensori in basso al viewfinder */
+.sensor-bar{padding:8px 12px;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:space-between;gap:8px;position:absolute;bottom:5px;right:8px;z-index:12;border-radius:var(--r-sm)}
 /* Pulsanti cattura */
 .step-instruction{font-size:12px;color:var(--text-muted);background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px;border-left:3px solid var(--green-400);margin-bottom:9px;line-height:1.5}
-.cap-btn{width:100%;padding:14px 12px;font-size:14px;font-weight:500;border:none;border-radius:var(--r-md);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all 0.15s;margin-bottom:8px;font-family:var(--font-sans)}
+.cap-btn{width:100%;padding:15px 14px;font-size:14px;font-weight:500;border:none;border-radius:var(--r-md);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all 0.15s;margin-bottom:8px;font-family:var(--font-sans)}
 .cap-btn:last-child{margin-bottom:0}
 .cap-btn:active{transform:scale(0.97)}
 .cap-ready{background:var(--green-600);color:#e8f0d8}
@@ -941,51 +951,54 @@ function renderMisure(){
 
   return `
   <div class="clino-cam-card">
-    <!-- viewfinder camera + mirino + HUD angolo -->
     <div class="clino-cam-wrap" id="clino-cam-wrap">
+      <!-- Placeholder prima dell'attivazione camera -->
       <div class="cam-placeholder" id="cam-placeholder">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green-400)" stroke-width="1.5">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green-400)" stroke-width="1.5">
           <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
         </svg>
-        <div style="font-size:12px;color:var(--green-400);margin-top:4px">Tocca per attivare la camera</div>
-        <button class="btn-sm green" onclick="startClinoCamera()" style="margin-top:8px">Attiva camera</button>
+        <div style="font-size:12px;color:var(--green-400);margin-top:4px">Attivazione camera...</div>
       </div>
+
+      <!-- Video stream -->
       <video id="clino-video" autoplay playsinline muted style="display:none"></video>
 
-      <!-- Overlay mirino -->
-      <div class="clino-overlay" id="clino-overlay" style="display:none">
+      <!-- Mirino — SEMPRE visibile sopra tutto -->
+      <div class="clino-overlay">
         <div class="crosshair-wrap">
           <div class="ch-h"></div>
           <div class="ch-v"></div>
           <div class="ch-dot"></div>
+          <div class="ch-tl"></div>
+          <div class="ch-tr"></div>
+          <div class="ch-bl"></div>
+          <div class="ch-br"></div>
         </div>
       </div>
 
-      <!-- HUD angolo in alto a sinistra -->
-      <div class="clino-hud" id="clino-hud" style="display:none">
+      <!-- HUD angolo — sempre visibile -->
+      <div class="clino-hud">
         <div class="hud-angle-wrap">
           <span class="hud-angle" id="cl-angle">+0.0</span><span class="hud-unit">°</span>
         </div>
-        <div style="margin-top:4px">
-          <div class="clino-badge ${cl.sensorActive ? 's-on' : 's-off'}" id="sbadge">
-            <div class="sdot" style="background:${cl.sensorActive ? '#6ee87a' : 'rgba(255,255,255,0.3)'}"></div>
-            <span>${cl.sensorActive ? 'Sensore attivo' : 'Sensore inattivo'}</span>
-          </div>
+        <div class="clino-badge" id="sbadge">
+          <div class="sdot" style="background:rgba(255,255,255,0.3)" id="sensor-dot"></div>
+          <span id="sensor-lbl">Attivazione sensore...</span>
         </div>
       </div>
 
-      <!-- Barra inclinazione in basso -->
-      <div class="hud-tilt-bar" id="clino-tilt-bar" style="display:none">
+      <!-- Pulsante sensori — angolo in basso a destra, compatto -->
+      <div class="sensor-bar" id="sensor-bar" style="display:none">
+        <button onclick="requestSensor()"
+          style="font-size:10px;padding:4px 9px;border-radius:5px;border:0.5px solid rgba(110,232,122,0.4);background:rgba(0,0,0,0.5);color:#6ee87a;cursor:pointer">
+          Attiva sensori
+        </button>
+      </div>
+
+      <!-- Barra inclinazione — bottom dell'area camera -->
+      <div class="hud-tilt-bar">
         <div class="hud-tilt-fill" id="cl-tilt"></div>
       </div>
-    </div>
-
-    <!-- Pulsante attiva sensori (solo se camera attiva) -->
-    <div id="sensor-row" style="display:none;padding:8px 12px;background:var(--green-900);border-bottom:0.5px solid var(--green-800)">
-      <button class="btn-sm" onclick="requestSensor()"
-        style="background:var(--green-800);border-color:var(--green-700);color:var(--green-200);font-size:10px">
-        Attiva sensori orientamento
-      </button>
     </div>
   </div>
 
@@ -1080,8 +1093,24 @@ function renderMisure(){
   </div>`;
 }
 
-/* ── Camera clinometro ── */
 function startClinoCamera() {
+  /* Tenta attivazione sensore automaticamente (Android non richiede permesso) */
+  if ('DeviceOrientationEvent' in window) {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      /* iOS 13+ — richiede permesso esplicito */
+      DeviceOrientationEvent.requestPermission().then(s => {
+        if (s === 'granted') startSensor();
+        else showSensorBtn();
+      }).catch(showSensorBtn);
+    } else {
+      /* Android e browser standard — attiva direttamente */
+      startSensor();
+    }
+  } else {
+    showSensorBtn();
+  }
+
+  /* Attiva camera */
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     showCamFallback(); return;
   }
@@ -1091,34 +1120,23 @@ function startClinoCamera() {
     G.clino._stream = stream;
     const video = document.getElementById('clino-video');
     const placeholder = document.getElementById('cam-placeholder');
-    const overlay = document.getElementById('clino-overlay');
-    const hud = document.getElementById('clino-hud');
-    const tiltBar = document.getElementById('clino-tilt-bar');
-    const sensorRow = document.getElementById('sensor-row');
     if (!video) return;
     video.srcObject = stream;
     video.style.display = 'block';
     if (placeholder) placeholder.style.display = 'none';
-    if (overlay) overlay.style.display = 'flex';
-    if (hud) hud.style.display = 'block';
-    if (tiltBar) tiltBar.style.display = 'block';
-    if (sensorRow) sensorRow.style.display = 'flex';
   }).catch(() => showCamFallback());
+}
+
+function showSensorBtn() {
+  const bar = document.getElementById('sensor-bar');
+  if (bar) bar.style.display = 'flex';
 }
 
 function showCamFallback() {
   const ph = document.getElementById('cam-placeholder');
-  if (ph) ph.innerHTML = `
-    <div style="font-size:11px;color:var(--green-400);padding:16px;text-align:center;line-height:1.5">
-      Camera non disponibile — il clinometro funziona ugualmente.<br>
-      Attiva i sensori e usa l'indicatore di angolo.
-    </div>`;
-  const hud = document.getElementById('clino-hud');
-  const tiltBar = document.getElementById('clino-tilt-bar');
-  const sensorRow = document.getElementById('sensor-row');
-  if (hud) hud.style.display = 'block';
-  if (tiltBar) tiltBar.style.display = 'block';
-  if (sensorRow) sensorRow.style.display = 'flex';
+  if (ph) ph.innerHTML = `<div style="font-size:11px;color:var(--green-400);padding:20px;text-align:center;line-height:1.6">
+    Camera non disponibile.<br>Il clinometro funziona ugualmente con il sensore di inclinazione.
+  </div>`;
 }
 
 function resetClino() {
@@ -1132,30 +1150,33 @@ function resetClino() {
   setTimeout(() => startClinoCamera(), 200);
 }
 
+function requestSensor() {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(s => { if (s === 'granted') startSensor(); else alert('Permesso negato.'); })
+      .catch(() => {});
+  } else if ('DeviceOrientationEvent' in window) {
+    startSensor();
+  }
+}
+
+function startSensor() {
+  G.clino.sensorActive = true;
+  window.addEventListener('deviceorientation', onOrientation, true);
+  const dot = document.getElementById('sensor-dot');
+  const lbl = document.getElementById('sensor-lbl');
+  const bar = document.getElementById('sensor-bar');
+  if (dot) dot.style.background = '#6ee87a';
+  if (lbl) lbl.textContent = 'Sensore attivo';
+  if (bar) bar.style.display = 'none';
+}
+
 function setCParam(p,btn){
   G.clino.param=p;
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   ['height','crown','dbh'].forEach(pp=>{const el=document.getElementById('cpanel-'+pp);if(el)el.style.display=pp===p?'':'none';});
-}
-function requestSensor(){
-  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(s=>{if(s==='granted')startSensor();else alert('Permesso negato — usa il simulatore.');}).catch(()=>{});
-  } else if('DeviceOrientationEvent' in window){ startSensor(); }
-  else { alert('Sensore non disponibile — usa il simulatore.'); }
-}
-function startSensor(){
-  G.clino.sensorActive=true;
-  window.addEventListener('deviceorientation',onOrientation,true);
-  const sb=document.getElementById('sbadge');
-  if(sb){sb.className='sbadge s-on';sb.innerHTML='<div class="sdot" style="background:#6ee87a"></div><span>Sensore attivo</span>';}
-  const cm=document.getElementById('cl-mode'); if(cm) cm.textContent='reale';
-}
-function onOrientation(e){
-  let b=e.beta||0, angle=b-90;
-  if(angle>90) angle=180-angle; if(angle<-90) angle=-180-angle;
-  G.clino.angle=parseFloat(angle.toFixed(1));
-  updateClinoDisplay();
 }
 function updateClinoDisplay(){
   const a=G.clino.angle;
