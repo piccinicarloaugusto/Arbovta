@@ -9,6 +9,9 @@
 <meta name="theme-color" content="#1a2e1a">
 <meta name="description" content="App professionale per rilievi VTA: riconoscimento specie AI, clinometro digitale, scheda fitosanitaria completa e georeferenziazione.">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- Sopprime banner Google/Chrome sul sito -->
+<meta name="google" content="notranslate">
+<meta http-equiv="origin-trial" content="">
 
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
@@ -220,8 +223,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .cpc-cell .cl{font-size:9px;margin-top:1px;font-weight:600;letter-spacing:0.04em}
 
 /* ── CLINOMETRO CAMERA ── */
-.clino-cam-card{border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);margin-bottom:10px;background:#000}
-.clino-cam-wrap{position:relative;width:100%;background:#0d1a0d;min-height:360px;display:flex;align-items:center;justify-content:center}
+.clino-cam-card{border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);margin-bottom:10px;background:#000;user-select:none;-webkit-user-select:none}
+.clino-cam-wrap{position:relative;width:100%;background:#0d1a0d;min-height:360px;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none}
 .clino-cam-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .cam-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:6px;z-index:1}
 /* Mirino — sempre visibile sopra video */
@@ -1009,18 +1012,19 @@ function renderMisure(){
   <div class="clino-cam-card">
     <div class="clino-cam-wrap" id="clino-cam-wrap">
       <!-- Placeholder prima dell'attivazione camera -->
-      <div class="cam-placeholder" id="cam-placeholder">
-        <div style="font-size:48px;margin-bottom:8px">📷</div>
-        <div style="font-size:14px;color:#e8f0d8;font-weight:500;margin-bottom:4px">Tocca per attivare la camera</div>
-        <div style="font-size:11px;color:var(--green-400);margin-bottom:16px">Inquadra la pianta per misurare</div>
+      <div class="cam-placeholder" id="cam-placeholder"
+        style="justify-content:center;padding:24px;user-select:none;-webkit-user-select:none">
         <button onclick="startClinoCamera()"
-          style="padding:14px 32px;font-size:15px;font-weight:600;
-          background:var(--green-600);color:#e8f0d8;border:none;
-          border-radius:var(--r-md);cursor:pointer;
-          box-shadow:0 4px 12px rgba(0,0,0,0.4)">
-          ▶ Attiva camera
+          style="padding:20px 48px;font-size:18px;font-weight:700;
+          background:var(--green-500);color:#fff;border:none;
+          border-radius:var(--r-lg);cursor:pointer;
+          box-shadow:0 4px 16px rgba(0,0,0,0.5);
+          user-select:none;-webkit-user-select:none;
+          -webkit-tap-highlight-color:transparent;
+          touch-action:manipulation">
+          📷 Attiva camera
         </button>
-        <div id="cam-log" style="margin-top:10px;font-size:11px;color:var(--green-400);text-align:center;min-height:16px;font-family:monospace;padding:0 12px"></div>
+        <div id="cam-log" style="margin-top:10px;font-size:11px;color:var(--green-400);text-align:center;font-family:monospace;padding:0 12px;user-select:none"></div>
       </div>
 
       <!-- Video stream -->
