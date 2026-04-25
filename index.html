@@ -1156,53 +1156,40 @@ function renderMisure(){
 }
 
 function startClinoCamera() {
-  /* Attiva sensore orientamento automaticamente su Android */
-  if ('DeviceOrientationEvent' in window) {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(s => { if (s === 'granted') startSensor(); else showSensorBtn(); })
-        .catch(showSensorBtn);
-    } else {
-      startSensor(); /* Android — nessun permesso richiesto */
-    }
+  /* Attiva sensore orientamento (Android — nessun permesso richiesto) */
+  if ('DeviceOrientationEvent' in window &&
+      typeof DeviceOrientationEvent.requestPermission !== 'function') {
+    startSensor();
+  } else if (typeof DeviceOrientationEvent !== 'undefined' &&
+             typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(s => { if (s === 'granted') startSensor(); else showSensorBtn(); })
+      .catch(showSensorBtn);
   }
 
+  /* Attiva camera — stesso approccio del tab Specie che funziona */
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     showCamPermissionHelp(); return;
   }
 
-  /* Fallback progressivo camera:
-     1. Camera posteriore con constraints ideali
-     2. Camera posteriore senza constraints
-     3. Qualsiasi camera disponibile
-     4. Istruzioni permesso */
-  const tryCamera = (constraints) =>
-    navigator.mediaDevices.getUserMedia({ video: constraints });
-
-  tryCamera({ facingMode: { exact: 'environment' }, width: { ideal: 1280 } })
-    .catch(() => tryCamera({ facingMode: 'environment' }))
-    .catch(() => tryCamera({ facingMode: { ideal: 'environment' } }))
-    .catch(() => tryCamera(true))
-    .then(stream => {
-      G.clino._stream = stream;
-      const video = document.getElementById('clino-video');
-      const placeholder = document.getElementById('cam-placeholder');
-      if (!video) { stream.getTracks().forEach(t=>t.stop()); return; }
-      video.srcObject = stream;
-      video.style.display = 'block';
-      video.onloadedmetadata = () => video.play().catch(()=>{});
-      if (placeholder) placeholder.style.display = 'none';
-    })
-    .catch(err => {
-      console.warn('Camera error:', err.name, err.message);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        showCamPermissionHelp();
-      } else if (err.name === 'NotFoundError') {
-        showCamFallback('Nessuna camera trovata sul dispositivo.');
-      } else {
-        showCamFallback('Camera non disponibile: ' + err.message);
-      }
-    });
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+  }).then(stream => {
+    G.clino._stream = stream;
+    const video = document.getElementById('clino-video');
+    const placeholder = document.getElementById('cam-placeholder');
+    if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+    video.srcObject = stream;
+    video.style.display = 'block';
+    video.play().catch(() => {});
+    if (placeholder) placeholder.style.display = 'none';
+  }).catch(err => {
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      showCamPermissionHelp();
+    } else {
+      showCamFallback(err.message);
+    }
+  });
 }
 
 function showCamPermissionHelp() {
