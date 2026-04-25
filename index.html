@@ -500,15 +500,13 @@ function render(v){
   const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
   c.innerHTML = (map[v]||renderLista)();
   if(v==='misure') {
-    /* Non avviamo la camera automaticamente — aspettiamo il tap dell'utente
-       perché su Android PWA getUserMedia richiede un gesto esplicito */
     setTimeout(()=>{
-      /* Avvia solo il sensore di orientamento (non richiede gesto) */
       if('DeviceOrientationEvent' in window && typeof DeviceOrientationEvent.requestPermission !== 'function'){
         startSensor();
       }
     }, 200);
   }
+  if(v==='scheda') setTimeout(()=>restoreVTAui(), 80);
   /* Ferma camera se si lascia il tab Misure */
   if(v!=='misure' && G.clino._stream){
     G.clino._stream.getTracks().forEach(t=>t.stop());
@@ -598,99 +596,175 @@ function deleteTree(id){
 function openTree(id){
   const t = G.trees.find(x => x.id === id);
   if(!t) return;
-
-  /* Carica tutti i dati della pianta nel form */
   G.form = {
-    codice:         t.id,
-    specie:         t.specie || '',
-    ubicazione:     t.sito || '',
-    sito:           t.sito || '',
-    disposizione:   t.disposizione || '',
-    stazione:       t.stazione || '',
-    suolo:          t.suolo || '',
-    pavimentazione: t.pavimentazione || '',
-    sitoCon:        t.sitoCon || '',
-    posizSoc:       t.posizSoc || '',
-    conflitti:      t.conflitti || '',
-    fattoreContatto:t.fattoreContatto || '',
-    h:              t.h || null,
-    dbh:            t.dbh || null,
-    cw:             t.cw || null,
-    cd:             t.cd || null,
-    isPino:         (t.specie||'').toLowerCase().includes('pinus'),
-    giudVeg:        t.giudVeg || '',
-    pericolosita:   t.pericolosita || '',
-    cpc:            t.cpc || 'A',
-    prescrizioni:   t.prescrizioni || '',
-    lat:            t.lat ? String(t.lat) : '',
-    lng:            t.lng ? String(t.lng) : '',
-    data:           t.data || '',
-    _editingId:     t.id   /* traccia quale pianta stiamo modificando */
+    codice:t.id, specie:t.specie||'', ubicazione:t.sito||'', sito:t.sito||'',
+    disposizione:t.disposizione||'', stazione:t.stazione||'', suolo:t.suolo||'',
+    pavimentazione:t.pavimentazione||'', sitoCon:t.sitoCon||'', posizSoc:t.posizSoc||'',
+    conflitti:t.conflitti||'', fattoreContatto:t.fattoreContatto||'',
+    h:t.h||null, dbh:t.dbh||null, cw:t.cw||null, cd:t.cd||null, hPalco:t.hPalco||null,
+    isPino:(t.specie||'').toLowerCase().includes('pinus'),
+    giudVeg:t.giudVeg||'', giudFisio:t.giudFisio||'', giudBiomec:t.giudBiomec||'',
+    pericolosita:t.pericolosita||'', fattoreDanno:t.fattoreDanno||'',
+    cpc:t.cpc||'A', prescrizioni:t.prescrizioni||'',
+    lat:t.lat?String(t.lat):'', lng:t.lng?String(t.lng):'', data:t.data||'',
+    _editingId:t.id,
+    vta: t.vta ? JSON.parse(JSON.stringify(t.vta)) : {}
   };
-
-  /* Porta le misure del clinometro in sincronia se presenti */
-  if(t.h || t.dbh) {
-    G.clino.meas.h   = t.h   || null;
-    G.clino.meas.dbh = t.dbh || null;
-    G.clino.meas.cw  = t.cw  || null;
-    G.clino.meas.cd  = t.cd  || null;
+  if(t.h||t.dbh){
+    G.clino.meas.h=t.h||null; G.clino.meas.dbh=t.dbh||null;
+    G.clino.meas.cw=t.cw||null; G.clino.meas.cd=t.cd||null;
   }
-
   go('scheda', navTab(3));
 }
 
+/* ── Salva campo VTA con autosave ── */
+function saveVTA(key, value) {
+  if(!G.form.vta) G.form.vta={};
+  G.form.vta[key]=value;
+  if(G.form._editingId){
+    const idx=G.trees.findIndex(x=>x.id===G.form._editingId);
+    if(idx>=0){ G.trees[idx].vta={...G.trees[idx].vta,...G.form.vta}; saveTrees(); }
+  }
+}
+function getVTA(key,fb){ return (G.form.vta&&G.form.vta[key]!==undefined)?G.form.vta[key]:(fb||null); }
+
+/* ── Toggle chip con autosave ── */
+function tms(btn,g,multi){
+  if(!multi) document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.remove('on'));
+  btn.classList.toggle('on');
+  const selected=[...document.querySelectorAll(`.chip[data-g="${g}"].on`)].map(b=>b.textContent);
+  saveVTA('chip_'+g, selected);
+}
+
+/* ── Gravità con autosave ── */
+function setSev(btn,lv){
+  const p=btn.closest('.sev');
+  p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
+  btn.classList.add('on');
+  const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||'';
+  saveVTA('sev_'+sec, lv);
+}
+
+/* ── Giudizio con autosave ── */
+function setGjd(btn){
+  btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const lbl=btn.closest('.field')?.querySelector('label')?.textContent||'';
+  saveVTA('gjd_'+lbl, btn.textContent);
+}
+
+/* ── Pericolosità con autosave ── */
+function setPer(btn){
+  btn.closest('.peric').querySelectorAll('.per').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||'';
+  saveVTA('per_'+sec, btn.textContent);
+}
+
+/* ── Salva textarea con autosave ── */
+function saveTextarea(key,value){
+  G.form[key]=value;
+  saveVTA(key,value);
+  if(G.form._editingId){
+    const idx=G.trees.findIndex(x=>x.id===G.form._editingId);
+    if(idx>=0){G.trees[idx][key]=value; saveTrees();}
+  }
+}
+
+/* ── Ripristina UI dopo apertura rilievo ── */
+function restoreVTAui(){
+  if(!G.form.vta) return;
+  const vta=G.form.vta;
+  /* Chip */
+  Object.keys(vta).filter(k=>k.startsWith('chip_')).forEach(k=>{
+    const g=k.slice(5), selected=vta[k]||[];
+    document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>{
+      b.classList.toggle('on', selected.includes(b.textContent));
+    });
+  });
+  /* Gravità */
+  Object.keys(vta).filter(k=>k.startsWith('sev_')).forEach(k=>{
+    const sec=k.slice(4), lv=vta[k];
+    const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
+    if(card){
+      const btn=card.querySelector(`.sev-b.sev-${lv==='lieve'?'l':lv==='moderato'?'m':'e'}`);
+      if(btn){card.querySelectorAll('.sev-b').forEach(b=>b.classList.remove('sev-l','sev-m','sev-e','on'));btn.classList.add('on');}
+    }
+  });
+  /* Giudizi */
+  Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
+    const lbl=k.slice(4), val=vta[k];
+    document.querySelectorAll('.field').forEach(f=>{
+      if(f.querySelector('label')?.textContent===lbl){
+        f.querySelectorAll('.gj').forEach(b=>{b.classList.toggle('on',b.textContent===val);});
+      }
+    });
+  });
+  /* Pericolosità */
+  Object.keys(vta).filter(k=>k.startsWith('per_')).forEach(k=>{
+    const sec=k.slice(4), val=vta[k];
+    const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
+    if(card){card.querySelectorAll('.per').forEach(b=>{b.classList.toggle('on',b.textContent===val);});}
+  });
+  /* Textarea */
+  ['prescrizioni','giudFisio','giudBiomec'].forEach(key=>{
+    const val=vta[key]||G.form[key]||'';
+    if(!val) return;
+    document.querySelectorAll('textarea').forEach(ta=>{
+      if(ta.getAttribute('oninput')?.includes(key)||ta.getAttribute('onchange')?.includes(key)){
+        ta.value=val;
+      }
+    });
+  });
+  /* Select */
+  ['giudVeg','pericolosita','fattoreDanno','sito','disposizione','stazione','suolo','pavimentazione','sitoCon','posizSoc','conflitti','fattoreContatto'].forEach(key=>{
+    const val=G.form[key];
+    if(!val) return;
+    const el=document.querySelector(`[onchange*="${key}"]`);
+    if(el) el.value=val;
+  });
+  if(G.form.pericolosita) updateRisk();
+}
+
 function saveRilievo(){
-  if(!G.form.codice || !G.form.specie){ alert('Inserire almeno Codice rilievo e Specie.'); return; }
-
-  const data = {
-    id:             G.form.codice,
-    specie:         G.form.specie,
-    sito:           G.form.ubicazione || G.form.sito || '—',
-    data:           G.form.data || new Date().toISOString().split('T')[0],
-    cpc:            G.form.cpc || 'A',
-    rischio:        G.form.pericolosita || 'Trascurabile',
-    lat:            parseFloat(G.form.lat) || 0,
-    lng:            parseFloat(G.form.lng) || 0,
-    h:              G.form.h   || 0,
-    dbh:            G.form.dbh || 0,
-    cw:             G.form.cw  || 0,
-    cd:             G.form.cd  || 0,
-    disposizione:   G.form.disposizione || '',
-    stazione:       G.form.stazione || '',
-    pavimentazione: G.form.pavimentazione || '',
-    giudVeg:        G.form.giudVeg || '',
-    pericolosita:   G.form.pericolosita || '',
-    prescrizioni:   G.form.prescrizioni || '',
+  if(!G.form.codice||!G.form.specie){alert('Inserire almeno Codice rilievo e Specie.');return;}
+  const data={
+    id:G.form.codice, specie:G.form.specie,
+    sito:G.form.ubicazione||G.form.sito||'—',
+    data:G.form.data||new Date().toISOString().split('T')[0],
+    cpc:G.form.cpc||'A', rischio:G.form.pericolosita||'Trascurabile',
+    lat:parseFloat(G.form.lat)||0, lng:parseFloat(G.form.lng)||0,
+    h:G.form.h||0, dbh:G.form.dbh||0, cw:G.form.cw||0, cd:G.form.cd||0,
+    hPalco:G.form.hPalco||null,
+    disposizione:G.form.disposizione||'', stazione:G.form.stazione||'',
+    suolo:G.form.suolo||'', pavimentazione:G.form.pavimentazione||'',
+    sitoCon:G.form.sitoCon||'', posizSoc:G.form.posizSoc||'',
+    conflitti:G.form.conflitti||'', fattoreContatto:G.form.fattoreContatto||'',
+    giudVeg:G.form.giudVeg||'', giudFisio:G.form.giudFisio||G.form.vta?.giudFisio||'',
+    giudBiomec:G.form.giudBiomec||G.form.vta?.giudBiomec||'',
+    pericolosita:G.form.pericolosita||'', fattoreDanno:G.form.fattoreDanno||'',
+    prescrizioni:G.form.prescrizioni||G.form.vta?.prescrizioni||'',
+    vta:G.form.vta||{}, _editedByUser:true
   };
-
-  if(G.form._editingId) {
-    /* Modifica pianta esistente */
-    const idx = G.trees.findIndex(x => x.id === G.form._editingId);
-    if(idx >= 0) {
-      G.trees[idx] = { ...G.trees[idx], ...data };
-      saveTrees();
-      go('lista', navTab(0)); resetNav();
+  if(G.form._editingId){
+    const idx=G.trees.findIndex(x=>x.id===G.form._editingId);
+    if(idx>=0){
+      G.trees[idx]={...G.trees[idx],...data};
+      saveTrees(); go('lista',navTab(0)); resetNav();
       setTimeout(()=>{
-        /* Feedback visivo breve */
-        const items = document.querySelectorAll('.tree-item');
-        items.forEach(el => {
+        document.querySelectorAll('.tree-item').forEach(el=>{
           if(el.querySelector('.tree-code')?.textContent.includes(data.id)){
             el.style.background='var(--green-100)';
             setTimeout(()=>el.style.background='',1200);
           }
         });
-      }, 100);
+      },100);
       return;
     }
   }
-
-  /* Nuova pianta */
-  G.trees.push(data);
-  saveTrees();
-  go('lista', navTab(0)); resetNav();
+  G.trees.push(data); saveTrees(); go('lista',navTab(0)); resetNav();
 }
 
-/* ═══════════════════════════════════════
    2. SPECIE / AI
 ═══════════════════════════════════════ */
 function renderSpecie(){
@@ -1534,21 +1608,6 @@ function renderSezioneChioma(){
   </div>`;
 }
 
-function tms(btn,g,multi){
-  if(!multi) document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.remove('on'));
-  btn.classList.toggle('on');
-}
-function setSev(btn,lv){
-  const p=btn.closest('.sev');
-  p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
-  btn.classList.add('on');
-}
-function setGjd(btn){ btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
-function setPer(btn){ btn.closest('.peric').querySelectorAll('.per').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
-function checkPino(v){
-  const el=document.getElementById('pino-banner');
-  if(el) el.style.display=v.toLowerCase().includes('pinus')?'block':'none';
-}
 function calcSnell(){
   const h=G.form.h,d=G.form.dbh,el=document.getElementById('fsnell');
   if(el&&h&&d) el.value=((h*100)/d).toFixed(1);
