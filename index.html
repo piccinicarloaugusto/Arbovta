@@ -172,8 +172,32 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .cpc-cell .cv{font-size:17px;font-weight:600;font-family:var(--font-mono)}
 .cpc-cell .cl{font-size:9px;margin-top:1px;font-weight:600;letter-spacing:0.04em}
 
-/* ── CLINOMETRO ── */
-.clino{background:var(--green-900);border-radius:var(--r-lg);padding:16px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;border:0.5px solid var(--green-800)}
+/* ── CLINOMETRO CAMERA ── */
+.clino-cam-card{background:var(--green-900);border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);margin-bottom:10px}
+.clino-cam-wrap{position:relative;width:100%;background:#000;min-height:220px;display:flex;align-items:center;justify-content:center}
+.clino-cam-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+.cam-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:6px}
+.clino-overlay{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.crosshair-wrap{position:relative;width:64px;height:64px}
+.ch-h{position:absolute;top:50%;left:0;right:0;height:1.5px;background:rgba(110,232,122,0.9);transform:translateY(-50%)}
+.ch-v{position:absolute;left:50%;top:0;bottom:0;width:1.5px;background:rgba(110,232,122,0.9);transform:translateX(-50%)}
+.ch-dot{position:absolute;top:50%;left:50%;width:7px;height:7px;border:1.5px solid rgba(110,232,122,0.9);border-radius:50%;transform:translate(-50%,-50%)}
+.clino-hud{position:absolute;top:10px;left:12px;pointer-events:none}
+.hud-angle-wrap{line-height:1}
+.hud-angle{font-size:44px;font-weight:500;font-family:var(--font-mono);color:#6ee87a;text-shadow:0 1px 6px rgba(0,0,0,0.8)}
+.hud-unit{font-size:16px;color:#6ee87a}
+.clino-badge{font-size:9px;padding:2px 6px;border-radius:7px;display:inline-flex;align-items:center;gap:3px;backdrop-filter:blur(4px)}
+.hud-tilt-bar{position:absolute;bottom:8px;left:12px;right:12px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden}
+.hud-tilt-fill{height:100%;background:#6ee87a;border-radius:2px;transition:width 0.08s,margin-left 0.08s}
+/* Pulsanti cattura */
+.step-instruction{font-size:12px;color:var(--text-muted);background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px;border-left:3px solid var(--green-400);margin-bottom:9px;line-height:1.5}
+.cap-btn{width:100%;padding:14px 12px;font-size:14px;font-weight:500;border:none;border-radius:var(--r-md);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all 0.15s;margin-bottom:8px;font-family:var(--font-sans)}
+.cap-btn:last-child{margin-bottom:0}
+.cap-btn:active{transform:scale(0.97)}
+.cap-ready{background:var(--green-600);color:#e8f0d8}
+.cap-ready:hover{background:var(--green-700)}
+.cap-done{background:var(--green-100);color:var(--green-700);border:0.5px solid var(--green-300)}
+.cap-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
 .clino-angle{font-size:54px;font-weight:500;font-family:var(--font-mono);color:#6ee87a;line-height:1;letter-spacing:-2px}
 .clino-unit{font-size:16px;color:#6ee87a}
 .clino-lbl{font-size:10px;color:var(--green-400);text-transform:uppercase;letter-spacing:0.08em}
@@ -415,7 +439,12 @@ function render(v){
   const c=document.getElementById('content');
   const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
   c.innerHTML = (map[v]||renderLista)();
-  if(v==='misure') simUpdate();
+  if(v==='misure') { setTimeout(()=>startClinoCamera(), 300); }
+  /* Ferma camera clinometro se si lascia il tab */
+  if(v!=='misure' && G.clino._stream) {
+    G.clino._stream.getTracks().forEach(t=>t.stop());
+    G.clino._stream = null;
+  }
   if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,150));
 }
 
@@ -856,78 +885,138 @@ function useAIResult(){
    3. MISURE / CLINOMETRO
 ═══════════════════════════════════════ */
 function renderMisure(){
-  const cl=G.clino;
-  const a=cl.angle;
-  const aStr=(a>=0?'+':'')+a.toFixed(1);
-  const hasAny=Object.values(cl.meas).some(v=>v!==null);
+  const cl = G.clino;
+  const hasAny = Object.values(cl.meas).some(v => v !== null);
+  const fa = a => a !== undefined ? (a >= 0 ? '+' : '') + a.toFixed(1) + '°' : '—°';
+
+  const panelHeight = `
+    <div class="step-instruction" id="height-instruction">
+      ${cl.captured.top === undefined
+        ? '<strong>Passo 1</strong> — Punta il mirino sull\'<strong>apice della cima</strong> e premi il pulsante'
+        : '<strong>Passo 2</strong> — Ora punta il mirino sulla <strong>base del tronco</strong> e premi'}
+    </div>
+    <button class="cap-btn ${cl.captured.top !== undefined ? 'cap-done' : 'cap-ready'}"
+      onclick="captureA('top')" id="cbtn-top">
+      <span class="cap-icon">${cl.captured.top !== undefined ? '✓' : '◉'}</span>
+      <span>${cl.captured.top !== undefined ? 'Cima: ' + fa(cl.captured.top) : 'Cattura — Apice cima'}</span>
+    </button>
+    <button class="cap-btn ${cl.captured.base !== undefined ? 'cap-done' : 'cap-ready'}"
+      onclick="captureA('base')" id="cbtn-base"
+      style="${cl.captured.top === undefined ? 'opacity:0.35;pointer-events:none' : ''}">
+      <span class="cap-icon">${cl.captured.base !== undefined ? '✓' : '◉'}</span>
+      <span>${cl.captured.base !== undefined ? 'Base: ' + fa(cl.captured.base) : 'Cattura — Base tronco'}</span>
+    </button>`;
+
+  const panelCrown = `
+    <div class="step-instruction">
+      Punta il mirino sul <strong>bordo sinistro</strong> della chioma, poi sul <strong>bordo destro</strong>
+    </div>
+    <button class="cap-btn ${cl.captured.cw_l !== undefined ? 'cap-done' : 'cap-ready'}"
+      onclick="captureA('cw_l')">
+      <span class="cap-icon">${cl.captured.cw_l !== undefined ? '✓' : '◉'}</span>
+      <span>${cl.captured.cw_l !== undefined ? 'Bordo sx: ' + fa(cl.captured.cw_l) : 'Cattura — Bordo sinistro'}</span>
+    </button>
+    <button class="cap-btn ${cl.captured.cw_r !== undefined ? 'cap-done' : 'cap-ready'}"
+      onclick="captureA('cw_r')"
+      style="${cl.captured.cw_l === undefined ? 'opacity:0.35;pointer-events:none' : ''}">
+      <span class="cap-icon">${cl.captured.cw_r !== undefined ? '✓' : '◉'}</span>
+      <span>${cl.captured.cw_r !== undefined ? 'Bordo dx: ' + fa(cl.captured.cw_r) : 'Cattura — Bordo destro'}</span>
+    </button>`;
+
+  const panelDBH = `
+    <div class="step-instruction">
+      Punta il mirino sul <strong>bordo sinistro</strong> del tronco a 1.30 m, poi sul <strong>bordo destro</strong>
+    </div>
+    <button class="cap-btn ${cl.captured.dbh_l !== undefined ? 'cap-done' : 'cap-ready'}"
+      onclick="captureA('dbh_l')">
+      <span class="cap-icon">${cl.captured.dbh_l !== undefined ? '✓' : '◉'}</span>
+      <span>${cl.captured.dbh_l !== undefined ? 'Bordo sx: ' + fa(cl.captured.dbh_l) : 'Cattura — Bordo sinistro'}</span>
+    </button>
+    <button class="cap-btn ${cl.captured.dbh_r !== undefined ? 'cap-done' : 'cap-ready'}"
+      onclick="captureA('dbh_r')"
+      style="${cl.captured.dbh_l === undefined ? 'opacity:0.35;pointer-events:none' : ''}">
+      <span class="cap-icon">${cl.captured.dbh_r !== undefined ? '✓' : '◉'}</span>
+      <span>${cl.captured.dbh_l !== undefined ? 'Bordo dx: ' + fa(cl.captured.dbh_r) : 'Cattura — Bordo destro'}</span>
+    </button>`;
+
   return `
-  <div class="card card-dark">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="sbadge ${cl.sensorActive?'s-on':'s-off'}" id="sbadge">
-        <div class="sdot" style="background:${cl.sensorActive?'#6ee87a':'var(--text-muted)'}"></div>
-        <span>${cl.sensorActive?'Sensore attivo':'Sensore non attivo'}</span>
+  <div class="clino-cam-card">
+    <!-- viewfinder camera + mirino + HUD angolo -->
+    <div class="clino-cam-wrap" id="clino-cam-wrap">
+      <div class="cam-placeholder" id="cam-placeholder">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green-400)" stroke-width="1.5">
+          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+        <div style="font-size:12px;color:var(--green-400);margin-top:4px">Tocca per attivare la camera</div>
+        <button class="btn-sm green" onclick="startClinoCamera()" style="margin-top:8px">Attiva camera</button>
       </div>
-      <button class="btn-sm" onclick="requestSensor()" style="background:var(--green-800);border-color:var(--green-700);color:var(--green-200)">Attiva sensori</button>
+      <video id="clino-video" autoplay playsinline muted style="display:none"></video>
+
+      <!-- Overlay mirino -->
+      <div class="clino-overlay" id="clino-overlay" style="display:none">
+        <div class="crosshair-wrap">
+          <div class="ch-h"></div>
+          <div class="ch-v"></div>
+          <div class="ch-dot"></div>
+        </div>
+      </div>
+
+      <!-- HUD angolo in alto a sinistra -->
+      <div class="clino-hud" id="clino-hud" style="display:none">
+        <div class="hud-angle-wrap">
+          <span class="hud-angle" id="cl-angle">+0.0</span><span class="hud-unit">°</span>
+        </div>
+        <div style="margin-top:4px">
+          <div class="clino-badge ${cl.sensorActive ? 's-on' : 's-off'}" id="sbadge">
+            <div class="sdot" style="background:${cl.sensorActive ? '#6ee87a' : 'rgba(255,255,255,0.3)'}"></div>
+            <span>${cl.sensorActive ? 'Sensore attivo' : 'Sensore inattivo'}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra inclinazione in basso -->
+      <div class="hud-tilt-bar" id="clino-tilt-bar" style="display:none">
+        <div class="hud-tilt-fill" id="cl-tilt"></div>
+      </div>
     </div>
-    <div class="clino">
-      <div class="clino-lbl">Inclinazione</div>
-      <div><span class="clino-angle" id="cl-angle">${aStr}</span><span class="clino-unit">°</span></div>
-      <div class="tilt-track"><div class="tilt-fill" id="cl-tilt" style="width:${Math.abs(a/90*50)}%;margin-left:${a>=0?50:50+a/90*50}%"></div></div>
-      <div class="clino-info">
-        <div class="cl-info-item"><span class="cl-info-val" id="cl-tan">tan: ${Math.tan(a*Math.PI/180).toFixed(3)}</span>tangente</div>
-        <div class="cl-info-item"><span class="cl-info-val" id="cl-mode">${cl.sensorActive?'reale':'simulato'}</span>modalità</div>
-      </div>
+
+    <!-- Pulsante attiva sensori (solo se camera attiva) -->
+    <div id="sensor-row" style="display:none;padding:8px 12px;background:var(--green-900);border-bottom:0.5px solid var(--green-800)">
+      <button class="btn-sm" onclick="requestSensor()"
+        style="background:var(--green-800);border-color:var(--green-700);color:var(--green-200);font-size:10px">
+        Attiva sensori orientamento
+      </button>
     </div>
   </div>
 
+  <!-- Selettore misura -->
   <div class="seg">
-    <button class="seg-b ${cl.param==='height'?'active':''}" onclick="setCParam('height',this)">Altezza</button>
-    <button class="seg-b ${cl.param==='crown'?'active':''}" onclick="setCParam('crown',this)">Chioma</button>
-    <button class="seg-b ${cl.param==='dbh'?'active':''}" onclick="setCParam('dbh',this)">Diametro</button>
+    <button class="seg-b ${cl.param === 'height' ? 'active' : ''}" onclick="setCParam('height',this)">Altezza</button>
+    <button class="seg-b ${cl.param === 'crown'  ? 'active' : ''}" onclick="setCParam('crown',this)">Chioma</button>
+    <button class="seg-b ${cl.param === 'dbh'    ? 'active' : ''}" onclick="setCParam('dbh',this)">Diametro</button>
   </div>
 
-  <div class="card" id="cpanel-height" style="${cl.param==='height'?'':'display:none'}">
+  <!-- Pannello istruzioni + pulsanti cattura -->
+  <div class="card" id="cpanel-height" style="${cl.param === 'height' ? '' : 'display:none'}">
     <div class="sec">Misurazione altezza</div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Punta verso la cima e cattura l'angolo, poi verso la base del tronco</div>
-    <div class="ang-row">
-      <div class="ang-btn ${cl.captured.top!==undefined?'cap':'tgt'}" id="cbtn-top" onclick="captureA('top')">
-        <div class="av" id="ccap-top">${cl.captured.top!==undefined?(cl.captured.top>=0?'+':'')+cl.captured.top.toFixed(1)+'°':'—°'}</div>
-        <div class="al">Apice cima</div>
-      </div>
-      <div class="ang-btn ${cl.captured.base!==undefined?'cap':cl.captured.top!==undefined?'tgt':''}" id="cbtn-base" onclick="captureA('base')">
-        <div class="av" id="ccap-base">${cl.captured.base!==undefined?(cl.captured.base>=0?'+':'')+cl.captured.base.toFixed(1)+'°':'—°'}</div>
-        <div class="al">Base tronco</div>
-      </div>
-    </div>
+    ${panelHeight}
+  </div>
+  <div class="card" id="cpanel-crown" style="${cl.param === 'crown' ? '' : 'display:none'}">
+    <div class="sec">Larghezza chioma</div>
+    ${panelCrown}
+  </div>
+  <div class="card" id="cpanel-dbh" style="${cl.param === 'dbh' ? '' : 'display:none'}">
+    <div class="sec">Diametro tronco (DBH a 1.30m)</div>
+    ${panelDBH}
   </div>
 
-  <div class="card" id="cpanel-crown" style="${cl.param==='crown'?'':'display:none'}">
-    <div class="sec">Misurazione chioma</div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Punta ai bordi della chioma (angoli orizzontali)</div>
-    <div class="ang-row">
-      <div class="ang-btn ${cl.captured.cw_l!==undefined?'cap':'tgt'}" onclick="captureA('cw_l')"><div class="av" id="ccap-cwl">${cl.captured.cw_l!==undefined?(cl.captured.cw_l>=0?'+':'')+cl.captured.cw_l.toFixed(1)+'°':'—°'}</div><div class="al">Bordo sx (L)</div></div>
-      <div class="ang-btn ${cl.captured.cw_r!==undefined?'cap':cl.captured.cw_l!==undefined?'tgt':''}" onclick="captureA('cw_r')"><div class="av" id="ccap-cwr">${cl.captured.cw_r!==undefined?(cl.captured.cw_r>=0?'+':'')+cl.captured.cw_r.toFixed(1)+'°':'—°'}</div><div class="al">Bordo dx (L)</div></div>
-    </div>
-    <div class="ang-row" style="margin-top:6px">
-      <div class="ang-btn ${cl.captured.cd_f!==undefined?'cap':''}" onclick="captureA('cd_f')"><div class="av" id="ccap-cdf">${cl.captured.cd_f!==undefined?(cl.captured.cd_f>=0?'+':'')+cl.captured.cd_f.toFixed(1)+'°':'—°'}</div><div class="al">Fronte (P)</div></div>
-      <div class="ang-btn ${cl.captured.cd_b!==undefined?'cap':''}" onclick="captureA('cd_b')"><div class="av" id="ccap-cdb">${cl.captured.cd_b!==undefined?(cl.captured.cd_b>=0?'+':'')+cl.captured.cd_b.toFixed(1)+'°':'—°'}</div><div class="al">Retro (P)</div></div>
-    </div>
-  </div>
-
-  <div class="card" id="cpanel-dbh" style="${cl.param==='dbh'?'':'display:none'}">
-    <div class="sec">Misurazione diametro (DBH)</div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Punta ai bordi del tronco a 1.30 m da terra</div>
-    <div class="ang-row">
-      <div class="ang-btn ${cl.captured.dbh_l!==undefined?'cap':'tgt'}" onclick="captureA('dbh_l')"><div class="av" id="ccap-dbhl">${cl.captured.dbh_l!==undefined?(cl.captured.dbh_l>=0?'+':'')+cl.captured.dbh_l.toFixed(1)+'°':'—°'}</div><div class="al">Bordo sx</div></div>
-      <div class="ang-btn ${cl.captured.dbh_r!==undefined?'cap':cl.captured.dbh_l!==undefined?'tgt':''}" onclick="captureA('dbh_r')"><div class="av" id="ccap-dbhr">${cl.captured.dbh_r!==undefined?(cl.captured.dbh_r>=0?'+':'')+cl.captured.dbh_r.toFixed(1)+'°':'—°'}</div><div class="al">Bordo dx</div></div>
-    </div>
-  </div>
-
+  <!-- Distanza -->
   <div class="card">
-    <div class="sec">Distanza orizzontale</div>
+    <div class="sec">Distanza orizzontale dalla pianta</div>
     <div class="dist-row">
       <label>Distanza</label>
-      <input type="number" class="dist-in" id="dist-in" value="${cl.dist}" min="1" max="200" step="0.5" oninput="G.clino.dist=parseFloat(this.value)||15;recalcAll()">
+      <input type="number" class="dist-in" id="dist-in" value="${cl.dist}"
+        min="1" max="200" step="0.5" oninput="G.clino.dist=parseFloat(this.value)||15;recalcAll()">
       <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
     </div>
     <div class="dist-presets">
@@ -935,48 +1024,114 @@ function renderMisure(){
     </div>
     <div class="formula" id="cl-formula">
       H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>)<br>
-      <strong>d = ${cl.dist}m</strong> | α_cima = ${cl.captured.top!==undefined?(cl.captured.top>=0?'+':'')+cl.captured.top.toFixed(1):'—'}° | α_base = ${cl.captured.base!==undefined?(cl.captured.base>=0?'+':'')+cl.captured.base.toFixed(1):'—'}°<br>
-      <strong>H = ${cl.meas.h?cl.meas.h.toFixed(2)+' m':'—'}</strong>
+      <strong>d = ${cl.dist}m</strong> |
+      α_cima = ${cl.captured.top !== undefined ? (cl.captured.top >= 0 ? '+' : '') + cl.captured.top.toFixed(1) : '—'}° |
+      α_base = ${cl.captured.base !== undefined ? (cl.captured.base >= 0 ? '+' : '') + cl.captured.base.toFixed(1) : '—'}°<br>
+      <strong>H = ${cl.meas.h ? cl.meas.h.toFixed(2) + ' m' : '—'}</strong>
     </div>
   </div>
 
+  <!-- Risultati -->
   <div class="card">
     <div class="sec">Risultati clinometro</div>
     <div class="mets">
-      <div class="met ${cl.meas.h?'live':''}" id="cm-h"><div class="met-v" id="cmv-h">${cl.meas.h?cl.meas.h.toFixed(2):'—'}</div><div class="met-l">Altezza totale (m)</div></div>
-      <div class="met ${cl.meas.dbh?'live':''}" id="cm-dbh"><div class="met-v" id="cmv-dbh">${cl.meas.dbh?cl.meas.dbh.toFixed(1):'—'}</div><div class="met-l">Diametro fusto (cm)</div></div>
-      <div class="met ${cl.meas.cw?'live':''}" id="cm-cw"><div class="met-v" id="cmv-cw">${cl.meas.cw?cl.meas.cw.toFixed(2):'—'}</div><div class="met-l">Larghezza chioma (m)</div></div>
-      <div class="met ${cl.meas.cd?'live':''}" id="cm-cd"><div class="met-v" id="cmv-cd">${cl.meas.cd?cl.meas.cd.toFixed(2):'—'}</div><div class="met-l">Profondità chioma (m)</div></div>
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px">
-      <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid var(--border)"><span>Circonferenza tronco</span><span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary)" id="cmv-circ">${cl.meas.dbh?(cl.meas.dbh*Math.PI).toFixed(1)+' cm':'—'}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Rapporto snellezza (H/D)</span><span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary)" id="cmv-snell">${cl.meas.h&&cl.meas.dbh?((cl.meas.h*100)/cl.meas.dbh).toFixed(1):'—'}</span></div>
-    </div>
-    ${hasAny?`<div class="transfer-box" style="margin-top:10px">
-      <div class="tb-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green-600)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Pronto per la scheda VTA</div>
-      ${cl.meas.h?`<div class="transfer-item"><span>Altezza totale</span><strong>${cl.meas.h.toFixed(2)} m</strong></div>`:''}
-      ${cl.meas.dbh?`<div class="transfer-item"><span>Diametro fusto</span><strong>${cl.meas.dbh.toFixed(1)} cm</strong></div>`:''}
-      ${cl.meas.dbh?`<div class="transfer-item"><span>Circonferenza</span><strong>${(cl.meas.dbh*Math.PI).toFixed(1)} cm</strong></div>`:''}
-      ${cl.meas.cw?`<div class="transfer-item"><span>Larghezza chioma</span><strong>${cl.meas.cw.toFixed(2)} m</strong></div>`:''}
-      ${cl.meas.cd?`<div class="transfer-item"><span>Profondità chioma</span><strong>${cl.meas.cd.toFixed(2)} m</strong></div>`:''}
-    </div>
-    <button class="btn-primary" style="background:var(--green-700);margin-top:8px" onclick="transferToScheda()">Trasferisci a scheda VTA</button>`:''}
-  </div>
-
-  <div class="card">
-    <div class="sec">Simulatore angoli (demo)</div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px">Trascina per simulare la puntatura — utile senza dispositivo fisico</div>
-    ${[['sim-top','Angolo cima (α₁)',32,-90,90,1],['sim-base','Angolo base (α₂)',-8,-90,90,1],['sim-cw','Semi-angolo chioma (±)',14,1,60,1],['sim-dbh','Semi-angolo diametro (±)',3,0.5,30,0.5]].map(([id,lbl,val,mn,mx,st])=>`
-    <div style="margin-bottom:9px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-        <span style="color:var(--text-muted)">${lbl}</span>
-        <span style="font-family:var(--font-mono);font-weight:600;color:var(--green-600)" id="sv-${id}">${val>=0?'+':''}${val}°</span>
+      <div class="met ${cl.meas.h   ? 'live' : ''}" id="cm-h">
+        <div class="met-v" id="cmv-h">${cl.meas.h ? cl.meas.h.toFixed(2) : '—'}</div>
+        <div class="met-l">Altezza totale (m)</div>
       </div>
-      <input type="range" id="${id}" min="${mn}" max="${mx}" value="${val}" step="${st}" oninput="simSlide(this,'${id}')">
-    </div>`).join('')}
-    <button class="btn-primary" onclick="applySimulation()">Applica valori simulati</button>
+      <div class="met ${cl.meas.dbh ? 'live' : ''}" id="cm-dbh">
+        <div class="met-v" id="cmv-dbh">${cl.meas.dbh ? cl.meas.dbh.toFixed(1) : '—'}</div>
+        <div class="met-l">Diametro fusto (cm)</div>
+      </div>
+      <div class="met ${cl.meas.cw  ? 'live' : ''}" id="cm-cw">
+        <div class="met-v" id="cmv-cw">${cl.meas.cw ? cl.meas.cw.toFixed(2) : '—'}</div>
+        <div class="met-l">Larghezza chioma (m)</div>
+      </div>
+      <div class="met" style="background:var(--surface-2)">
+        <div class="met-v" id="cmv-circ" style="font-size:16px">
+          ${cl.meas.dbh ? (cl.meas.dbh * Math.PI).toFixed(1) : '—'}
+        </div>
+        <div class="met-l">Circonferenza (cm)</div>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;padding:4px 0">
+      <span>Rapporto snellezza (H/D)</span>
+      <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary)" id="cmv-snell">
+        ${cl.meas.h && cl.meas.dbh ? ((cl.meas.h * 100) / cl.meas.dbh).toFixed(1) : '—'}
+      </span>
+    </div>
+    ${hasAny ? `
+    <div class="transfer-box" style="margin-top:10px">
+      <div class="tb-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green-600)" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Pronto per la scheda VTA
+      </div>
+      ${cl.meas.h   ? `<div class="transfer-item"><span>Altezza totale</span><strong>${cl.meas.h.toFixed(2)} m</strong></div>` : ''}
+      ${cl.meas.dbh ? `<div class="transfer-item"><span>Diametro fusto</span><strong>${cl.meas.dbh.toFixed(1)} cm</strong></div>` : ''}
+      ${cl.meas.dbh ? `<div class="transfer-item"><span>Circonferenza</span><strong>${(cl.meas.dbh * Math.PI).toFixed(1)} cm</strong></div>` : ''}
+      ${cl.meas.cw  ? `<div class="transfer-item"><span>Larghezza chioma</span><strong>${cl.meas.cw.toFixed(2)} m</strong></div>` : ''}
+    </div>
+    <button class="btn-primary" style="background:var(--green-700);margin-top:8px" onclick="transferToScheda()">
+      Trasferisci a scheda VTA
+    </button>` : ''}
+    <button class="btn-secondary" style="margin-top:6px" onclick="resetClino()">Azzera misure</button>
   </div>`;
 }
+
+/* ── Camera clinometro ── */
+function startClinoCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showCamFallback(); return;
+  }
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+  }).then(stream => {
+    G.clino._stream = stream;
+    const video = document.getElementById('clino-video');
+    const placeholder = document.getElementById('cam-placeholder');
+    const overlay = document.getElementById('clino-overlay');
+    const hud = document.getElementById('clino-hud');
+    const tiltBar = document.getElementById('clino-tilt-bar');
+    const sensorRow = document.getElementById('sensor-row');
+    if (!video) return;
+    video.srcObject = stream;
+    video.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+    if (overlay) overlay.style.display = 'flex';
+    if (hud) hud.style.display = 'block';
+    if (tiltBar) tiltBar.style.display = 'block';
+    if (sensorRow) sensorRow.style.display = 'flex';
+  }).catch(() => showCamFallback());
+}
+
+function showCamFallback() {
+  const ph = document.getElementById('cam-placeholder');
+  if (ph) ph.innerHTML = `
+    <div style="font-size:11px;color:var(--green-400);padding:16px;text-align:center;line-height:1.5">
+      Camera non disponibile — il clinometro funziona ugualmente.<br>
+      Attiva i sensori e usa l'indicatore di angolo.
+    </div>`;
+  const hud = document.getElementById('clino-hud');
+  const tiltBar = document.getElementById('clino-tilt-bar');
+  const sensorRow = document.getElementById('sensor-row');
+  if (hud) hud.style.display = 'block';
+  if (tiltBar) tiltBar.style.display = 'block';
+  if (sensorRow) sensorRow.style.display = 'flex';
+}
+
+function resetClino() {
+  if (G.clino._stream) {
+    G.clino._stream.getTracks().forEach(t => t.stop());
+    G.clino._stream = null;
+  }
+  G.clino.captured = {};
+  G.clino.meas = { h: null, dbh: null, cw: null, cd: null };
+  render('misure');
+  setTimeout(() => startClinoCamera(), 200);
+}
+
 function setCParam(p,btn){
   G.clino.param=p;
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
@@ -1006,10 +1161,11 @@ function updateClinoDisplay(){
   const a=G.clino.angle;
   const ae=document.getElementById('cl-angle');
   const tf=document.getElementById('cl-tilt');
-  const te=document.getElementById('cl-tan');
   if(ae) ae.textContent=(a>=0?'+':'')+a.toFixed(1);
-  if(tf){tf.style.width=Math.abs(a/90*50)+'%';tf.style.marginLeft=(a>=0?50:50+a/90*50)+'%';}
-  if(te) te.textContent='tan: '+Math.tan(a*Math.PI/180).toFixed(3);
+  if(tf){
+    tf.style.width=Math.abs(a/90*50)+'%';
+    tf.style.marginLeft=(a>=0?50:50+a/90*50)+'%';
+  }
 }
 function captureA(target){
   const a=G.clino.angle;
