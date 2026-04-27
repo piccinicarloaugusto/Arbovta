@@ -1626,79 +1626,123 @@ function autosaveField(key, value) {
   }
 }
 function restoreVTAui(){
-  const vta=G.form.vta;
-  if(!vta) return;
-  /* Chip */
+  const vta = G.form.vta || {};
+  const form = G.form;
+
+  /* ── 1. CHIP ── */
   Object.keys(vta).filter(k=>k.startsWith('chip_')).forEach(k=>{
-    const g=k.slice(5), sel=vta[k]||[];
-    document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.toggle('on',sel.includes(b.textContent)));
-  });
-  /* Gravità */
-  Object.keys(vta).filter(k=>k.startsWith('sev_')).forEach(k=>{
-    const sec=k.slice(4), lv=vta[k];
-    const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
-    if(!card) return;
-    const lvMap={'lieve':'sev-l','moderato':'sev-m','elevato':'sev-e'};
-    const btn=card.querySelector('.sev-b.'+lvMap[lv]);
-    if(btn) setSev(btn, lv);
-  });
-  /* Giudizi */
-  Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
-    const lbl=k.slice(4).toLowerCase(), val=vta[k];
-    if(!val) return;
-    document.querySelectorAll('.field').forEach(f=>{
-      const labelText=(f.querySelector('label')?.textContent||'').toLowerCase();
-      if(labelText===lbl || labelText.replace(/[-\s]/g,'')===lbl.replace(/[-\s]/g,'')){
-        f.querySelectorAll('.gj').forEach(b=>{
-          const on=b.textContent===val;
-          b.classList.toggle('on',on);
-          if(on){b.style.fontWeight='700';b.style.boxShadow='0 0 0 2px currentColor';}
-          else{b.style.fontWeight='';b.style.boxShadow='';}
-        });
-      }
+    const g = k.slice(5);
+    const sel = Array.isArray(vta[k]) ? vta[k] : [];
+    document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>{
+      b.classList.toggle('on', sel.includes(b.textContent));
     });
   });
-  /* Pericolosità — cerca per testo esatto del bottone */
+
+  /* ── 2. GRAVITÀ — applica stile inline diretto ── */
+  Object.keys(vta).filter(k=>k.startsWith('sev_')).forEach(k=>{
+    const sec = k.slice(4);
+    const lv  = vta[k];
+    if(!lv) return;
+    /* Trova la card con .sec che corrisponde (case-insensitive, trim) */
+    const card = [...document.querySelectorAll('.card')].find(c=>{
+      const t = c.querySelector('.sec')?.textContent?.trim() || '';
+      return t.toLowerCase() === sec.toLowerCase();
+    });
+    if(!card) return;
+    const lvMap = {lieve:'sev-l', moderato:'sev-m', elevato:'sev-e'};
+    const cls = lvMap[lv.toLowerCase()];
+    if(!cls) return;
+    const btn = card.querySelector(`.sev-b.${cls}`);
+    if(btn) setSev(btn, lv.toLowerCase());
+  });
+
+  /* ── 3. PERICOLOSITÀ SEZIONI — bottoni .per ── */
   Object.keys(vta).filter(k=>k.startsWith('per_') && !k.endsWith('_num')).forEach(k=>{
-    const sec=k.slice(4), val=vta[k];
+    const sec = k.slice(4);
+    const val = (vta[k]||'').toUpperCase().trim();
     if(!val) return;
-    const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
+    const card = [...document.querySelectorAll('.card')].find(c=>{
+      const t = c.querySelector('.sec')?.textContent?.trim() || '';
+      return t.toLowerCase() === sec.toLowerCase();
+    });
     if(!card) return;
     card.querySelectorAll('.per').forEach(b=>{
-      const match = b.textContent===val ||
-        (val==='TRASCUR.' && b.textContent.startsWith('TRASCUR')) ||
-        (b.textContent==='TRASCUR.' && val.startsWith('TRASCUR'));
+      const btnTxt = b.textContent.toUpperCase().trim();
+      const match = btnTxt === val ||
+        (val.startsWith('TRASCUR') && btnTxt.startsWith('TRASCUR')) ||
+        (val === 'BASSA' && btnTxt === 'BASSO') ||
+        (val === 'MODERATA' && btnTxt === 'MODERATO') ||
+        (val === 'ELEVATA' && btnTxt === 'ELEVATO') ||
+        (val === 'ESTREMA' && btnTxt === 'ESTREMO');
       b.classList.toggle('on', match);
-      if(match){
-        b.style.fontWeight='700';
-        b.style.boxShadow='0 0 0 2px currentColor';
-      } else {
-        b.style.fontWeight='';
-        b.style.boxShadow='';
-      }
+      b.style.fontWeight = match ? '700' : '';
+      b.style.boxShadow  = match ? '0 0 0 2px currentColor' : '';
     });
   });
-  /* Textarea */
-  [['giudFisio','Stato vegetativo'],['giudBiomec','Valutazione stabilità'],['prescrizioni','Interventi']].forEach(([key,ph])=>{
-    const val=G.form[key]||vta[key]||''; if(!val) return;
-    document.querySelectorAll('textarea').forEach(ta=>{if(ta.placeholder?.startsWith(ph.slice(0,8))) ta.value=val;});
+
+  /* ── 4. GIUDIZI — bottoni .gj ── */
+  Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
+    const lbl = k.slice(4).toLowerCase().replace(/[-\s]/g,'');
+    const val = (vta[k]||'').toUpperCase().trim();
+    if(!val) return;
+    document.querySelectorAll('.field').forEach(f=>{
+      const ft = (f.querySelector('label')?.textContent||'').toLowerCase().replace(/[-\s]/g,'');
+      if(ft !== lbl) return;
+      f.querySelectorAll('.gj').forEach(b=>{
+        const on = b.textContent.toUpperCase().trim() === val;
+        b.classList.toggle('on', on);
+        b.style.fontWeight = on ? '700' : '';
+        b.style.boxShadow  = on ? '0 0 0 2px currentColor' : '';
+      });
+    });
   });
-  /* Select — cerca sia in G.form che in vta */
-  ['sito','disposizione','stazione','suolo','pavimentazione','sitoCon','posizSoc','conflitti','fattoreContatto','giudVeg','pericolosita','fattoreDanno'].forEach(key=>{
-    const val = G.form[key] || vta[key] || '';
+
+  /* ── 5. TEXTAREA ── */
+  const taMap = {
+    giudFisio:   v => v.placeholder?.toLowerCase().includes('vegetativ') || v.placeholder?.toLowerCase().includes('fitosanit'),
+    giudBiomec:  v => v.placeholder?.toLowerCase().includes('stabilit') || v.placeholder?.toLowerCase().includes('biomec'),
+    prescrizioni:v => v.placeholder?.toLowerCase().includes('intervent') || v.placeholder?.toLowerCase().includes('prescriz'),
+  };
+  Object.keys(taMap).forEach(key=>{
+    const val = form[key] || vta[key] || '';
+    if(!val) return;
+    document.querySelectorAll('textarea').forEach(ta=>{
+      if(taMap[key](ta)) ta.value = val;
+    });
+  });
+
+  /* ── 6. SELECT ── */
+  const selectFields = [
+    'sito','disposizione','stazione','suolo','pavimentazione',
+    'sitoCon','posizSoc','conflitti','fattoreContatto',
+    'giudVeg','pericolosita','fattoreDanno'
+  ];
+  selectFields.forEach(key=>{
+    const val = (form[key] || vta[key] || '').toLowerCase().trim();
     if(!val) return;
     const el = document.querySelector(`[onchange*="${key}"]`);
-    if(el){
-      /* Cerca l'opzione con testo che corrisponde (case-insensitive) */
-      const opt = [...el.options].find(o =>
-        o.value.toLowerCase() === val.toLowerCase() ||
-        o.text.toLowerCase()  === val.toLowerCase()
-      );
-      if(opt) el.value = opt.value;
-    }
+    if(!el) return;
+    const opt = [...el.options].find(o=>
+      o.value.toLowerCase().trim() === val ||
+      o.text.toLowerCase().trim()  === val
+    );
+    if(opt) el.value = opt.value;
   });
-  if(G.form.pericolosita) updateRisk();
-  setTimeout(updateRisk, 150);
+
+  /* ── 7. INPUT text (ubicazione, data, codice, specie) ── */
+  const inputMap = {
+    'ubicazione': 'autosaveField(\'ubicazione\'',
+    'data':       'autosaveField(\'data\'',
+  };
+  Object.keys(inputMap).forEach(key=>{
+    const val = form[key] || '';
+    if(!val) return;
+    const el = document.querySelector(`[oninput*="${key}"]`);
+    if(el && el.value !== val) el.value = val;
+  });
+
+  /* ── 8. AGGIORNA INDICE DI RISCHIO ── */
+  setTimeout(updateRisk, 100);
 }
 function checkPino(v){
   const el=document.getElementById('pino-banner');
