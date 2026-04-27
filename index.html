@@ -1432,7 +1432,7 @@ function renderScheda(){
       <div class="field"><label>Sito radicazione</label><select onchange="autosaveField('sitoCon',this.value)"><option>Seleziona...</option>${['idoneo','mediocre','scadente','inidoneo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Posizione sociale</label><select onchange="autosaveField('posizSoc',this.value)"><option>Seleziona...</option>${['predominante','dominante','codominante','dominato','sottoposto'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Conflitti</label><select onchange="autosaveField('conflitti',this.value)"><option>Seleziona...</option>${['nessun conflitto','specie arbustive','specie arboree','marciapiede','sede stradale','pavimentazione','cavi aerei','cartellonistica','recinzione','utenze interrate','edifici','semaforo','scavi','lampione','parcheggio','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Fattore contatto</label><select onchange="autosaveField('fattoreContatto',this.value)"><option>Seleziona...</option>${['assente','trascurabile','basso','moderato','elevato','estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Fattore contatto</label><select onchange="autosaveField('fattoreContatto',this.value);updateRisk()"><option>Seleziona...</option>${['assente','trascurabile','basso','moderato','elevato','estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Età ontogenetica (1-10)</label><input type="number" min="1" max="10" placeholder="—" oninput="G.form.eta=this.value"></div>
     </div>
   </div>
@@ -1483,8 +1483,10 @@ function renderScheda(){
       <div class="field"><label>Pericolosità</label><select onchange="autosaveField('pericolosita',this.value);updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     </div>
     <div class="risk-grid">
-      <div class="risk-card"><div class="risk-val" id="risk-v">0</div><div class="risk-lbl">Indice di rischio</div></div>
-      <div class="risk-card"><div class="risk-val rA" id="cpc-v">A</div><div class="risk-lbl">Classe CPC</div></div>
+      <div class="risk-card"><div class="risk-val" id="risk-v">—</div><div class="risk-lbl">Indice di rischio</div></div>
+      <div class="risk-card"><div class="risk-val rA" id="cpc-v">${G.form.cpc||'A'}</div><div class="risk-lbl">Classe CPC</div></div>
+      <div class="risk-card"><div class="risk-val" id="peric-v" style="font-size:14px">—</div><div class="risk-lbl">Pericolosità</div></div>
+      <div class="risk-card"><div class="risk-val" id="fd-v" style="font-size:16px">—</div><div class="risk-lbl">Fattore dimensionale</div></div>
     </div>
     <div class="field" style="margin-top:8px"><label>Fattore di danno</label><select><option>Seleziona...</option>${['Assente','Trascurabile','Basso','Moderato','Elevato','Estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="autosaveField('prescrizioni',this.value)"></textarea></div>
@@ -1596,6 +1598,7 @@ function setPer(btn){
   btn.classList.add('on');
   const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
   autosave('per_'+sec, btn.textContent);
+  setTimeout(updateRisk, 50);
 }
 
 
@@ -1662,6 +1665,7 @@ function restoreVTAui(){
     const el=document.querySelector(`[onchange*="${key}"]`); if(el) el.value=val;
   });
   if(G.form.pericolosita) updateRisk();
+  setTimeout(updateRisk, 150);
 }
 function checkPino(v){
   const el=document.getElementById('pino-banner');
@@ -1672,12 +1676,93 @@ function calcSnell(){
   if(el&&h&&d) el.value=((h*100)/d).toFixed(1);
 }
 function updateRisk(){
-  const map={'':0,'Assente':0,'Trascurabile':1,'Bassa':2,'Moderata':3,'Elevata':4,'Estrema':5};
-  const sel=document.querySelector('[onchange*="pericolosita"]');
-  const v=sel?sel.value:''; const s=map[v]||0;
-  const rv=document.getElementById('risk-v'),cv=document.getElementById('cpc-v');
-  if(rv) rv.textContent=s;
-  if(cv){const c=s<=1?'A':s<=2?'B':s<=3?'C':'D';cv.textContent=c;cv.className='risk-val r'+c;G.form.cpc=c;}
+  /* ── CALCOLO INDICE DI RISCHIO ──
+     Formula da scheda VTA Excel (Carlo Piccini):
+     IR = (J27 + J37 + J47) × FattoreContatto × FattoreDimensionale
+
+     Dove:
+     - J27 = indice pericolosità Radici-Colletto
+     - J37 = indice pericolosità Fusto-Castello
+     - J47 = indice pericolosità Branche-Chioma
+     - FattoreContatto = valore numerico del fattore di contatto
+     - FattoreDimensionale = (10/(1+e^(-0.4*(H-12))) + 10/(1+e^(-0.04*(Circ-100))) + 10/(1+e^(-0.7*(Dchioma-12)))) / 3
+  */
+
+  /* Mappa pericolosità sezione → numero */
+  const PERIC = {
+    'assente':0,'trascurabile':1,'basso':4,'bassa':4,
+    'moderato':5,'moderata':5,'elevato':8,'elevata':8,
+    'estremo':10,'estrema':10
+  };
+
+  /* Mappa fattore contatto → numero */
+  const FC_MAP = {
+    'assente':1,'trascurabile':2,'basso':3,
+    'moderato':5,'elevato':8,'estremo':10
+  };
+
+  /* Leggi i valori VTA salvati */
+  const vta = G.form.vta || {};
+
+  /* Indice pericolosità per sezione (dalla selezione nella scheda) */
+  const getPerSec = (sec) => {
+    // Cerca nelle chiavi vta la pericolosità della sezione
+    const key = Object.keys(vta).find(k => k.startsWith('per_') && k.toLowerCase().includes(sec));
+    const val = key ? vta[key] : '';
+    return PERIC[val.toLowerCase()] || 0;
+  };
+
+  const J27 = getPerSec('radici') || getPerSec('colletto') || 0;
+  const J37 = getPerSec('fusto')  || getPerSec('castello') || 0;
+  const J47 = getPerSec('branche') || getPerSec('chioma')  || 0;
+
+  /* Fattore di contatto */
+  const fcRaw = (G.form.fattoreContatto || '').toLowerCase();
+  const FC = FC_MAP[fcRaw] || 1;
+
+  /* Fattore dimensionale (formula sigmoide) */
+  const h  = parseFloat(G.form.h)   || 0;
+  const dbh = parseFloat(G.form.dbh) || 0;
+  const circ = dbh * Math.PI;
+  const dc = parseFloat(G.form.cw)  || 0; // diametro chioma = larghezza chioma
+
+  let FD = 1;
+  if (h > 0 || circ > 0 || dc > 0) {
+    FD = (
+      10 / (1 + Math.exp(-0.4  * (h    - 12))) +
+      10 / (1 + Math.exp(-0.04 * (circ - 100))) +
+      10 / (1 + Math.exp(-0.7  * (dc   - 12)))
+    ) / 3;
+  }
+
+  /* Indice di rischio finale */
+  const IR = (J27 + J37 + J47) * FC * FD;
+
+  /* Pericolosità e CPC */
+  let pericLabel, cpc;
+  if      (IR < 30)  { pericLabel = 'Trascurabile'; cpc = 'A'; }
+  else if (IR < 120) { pericLabel = 'Bassa';         cpc = 'B'; }
+  else if (IR < 300) { pericLabel = 'Moderata';      cpc = 'C'; }
+  else if (IR < 600) { pericLabel = 'Elevata';       cpc = 'D'; }
+  else               { pericLabel = 'Estrema';       cpc = 'D'; }
+
+  /* Aggiorna UI */
+  const rv = document.getElementById('risk-v');
+  const cv = document.getElementById('cpc-v');
+  const pv = document.getElementById('peric-v');
+  const dv = document.getElementById('fd-v');
+
+  if (rv) rv.textContent = IR > 0 ? IR.toFixed(1) : '—';
+  if (cv) { cv.textContent = cpc; cv.className = 'risk-val r' + cpc; }
+  if (pv) pv.textContent = IR > 0 ? pericLabel : '—';
+  if (dv) dv.textContent = FD.toFixed(3);
+
+  /* Salva */
+  G.form.cpc = cpc;
+  G.form.indiceRischio = IR;
+  autosaveField('cpc', cpc);
+  autosaveField('indiceRischio', IR);
+  autosaveField('pericolosita', pericLabel);
 }
 function requestGPS(){
   const gt=document.getElementById('gps-txt');
