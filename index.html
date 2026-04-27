@@ -1644,11 +1644,18 @@ function restoreVTAui(){
   });
   /* Giudizi */
   Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
-    const lbl=k.slice(4), val=vta[k];
+    const lbl=k.slice(4).toLowerCase(), val=vta[k];
     if(!val) return;
     document.querySelectorAll('.field').forEach(f=>{
-      if(f.querySelector('label')?.textContent===lbl)
-        f.querySelectorAll('.gj').forEach(b=>b.classList.toggle('on',b.textContent===val));
+      const labelText=(f.querySelector('label')?.textContent||'').toLowerCase();
+      if(labelText===lbl || labelText.replace(/[-\s]/g,'')===lbl.replace(/[-\s]/g,'')){
+        f.querySelectorAll('.gj').forEach(b=>{
+          const on=b.textContent===val;
+          b.classList.toggle('on',on);
+          if(on){b.style.fontWeight='700';b.style.boxShadow='0 0 0 2px currentColor';}
+          else{b.style.fontWeight='';b.style.boxShadow='';}
+        });
+      }
     });
   });
   /* Pericolosità — cerca per testo esatto del bottone */
