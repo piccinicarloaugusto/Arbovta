@@ -611,10 +611,12 @@ function openTree(id){
     suolo:          t.suolo || '',
     pavimentazione: t.pavimentazione || '',
     sitoCon:        t.sitoCon || '',
-    posizSoc:       t.posizSoc || '',
-    conflitti:      t.conflitti || '',
-    fattoreContatto:t.fattoreContatto || '',
-    h:              t.h || null,
+    posizSoc:           t.posizSoc || '',
+    conflitti:          t.conflitti || '',
+    fattoreContatto:    t.fattoreContatto || '',
+    fattoreContattoNum: t.fattoreContattoNum || (t.vta && t.vta.fattoreContattoNum) || null,
+    fattoreDimensionale:t.fattoreDimensionale || (t.vta && t.vta.fattoreDimensionale) || null,
+    h:                  t.h || null,
     dbh:            t.dbh || null,
     cw:             t.cw || null,
     cd:             t.cd || null,
@@ -1676,69 +1678,41 @@ function calcSnell(){
   if(el&&h&&d) el.value=((h*100)/d).toFixed(1);
 }
 function updateRisk(){
-  /* ── CALCOLO INDICE DI RISCHIO ──
-     Formula da scheda VTA Excel (Carlo Piccini):
-     IR = (J27 + J37 + J47) × FattoreContatto × FattoreDimensionale
+  const vta = G.form.vta || {};
 
-     Dove:
-     - J27 = indice pericolosità Radici-Colletto
-     - J37 = indice pericolosità Fusto-Castello
-     - J47 = indice pericolosità Branche-Chioma
-     - FattoreContatto = valore numerico del fattore di contatto
-     - FattoreDimensionale = (10/(1+e^(-0.4*(H-12))) + 10/(1+e^(-0.04*(Circ-100))) + 10/(1+e^(-0.7*(Dchioma-12)))) / 3
-  */
+  /* Indice pericolosità per sezione — legge il valore numerico salvato direttamente */
+  const J27 = vta['per_rc_num'] || 0;
+  const J37 = vta['per_fc_num'] || 0;
+  const J47 = vta['per_bc_num'] || 0;
 
-  /* Mappa pericolosità sezione → numero */
-  const PERIC = {
-    'assente':0,'trascurabile':1,'basso':4,'bassa':4,
-    'moderato':5,'moderata':5,'elevato':8,'elevata':8,
-    'estremo':10,'estrema':10
-  };
-
-  /* Mappa fattore contatto → numero */
+  /* Fattore contatto — usa il numero esatto salvato dall'Excel se disponibile,
+     altrimenti la mappa testuale */
   const FC_MAP = {
     'assente':1,'trascurabile':2,'basso':3,
     'moderato':5,'elevato':8,'estremo':10
   };
+  const FC = G.form.fattoreContattoNum
+    || FC_MAP[(G.form.fattoreContatto||'').toLowerCase()]
+    || 1;
 
-  /* Leggi i valori VTA salvati */
-  const vta = G.form.vta || {};
-
-  /* Indice pericolosità per sezione (dalla selezione nella scheda) */
-  const getPerSec = (sec) => {
-    // Cerca nelle chiavi vta la pericolosità della sezione
-    const key = Object.keys(vta).find(k => k.startsWith('per_') && k.toLowerCase().includes(sec));
-    const val = key ? vta[key] : '';
-    return PERIC[val.toLowerCase()] || 0;
-  };
-
-  const J27 = getPerSec('radici') || getPerSec('colletto') || 0;
-  const J37 = getPerSec('fusto')  || getPerSec('castello') || 0;
-  const J47 = getPerSec('branche') || getPerSec('chioma')  || 0;
-
-  /* Fattore di contatto */
-  const fcRaw = (G.form.fattoreContatto || '').toLowerCase();
-  const FC = FC_MAP[fcRaw] || 1;
-
-  /* Fattore dimensionale (formula sigmoide) */
-  const h  = parseFloat(G.form.h)   || 0;
-  const dbh = parseFloat(G.form.dbh) || 0;
-  const circ = dbh * Math.PI;
-  const dc = parseFloat(G.form.cw)  || 0; // diametro chioma = larghezza chioma
-
-  let FD = 1;
-  if (h > 0 || circ > 0 || dc > 0) {
-    FD = (
-      10 / (1 + Math.exp(-0.4  * (h    - 12))) +
-      10 / (1 + Math.exp(-0.04 * (circ - 100))) +
-      10 / (1 + Math.exp(-0.7  * (dc   - 12)))
-    ) / 3;
+  /* Fattore dimensionale — usa valore Excel se disponibile, altrimenti calcola */
+  let FD = G.form.fattoreDimensionale || 0;
+  if (!FD) {
+    const h    = parseFloat(G.form.h)   || 0;
+    const dbh  = parseFloat(G.form.dbh) || 0;
+    const circ = dbh * Math.PI;
+    const dc   = parseFloat(G.form.cw)  || 0;
+    if (h > 0 || circ > 0 || dc > 0) {
+      FD = (
+        10 / (1 + Math.exp(-0.4  * (h    - 12))) +
+        10 / (1 + Math.exp(-0.04 * (circ - 100))) +
+        10 / (1 + Math.exp(-0.7  * (dc   - 12)))
+      ) / 3;
+    } else { FD = 1; }
   }
 
-  /* Indice di rischio finale */
   const IR = (J27 + J37 + J47) * FC * FD;
 
-  /* Pericolosità e CPC */
   let pericLabel, cpc;
   if      (IR < 30)  { pericLabel = 'Trascurabile'; cpc = 'A'; }
   else if (IR < 120) { pericLabel = 'Bassa';         cpc = 'B'; }
@@ -1746,7 +1720,6 @@ function updateRisk(){
   else if (IR < 600) { pericLabel = 'Elevata';       cpc = 'D'; }
   else               { pericLabel = 'Estrema';       cpc = 'D'; }
 
-  /* Aggiorna UI */
   const rv = document.getElementById('risk-v');
   const cv = document.getElementById('cpc-v');
   const pv = document.getElementById('peric-v');
@@ -1757,12 +1730,10 @@ function updateRisk(){
   if (pv) pv.textContent = IR > 0 ? pericLabel : '—';
   if (dv) dv.textContent = FD.toFixed(3);
 
-  /* Salva */
   G.form.cpc = cpc;
   G.form.indiceRischio = IR;
   autosaveField('cpc', cpc);
   autosaveField('indiceRischio', IR);
-  autosaveField('pericolosita', pericLabel);
 }
 function requestGPS(){
   const gt=document.getElementById('gps-txt');
@@ -2447,8 +2418,11 @@ function importGeoJSON(e) {
           sitoCon:        p.sitoCon || '',
           posizSoc:       p.posizSoc || '',
           conflitti:      p.conflitti || '',
-          fattoreContatto:p.fattoreContatto || '',
-          fattoreDanno:   p.fattoreDanno || '',
+          fattoreContatto:    p.fattoreContatto || '',
+          fattoreDanno:       p.fattoreDanno || '',
+          fattoreContattoNum: p.fattoreContattoNum || null,
+          fattoreDimensionale:p.fattoreDimensionale || null,
+          indiceRischio:      p.indiceRischio || null,
           giudVeg:        p.giudVeg || p.stato_vegetativo || '',
           giudFisio:      p.giudFisio || '',
           giudBiomec:     p.giudBiomec || p.giudizio_biomeccanico || '',
