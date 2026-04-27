@@ -1556,7 +1556,9 @@ function tms(btn,g,multi){
 }
 function setSev(btn,lv){
   const p=btn.closest('.sev');
-  p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
+  /* Rimuovi stato da tutti — ma mantieni la classe colore specifica */
+  p.querySelectorAll('.sev-b').forEach(b=>b.classList.remove('on'));
+  /* Aggiungi on al bottone toccato — la classe colore (sev-l/m/e) è già nel markup */
   btn.classList.add('on');
   const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
   autosave('sev_'+sec, lv);
