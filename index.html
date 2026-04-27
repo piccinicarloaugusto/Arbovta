@@ -515,6 +515,7 @@ function render(v){
     G.clino._stream=null;
   }
   if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,150));
+  if(v==='scheda') setTimeout(restoreVTAui, 100);
 }
 
 /* ═══════════════════════════════════════
@@ -619,13 +620,17 @@ function openTree(id){
     cd:             t.cd || null,
     isPino:         (t.specie||'').toLowerCase().includes('pinus'),
     giudVeg:        t.giudVeg || '',
+    giudFisio:      t.giudFisio || '',
+    giudBiomec:     t.giudBiomec || '',
     pericolosita:   t.pericolosita || '',
+    fattoreDanno:   t.fattoreDanno || '',
     cpc:            t.cpc || 'A',
     prescrizioni:   t.prescrizioni || '',
     lat:            t.lat ? String(t.lat) : '',
     lng:            t.lng ? String(t.lng) : '',
     data:           t.data || '',
-    _editingId:     t.id   /* traccia quale pianta stiamo modificando */
+    _editingId:     t.id,
+    vta:            t.vta ? JSON.parse(JSON.stringify(t.vta)) : {}
   };
 
   /* Porta le misure del clinometro in sincronia se presenti */
@@ -657,10 +662,20 @@ function saveRilievo(){
     cd:             G.form.cd  || 0,
     disposizione:   G.form.disposizione || '',
     stazione:       G.form.stazione || '',
+    suolo:          G.form.suolo || '',
     pavimentazione: G.form.pavimentazione || '',
+    sitoCon:        G.form.sitoCon || '',
+    posizSoc:       G.form.posizSoc || '',
+    conflitti:      G.form.conflitti || '',
+    fattoreContatto:G.form.fattoreContatto || '',
     giudVeg:        G.form.giudVeg || '',
+    giudFisio:      G.form.giudFisio || '',
+    giudBiomec:     G.form.giudBiomec || '',
     pericolosita:   G.form.pericolosita || '',
+    fattoreDanno:   G.form.fattoreDanno || '',
     prescrizioni:   G.form.prescrizioni || '',
+    vta:            G.form.vta || {},
+    _editedByUser:  true
   };
 
   if(G.form._editingId) {
@@ -1461,8 +1476,8 @@ function renderScheda(){
 
   <div class="card">
     <div class="sec">Diagnosi e valutazione finale</div>
-    <div class="field"><label>Giudizio fisiopatologico</label><textarea rows="2" placeholder="Stato vegetativo e fitosanitario..."></textarea></div>
-    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><textarea rows="2" placeholder="Valutazione stabilità strutturale..."></textarea></div>
+    <div class="field"><label>Giudizio fisiopatologico</label><textarea rows="2" placeholder="Stato vegetativo e fitosanitario..." oninput="G.form.giudFisio=this.value"></textarea></div>
+    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><textarea rows="2" placeholder="Valutazione stabilità strutturale..." oninput="G.form.giudBiomec=this.value"></textarea></div>
     <div class="fg" style="margin-top:8px">
       <div class="field"><label>Giudizio vegetativo</label><select onchange="G.form.giudVeg=this.value"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Pericolosità</label><select onchange="G.form.pericolosita=this.value;updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
@@ -1537,14 +1552,75 @@ function renderSezioneChioma(){
 function tms(btn,g,multi){
   if(!multi) document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.remove('on'));
   btn.classList.toggle('on');
+  if(!G.form.vta) G.form.vta={};
+  G.form.vta['chip_'+g]=[...document.querySelectorAll(`.chip[data-g="${g}"].on`)].map(b=>b.textContent);
 }
 function setSev(btn,lv){
   const p=btn.closest('.sev');
   p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
   btn.classList.add('on');
+  if(!G.form.vta) G.form.vta={};
+  const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
+  G.form.vta['sev_'+sec]=lv;
 }
-function setGjd(btn){ btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
-function setPer(btn){ btn.closest('.peric').querySelectorAll('.per').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+function setGjd(btn){
+  btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(!G.form.vta) G.form.vta={};
+  const lbl=btn.closest('.field')?.querySelector('label')?.textContent||Math.random();
+  G.form.vta['gjd_'+lbl]=btn.textContent;
+}
+function setPer(btn){
+  btn.closest('.peric').querySelectorAll('.per').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(!G.form.vta) G.form.vta={};
+  const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
+  G.form.vta['per_'+sec]=btn.textContent;
+}
+
+function restoreVTAui(){
+  const vta=G.form.vta;
+  if(!vta) return;
+  /* Chip */
+  Object.keys(vta).filter(k=>k.startsWith('chip_')).forEach(k=>{
+    const g=k.slice(5), sel=vta[k]||[];
+    document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.toggle('on',sel.includes(b.textContent)));
+  });
+  /* Gravità */
+  Object.keys(vta).filter(k=>k.startsWith('sev_')).forEach(k=>{
+    const sec=k.slice(4), lv=vta[k];
+    const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
+    if(!card) return;
+    card.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e','on');});
+    const cls=lv==='lieve'?'sev-l':lv==='moderato'?'sev-m':'sev-e';
+    const btn=card.querySelector('.sev-b.'+cls); if(btn) btn.classList.add('on');
+  });
+  /* Giudizi */
+  Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
+    const lbl=k.slice(4), val=vta[k];
+    document.querySelectorAll('.field').forEach(f=>{
+      if(f.querySelector('label')?.textContent===lbl)
+        f.querySelectorAll('.gj').forEach(b=>b.classList.toggle('on',b.textContent===val));
+    });
+  });
+  /* Pericolosità */
+  Object.keys(vta).filter(k=>k.startsWith('per_')).forEach(k=>{
+    const sec=k.slice(4), val=vta[k];
+    const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
+    if(card) card.querySelectorAll('.per').forEach(b=>b.classList.toggle('on',b.textContent===val));
+  });
+  /* Textarea */
+  [['giudFisio','Stato vegetativo'],['giudBiomec','Valutazione stabilità'],['prescrizioni','Interventi']].forEach(([key,ph])=>{
+    const val=G.form[key]||vta[key]||''; if(!val) return;
+    document.querySelectorAll('textarea').forEach(ta=>{if(ta.placeholder?.startsWith(ph.slice(0,8))) ta.value=val;});
+  });
+  /* Select */
+  ['sito','disposizione','stazione','suolo','pavimentazione','sitoCon','posizSoc','conflitti','fattoreContatto','giudVeg','pericolosita','fattoreDanno'].forEach(key=>{
+    const val=G.form[key]; if(!val) return;
+    const el=document.querySelector(`[onchange*="${key}"]`); if(el) el.value=val;
+  });
+  if(G.form.pericolosita) updateRisk();
+}
 function checkPino(v){
   const el=document.getElementById('pino-banner');
   if(el) el.style.display=v.toLowerCase().includes('pinus')?'block':'none';
