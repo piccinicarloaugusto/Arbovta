@@ -1645,16 +1645,31 @@ function restoreVTAui(){
   /* Giudizi */
   Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
     const lbl=k.slice(4), val=vta[k];
+    if(!val) return;
     document.querySelectorAll('.field').forEach(f=>{
       if(f.querySelector('label')?.textContent===lbl)
         f.querySelectorAll('.gj').forEach(b=>b.classList.toggle('on',b.textContent===val));
     });
   });
-  /* Pericolosità */
-  Object.keys(vta).filter(k=>k.startsWith('per_')).forEach(k=>{
+  /* Pericolosità — cerca per testo esatto del bottone */
+  Object.keys(vta).filter(k=>k.startsWith('per_') && !k.endsWith('_num')).forEach(k=>{
     const sec=k.slice(4), val=vta[k];
+    if(!val) return;
     const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
-    if(card) card.querySelectorAll('.per').forEach(b=>b.classList.toggle('on',b.textContent===val));
+    if(!card) return;
+    card.querySelectorAll('.per').forEach(b=>{
+      const match = b.textContent===val ||
+        (val==='TRASCUR.' && b.textContent.startsWith('TRASCUR')) ||
+        (b.textContent==='TRASCUR.' && val.startsWith('TRASCUR'));
+      b.classList.toggle('on', match);
+      if(match){
+        b.style.fontWeight='700';
+        b.style.boxShadow='0 0 0 2px currentColor';
+      } else {
+        b.style.fontWeight='';
+        b.style.boxShadow='';
+      }
+    });
   });
   /* Textarea */
   [['giudFisio','Stato vegetativo'],['giudBiomec','Valutazione stabilità'],['prescrizioni','Interventi']].forEach(([key,ph])=>{
