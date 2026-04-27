@@ -1405,8 +1405,8 @@ function renderScheda(){
     <div class="pino-banner" id="pino-banner">🌲 Modalità PINO attiva — parametri specifici abilitati</div>
     <div class="fg" style="margin-top:7px">
       <div class="field full"><label>Ubicazione</label><input type="text" placeholder="Via, struttura, comune..." value="${f.ubicazione}" oninput="G.form.ubicazione=this.value"></div>
-      <div class="field"><label>Sito</label><select onchange="G.form.sito=this.value"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Disposizione</label><select onchange="G.form.disposizione=this.value"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Sito</label><select onchange="autosaveField('sito',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Disposizione</label><select onchange="autosaveField('disposizione',this.value)"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     </div>
   </div>
 
@@ -1426,13 +1426,13 @@ function renderScheda(){
   <div class="card">
     <div class="sec">Dati dimora</div>
     <div class="fg">
-      <div class="field"><label>Stazione</label><select onchange="G.form.stazione=this.value"><option>Seleziona...</option>${['aiuola','terreno naturale','terra di riporto','buco asfalto','buco marciapiede','buco pavimentazione','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Pavimentazione</label><select onchange="G.form.pavimentazione=this.value"><option>Seleziona...</option>${['prato','asfalto','autobloccanti','marciapiede','pavimentazione','telo pacciamante','terreno nudo','stabilizzato','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Suolo</label><select onchange="G.form.suolo=this.value"><option>Seleziona...</option>${['idoneo','compatto','sabbioso','argilloso','scheletroso','impermeabile','non rilevato','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Sito radicazione</label><select onchange="G.form.sitoCon=this.value"><option>Seleziona...</option>${['idoneo','mediocre','scadente','inidoneo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Posizione sociale</label><select onchange="G.form.posizSoc=this.value"><option>Seleziona...</option>${['predominante','dominante','codominante','dominato','sottoposto'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Conflitti</label><select onchange="G.form.conflitti=this.value"><option>Seleziona...</option>${['nessun conflitto','specie arbustive','specie arboree','marciapiede','sede stradale','pavimentazione','cavi aerei','cartellonistica','recinzione','utenze interrate','edifici','semaforo','scavi','lampione','parcheggio','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Fattore contatto</label><select onchange="G.form.fattoreContatto=this.value"><option>Seleziona...</option>${['assente','trascurabile','basso','moderato','elevato','estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Stazione</label><select onchange="autosaveField('stazione',this.value)"><option>Seleziona...</option>${['aiuola','terreno naturale','terra di riporto','buco asfalto','buco marciapiede','buco pavimentazione','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Pavimentazione</label><select onchange="autosaveField('pavimentazione',this.value)"><option>Seleziona...</option>${['prato','asfalto','autobloccanti','marciapiede','pavimentazione','telo pacciamante','terreno nudo','stabilizzato','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Suolo</label><select onchange="autosaveField('suolo',this.value)"><option>Seleziona...</option>${['idoneo','compatto','sabbioso','argilloso','scheletroso','impermeabile','non rilevato','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Sito radicazione</label><select onchange="autosaveField('sitoCon',this.value)"><option>Seleziona...</option>${['idoneo','mediocre','scadente','inidoneo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Posizione sociale</label><select onchange="autosaveField('posizSoc',this.value)"><option>Seleziona...</option>${['predominante','dominante','codominante','dominato','sottoposto'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Conflitti</label><select onchange="autosaveField('conflitti',this.value)"><option>Seleziona...</option>${['nessun conflitto','specie arbustive','specie arboree','marciapiede','sede stradale','pavimentazione','cavi aerei','cartellonistica','recinzione','utenze interrate','edifici','semaforo','scavi','lampione','parcheggio','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Fattore contatto</label><select onchange="autosaveField('fattoreContatto',this.value)"><option>Seleziona...</option>${['assente','trascurabile','basso','moderato','elevato','estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Età ontogenetica (1-10)</label><input type="number" min="1" max="10" placeholder="—" oninput="G.form.eta=this.value"></div>
     </div>
   </div>
@@ -1476,18 +1476,18 @@ function renderScheda(){
 
   <div class="card">
     <div class="sec">Diagnosi e valutazione finale</div>
-    <div class="field"><label>Giudizio fisiopatologico</label><textarea rows="2" placeholder="Stato vegetativo e fitosanitario..." oninput="G.form.giudFisio=this.value"></textarea></div>
-    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><textarea rows="2" placeholder="Valutazione stabilità strutturale..." oninput="G.form.giudBiomec=this.value"></textarea></div>
+    <div class="field"><label>Giudizio fisiopatologico</label><textarea rows="2" placeholder="Stato vegetativo e fitosanitario..." oninput="autosaveField('giudFisio',this.value)"></textarea></div>
+    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><textarea rows="2" placeholder="Valutazione stabilità strutturale..." oninput="autosaveField('giudBiomec',this.value)"></textarea></div>
     <div class="fg" style="margin-top:8px">
-      <div class="field"><label>Giudizio vegetativo</label><select onchange="G.form.giudVeg=this.value"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Pericolosità</label><select onchange="G.form.pericolosita=this.value;updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Giudizio vegetativo</label><select onchange="autosaveField('giudVeg',this.value)"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Pericolosità</label><select onchange="autosaveField('pericolosita',this.value);updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     </div>
     <div class="risk-grid">
       <div class="risk-card"><div class="risk-val" id="risk-v">0</div><div class="risk-lbl">Indice di rischio</div></div>
       <div class="risk-card"><div class="risk-val rA" id="cpc-v">A</div><div class="risk-lbl">Classe CPC</div></div>
     </div>
     <div class="field" style="margin-top:8px"><label>Fattore di danno</label><select><option>Seleziona...</option>${['Assente','Trascurabile','Basso','Moderato','Elevato','Estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-    <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="G.form.prescrizioni=this.value"></textarea></div>
+    <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="autosaveField('prescrizioni',this.value)"></textarea></div>
     <div class="field" style="margin-top:7px"><label>Il rilevatore</label><input type="text" value="Carlo Piccini — Dottore Agronomo" placeholder="Nome, titolo"></div>
   </div>`;
 }
@@ -1552,32 +1552,50 @@ function renderSezioneChioma(){
 function tms(btn,g,multi){
   if(!multi) document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(b=>b.classList.remove('on'));
   btn.classList.toggle('on');
-  if(!G.form.vta) G.form.vta={};
-  G.form.vta['chip_'+g]=[...document.querySelectorAll(`.chip[data-g="${g}"].on`)].map(b=>b.textContent);
+  autosave('chip_'+g, [...document.querySelectorAll(`.chip[data-g="${g}"].on`)].map(b=>b.textContent));
 }
 function setSev(btn,lv){
   const p=btn.closest('.sev');
   p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
   btn.classList.add('on');
-  if(!G.form.vta) G.form.vta={};
   const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
-  G.form.vta['sev_'+sec]=lv;
+  autosave('sev_'+sec, lv);
 }
 function setGjd(btn){
   btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  if(!G.form.vta) G.form.vta={};
   const lbl=btn.closest('.field')?.querySelector('label')?.textContent||Math.random();
-  G.form.vta['gjd_'+lbl]=btn.textContent;
+  autosave('gjd_'+lbl, btn.textContent);
 }
 function setPer(btn){
   btn.closest('.peric').querySelectorAll('.per').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  if(!G.form.vta) G.form.vta={};
   const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
-  G.form.vta['per_'+sec]=btn.textContent;
+  autosave('per_'+sec, btn.textContent);
 }
 
+
+/* ── AUTOSAVE — scrive immediatamente in G.trees e localStorage ── */
+function autosave(key, value) {
+  if(!G.form._editingId) return;
+  if(!G.form.vta) G.form.vta = {};
+  G.form.vta[key] = value;
+  const idx = G.trees.findIndex(x => x.id === G.form._editingId);
+  if(idx >= 0) {
+    if(!G.trees[idx].vta) G.trees[idx].vta = {};
+    G.trees[idx].vta[key] = value;
+    saveTrees();
+  }
+}
+function autosaveField(key, value) {
+  G.form[key] = value;
+  if(!G.form._editingId) return;
+  const idx = G.trees.findIndex(x => x.id === G.form._editingId);
+  if(idx >= 0) {
+    G.trees[idx][key] = value;
+    saveTrees();
+  }
+}
 function restoreVTAui(){
   const vta=G.form.vta;
   if(!vta) return;
