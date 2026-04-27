@@ -1556,32 +1556,8 @@ function tms(btn,g,multi){
 }
 function setSev(btn,lv){
   const p=btn.closest('.sev');
-  /* Reset tutti i bottoni */
-  p.querySelectorAll('.sev-b').forEach(b=>{
-    b.classList.remove('on');
-    b.style.background='';
-    b.style.borderColor='';
-    b.style.color='';
-    b.style.fontWeight='';
-  });
-  /* Colora il bottone selezionato con stile inline (non dipende da cache CSS) */
+  p.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e');b.classList.remove('on');});
   btn.classList.add('on');
-  if(lv==='lieve'){
-    btn.style.background='var(--green-100)';
-    btn.style.borderColor='var(--green-400)';
-    btn.style.color='var(--green-700)';
-    btn.style.fontWeight='600';
-  } else if(lv==='moderato'){
-    btn.style.background='var(--amber-light)';
-    btn.style.borderColor='var(--amber)';
-    btn.style.color='var(--amber-dark)';
-    btn.style.fontWeight='600';
-  } else {
-    btn.style.background='var(--red-light)';
-    btn.style.borderColor='var(--red)';
-    btn.style.color='var(--red-dark)';
-    btn.style.fontWeight='600';
-  }
   const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||Math.random();
   autosave('sev_'+sec, lv);
 }
@@ -1633,9 +1609,9 @@ function restoreVTAui(){
     const sec=k.slice(4), lv=vta[k];
     const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('.sec')?.textContent?.trim()===sec);
     if(!card) return;
-    const lvMap={'lieve':'sev-l','moderato':'sev-m','elevato':'sev-e'};
-    const btn=card.querySelector('.sev-b.'+lvMap[lv]);
-    if(btn) setSev(btn, lv);
+    card.querySelectorAll('.sev-b').forEach(b=>{b.classList.remove('sev-l','sev-m','sev-e','on');});
+    const cls=lv==='lieve'?'sev-l':lv==='moderato'?'sev-m':'sev-e';
+    const btn=card.querySelector('.sev-b.'+cls); if(btn) btn.classList.add('on');
   });
   /* Giudizi */
   Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
