@@ -1490,7 +1490,7 @@ function renderScheda(){
       <div class="risk-card"><div class="risk-val" id="peric-v" style="font-size:14px">—</div><div class="risk-lbl">Pericolosità</div></div>
       <div class="risk-card"><div class="risk-val" id="fd-v" style="font-size:16px">—</div><div class="risk-lbl">Fattore dimensionale</div></div>
     </div>
-    <div class="field" style="margin-top:8px"><label>Fattore di danno</label><select><option>Seleziona...</option>${['Assente','Trascurabile','Basso','Moderato','Elevato','Estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:8px"><label>Fattore di danno</label><select onchange="autosaveField('fattoreDanno',this.value)"><option>Seleziona...</option>${['Assente','Trascurabile','Basso','Moderato','Elevato','Estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="autosaveField('prescrizioni',this.value)"></textarea></div>
     <div class="field" style="margin-top:7px"><label>Il rilevatore</label><input type="text" value="Carlo Piccini — Dottore Agronomo" placeholder="Nome, titolo"></div>
   </div>`;
@@ -1683,10 +1683,19 @@ function restoreVTAui(){
     const val=G.form[key]||vta[key]||''; if(!val) return;
     document.querySelectorAll('textarea').forEach(ta=>{if(ta.placeholder?.startsWith(ph.slice(0,8))) ta.value=val;});
   });
-  /* Select */
+  /* Select — cerca sia in G.form che in vta */
   ['sito','disposizione','stazione','suolo','pavimentazione','sitoCon','posizSoc','conflitti','fattoreContatto','giudVeg','pericolosita','fattoreDanno'].forEach(key=>{
-    const val=G.form[key]; if(!val) return;
-    const el=document.querySelector(`[onchange*="${key}"]`); if(el) el.value=val;
+    const val = G.form[key] || vta[key] || '';
+    if(!val) return;
+    const el = document.querySelector(`[onchange*="${key}"]`);
+    if(el){
+      /* Cerca l'opzione con testo che corrisponde (case-insensitive) */
+      const opt = [...el.options].find(o =>
+        o.value.toLowerCase() === val.toLowerCase() ||
+        o.text.toLowerCase()  === val.toLowerCase()
+      );
+      if(opt) el.value = opt.value;
+    }
   });
   if(G.form.pericolosita) updateRisk();
   setTimeout(updateRisk, 150);
