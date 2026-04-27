@@ -1397,15 +1397,15 @@ function renderScheda(){
   <div class="card">
     <div class="sec">Dati identificativi</div>
     <div class="fg">
-      <div class="field"><label>Codice rilievo *</label><input type="text" placeholder="es. 2049" value="${f.codice}" oninput="G.form.codice=this.value"></div>
-      <div class="field"><label>Data rilievo</label><input type="date" oninput="G.form.data=this.value"></div>
-      <div class="field full"><label>Specie *</label><input type="text" id="fld-specie" placeholder="es. Pinus pinea" value="${f.specie}" oninput="G.form.specie=this.value;checkPino(this.value)"></div>
+      <div class="field"><label>Codice rilievo *</label><input type="text" placeholder="es. 2049" value="${f.codice}" oninput="autosaveField('codice',this.value)"></div>
+      <div class="field"><label>Data rilievo</label><input type="date" value="${f.data||''}" oninput="autosaveField('data',this.value)"></div>
+      <div class="field full"><label>Specie *</label><input type="text" id="fld-specie" placeholder="es. Pinus pinea" value="${f.specie}" oninput="autosaveField('specie',this.value);checkPino(this.value)"></div>
     </div>
     ${specieBanner}
     <div class="pino-banner" id="pino-banner">🌲 Modalità PINO attiva — parametri specifici abilitati</div>
     <div class="fg" style="margin-top:7px">
-      <div class="field full"><label>Ubicazione</label><input type="text" placeholder="Via, struttura, comune..." value="${f.ubicazione}" oninput="G.form.ubicazione=this.value"></div>
-      <div class="field"><label>Sito</label><select onchange="autosaveField('sito',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field full"><label>Ubicazione</label><input type="text" placeholder="Via, struttura, comune..." value="${f.ubicazione}" oninput="autosaveField('ubicazione',this.value);autosaveField('sito',this.value)"></div>
+      <div class="field"><label>Sito</label><select onchange="autosaveField('sito',this.value);autosaveField('ubicazione',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Disposizione</label><select onchange="autosaveField('disposizione',this.value)"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     </div>
   </div>
