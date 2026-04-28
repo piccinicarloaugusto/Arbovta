@@ -1008,7 +1008,7 @@ function renderMisure(){
   <style>
     .vf-wrap{position:relative;width:100%;background:#000;border-radius:var(--r-lg);
       overflow:hidden;border:0.5px solid var(--green-800);user-select:none;-webkit-user-select:none}
-    .vf-video{width:100%;display:block;min-height:300px;object-fit:cover}
+    .vf-video{width:100%;display:block;min-height:55vh;object-fit:cover}
     .vf-overlay{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
     .vf-cross{position:relative;width:72px;height:72px}
     .vf-h{position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(110,232,122,.95);transform:translateY(-50%);box-shadow:0 0 6px rgba(110,232,122,.5)}
@@ -1042,8 +1042,9 @@ function renderMisure(){
     .step-hint{font-size:12px;color:var(--text-muted);background:var(--surface-2);
       border-radius:var(--r-sm);padding:9px 12px;border-left:3px solid var(--green-400);
       margin-bottom:8px;line-height:1.5}
-    @media(min-width:600px){.vf-video{min-height:420px}.vf-angle{font-size:68px}}
-    @media(orientation:landscape) and (max-height:500px){.vf-video{min-height:calc(100dvh - 200px)}}
+    @media(min-width:600px){.vf-video{min-height:60vh}.vf-angle{font-size:68px}}
+    @media(orientation:landscape) and (max-height:500px){.vf-video{min-height:calc(100dvh - 160px)}}
+    @media(min-width:600px) and (orientation:landscape){.vf-video{min-height:calc(100dvh - 180px)}}
     @keyframes pulse-sensor{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
   </style>
 
