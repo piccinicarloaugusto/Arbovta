@@ -632,7 +632,8 @@ function openTree(id){
     lng:            t.lng ? String(t.lng) : '',
     data:           t.data || '',
     _editingId:     t.id,
-    vta:            t.vta ? JSON.parse(JSON.stringify(t.vta)) : {}
+    vta:            t.vta ? JSON.parse(JSON.stringify(t.vta)) : {},
+    _cpcManual:     t._cpcManual || false
   };
 
   /* Porta le misure del clinometro in sincronia se presenti */
@@ -1460,7 +1461,15 @@ function renderScheda(){
     </div>
     <div class="risk-grid">
       <div class="risk-card"><div class="risk-val" id="risk-v">—</div><div class="risk-lbl">Indice di rischio</div></div>
-      <div class="risk-card"><div class="risk-val rA" id="cpc-v">${G.form.cpc||'A'}</div><div class="risk-lbl">Classe CPC</div></div>
+      <div class="risk-card" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div class="risk-val r${G.form.cpc||'A'}" id="cpc-v">${G.form.cpc||'A'}</div>
+        <select id="cpc-select" onchange="setCPCManual(this.value)"
+          style="font-size:11px;padding:3px 6px;border-radius:6px;border:0.5px solid var(--border);
+          background:var(--surface);color:var(--text-primary);font-family:var(--font-mono);font-weight:600;cursor:pointer">
+          ${['A','B','C','D'].map(c=>`<option value="${c}" ${(G.form.cpc||'A')===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        <div class="risk-lbl">Classe CPC</div>
+      </div>
       <div class="risk-card"><div class="risk-val" id="peric-v" style="font-size:14px">—</div><div class="risk-lbl">Pericolosità</div></div>
       <div class="risk-card"><div class="risk-val" id="fd-v" style="font-size:16px">—</div><div class="risk-lbl">Fattore dimensionale</div></div>
     </div>
@@ -1715,7 +1724,15 @@ function restoreVTAui(){
     if(el && el.value !== val) el.value = val;
   });
 
-  /* ── 8. AGGIORNA INDICE DI RISCHIO ── */
+  /* ── 8. CPC select ── */
+  const cpcSel = document.getElementById('cpc-select');
+  if(cpcSel && G.form.cpc) {
+    cpcSel.value = G.form.cpc;
+    const cv = document.getElementById('cpc-v');
+    if(cv){ cv.textContent = G.form.cpc; cv.className = 'risk-val r' + G.form.cpc; }
+  }
+
+  /* ── 9. AGGIORNA INDICE DI RISCHIO ── */
   setTimeout(updateRisk, 100);
 }
 function checkPino(v){
@@ -1726,7 +1743,20 @@ function calcSnell(){
   const h=G.form.h,d=G.form.dbh,el=document.getElementById('fsnell');
   if(el&&h&&d) el.value=((h*100)/d).toFixed(1);
 }
-function updateRisk(){
+function setCPCManual(cpc) {
+  G.form.cpc = cpc;
+  G.form._cpcManual = true;   /* flag: l'utente ha scelto manualmente */
+  const cv = document.getElementById('cpc-v');
+  if(cv){ cv.textContent = cpc; cv.className = 'risk-val r' + cpc; }
+  autosaveField('cpc', cpc);
+  autosaveField('_cpcManual', true);
+}
+
+function resetCPCManual() {
+  G.form._cpcManual = false;
+  autosaveField('_cpcManual', false);
+  updateRisk();
+}
   const vta = G.form.vta || {};
 
   /* Indice pericolosità per sezione — legge il valore numerico salvato direttamente */
@@ -1769,21 +1799,48 @@ function updateRisk(){
   else if (IR < 600) { pericLabel = 'Elevata';       cpc = 'D'; }
   else               { pericLabel = 'Estrema';       cpc = 'D'; }
 
-  const rv = document.getElementById('risk-v');
-  const cv = document.getElementById('cpc-v');
-  const pv = document.getElementById('peric-v');
-  const dv = document.getElementById('fd-v');
+function updateRisk(){
+  const vta = G.form.vta || {};
+  const J27 = vta['per_rc_num'] || 0;
+  const J37 = vta['per_fc_num'] || 0;
+  const J47 = vta['per_bc_num'] || 0;
+  const FC_MAP = {'assente':1,'trascurabile':2,'basso':3,'moderato':5,'elevato':8,'estremo':10};
+  const FC = G.form.fattoreContattoNum || FC_MAP[(G.form.fattoreContatto||'').toLowerCase()] || 1;
+  let FD = G.form.fattoreDimensionale || 0;
+  if (!FD) {
+    const h=parseFloat(G.form.h)||0, dbh=parseFloat(G.form.dbh)||0;
+    const circ=dbh*Math.PI, dc=parseFloat(G.form.cw)||0;
+    if(h>0||circ>0||dc>0){
+      FD=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-12))))/3;
+    } else { FD=1; }
+  }
+  const IR=(J27+J37+J47)*FC*FD;
+  let pericLabel,cpc;
+  if(IR<30){pericLabel='Trascurabile';cpc='A';}
+  else if(IR<120){pericLabel='Bassa';cpc='B';}
+  else if(IR<300){pericLabel='Moderata';cpc='C';}
+  else if(IR<600){pericLabel='Elevata';cpc='D';}
+  else{pericLabel='Estrema';cpc='D';}
 
-  if (rv) rv.textContent = IR > 0 ? IR.toFixed(1) : '—';
-  if (cv) { cv.textContent = cpc; cv.className = 'risk-val r' + cpc; }
-  if (pv) pv.textContent = IR > 0 ? pericLabel : '—';
-  if (dv) dv.textContent = FD.toFixed(3);
+  const rv=document.getElementById('risk-v');
+  const cv=document.getElementById('cpc-v');
+  const pv=document.getElementById('peric-v');
+  const dv=document.getElementById('fd-v');
+  if(rv) rv.textContent=IR>0?IR.toFixed(1):'—';
+  if(pv) pv.textContent=IR>0?pericLabel:'—';
+  if(dv) dv.textContent=FD.toFixed(3);
 
-  G.form.cpc = cpc;
-  G.form.indiceRischio = IR;
-  autosaveField('cpc', cpc);
-  autosaveField('indiceRischio', IR);
+  /* Aggiorna CPC solo se NON è stata impostata manualmente */
+  if(!G.form._cpcManual){
+    G.form.cpc=cpc;
+    if(cv){cv.textContent=cpc;cv.className='risk-val r'+cpc;}
+    const sel=document.getElementById('cpc-select');
+    if(sel) sel.value=cpc;
+    autosaveField('cpc',cpc);
+  }
+  autosaveField('indiceRischio',IR);
 }
+
 function requestGPS(){
   const gt=document.getElementById('gps-txt');
   if(gt) gt.textContent='Acquisizione GPS...';
