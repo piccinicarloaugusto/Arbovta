@@ -3,9 +3,9 @@
    v3.0 — Gestione cache + sincronizzazione dati
 ═══════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'arbovta-v44';
-const CACHE_STATIC = 'arbovta-static-v40';
-const CACHE_DATA  = 'arbovta-data-v40';
+const CACHE_NAME = 'arbovta-v42';
+const CACHE_STATIC = 'arbovta-static-v42';
+const CACHE_DATA  = 'arbovta-data-v42';
 
 /* Risorse da precachare all'installazione */
 const PRECACHE_URLS = [
