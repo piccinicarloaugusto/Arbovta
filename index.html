@@ -98,7 +98,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
   .cap-btn{padding:16px 16px;font-size:15px}
   .met-v{font-size:24px}
   /* Clinometro tablet — viewfinder più alto */
-  .clino-cam-wrap{min-height:60vh}
+  /* Clinometro tablet — segue proporzioni naturali del video */
   .hud-angle{font-size:68px}
   .hud-unit{font-size:22px}
   .crosshair-wrap{width:100px;height:100px}
@@ -119,12 +119,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
   .nav-tab{padding:6px 4px 7px;font-size:10px}
   .nav-tab svg{width:16px;height:16px}
   .content{padding:10px 16px 6px;gap:8px}
-  .clino-cam-wrap{min-height:calc(100dvh - 160px)}
+
 }
 
 /* ── TABLET LANDSCAPE ── */
 @media (min-width:600px) and (orientation:landscape){
-  .clino-cam-wrap{min-height:calc(100dvh - 180px)}
+  /* Clinometro tablet landscape */
   #leaflet-map{height:calc(100dvh - 300px) !important}
 }
 
@@ -224,8 +224,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 
 /* ── CLINOMETRO CAMERA ── */
 .clino-cam-card{border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);margin-bottom:10px;background:#000;user-select:none;-webkit-user-select:none}
-.clino-cam-wrap{position:relative;width:100%;background:#0d1a0d;min-height:55vh;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none}
-.clino-cam-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.clino-cam-wrap{position:relative;width:100%;background:#0d1a0d;border-radius:var(--r-lg);overflow:hidden;border:0.5px solid var(--green-800);user-select:none;-webkit-user-select:none}
+.clino-cam-wrap video{width:100%;display:block;border-radius:var(--r-lg)}
 .cam-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:6px;z-index:1}
 /* Mirino — sempre visibile sopra video */
 .clino-overlay{position:absolute;inset:0;pointer-events:none;z-index:10;display:flex;align-items:center;justify-content:center}
@@ -1006,9 +1006,9 @@ function renderMisure(){
 
   return `
   <style>
-    .vf-wrap{position:relative;width:100%;background:#000;border-radius:var(--r-lg);
+    .vf-wrap{position:relative;width:100%;background:#0d1a0d;border-radius:var(--r-lg);
       overflow:hidden;border:0.5px solid var(--green-800);user-select:none;-webkit-user-select:none}
-    .vf-video{width:100%;display:block;min-height:55vh;object-fit:cover}
+    .vf-video{width:100%;display:block;border-radius:var(--r-lg)}
     .vf-overlay{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
     .vf-cross{position:relative;width:72px;height:72px}
     .vf-h{position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(110,232,122,.95);transform:translateY(-50%);box-shadow:0 0 6px rgba(110,232,122,.5)}
@@ -1027,11 +1027,8 @@ function renderMisure(){
       display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.55)}
     .vf-tilt{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,.12)}
     .vf-tilt-fill{height:100%;background:#6ee87a;transition:width .08s,margin-left .08s}
-    .vf-cam-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      padding:14px 28px;font-size:15px;font-weight:600;background:var(--green-600);
-      color:#e8f0d8;border:none;border-radius:var(--r-md);cursor:pointer;
-      box-shadow:0 4px 14px rgba(0,0,0,.5);touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent}
+    #vf-start{position:absolute;inset:0;min-height:220px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:10px;background:#0d1a0d}
     .cap-btn{width:100%;padding:15px;font-size:14px;font-weight:500;border:none;
       border-radius:var(--r-md);cursor:pointer;display:flex;align-items:center;
       gap:10px;margin-bottom:8px;font-family:var(--font-sans);touch-action:manipulation}
@@ -1042,9 +1039,7 @@ function renderMisure(){
     .step-hint{font-size:12px;color:var(--text-muted);background:var(--surface-2);
       border-radius:var(--r-sm);padding:9px 12px;border-left:3px solid var(--green-400);
       margin-bottom:8px;line-height:1.5}
-    @media(min-width:600px){.vf-video{min-height:60vh}.vf-angle{font-size:68px}}
-    @media(orientation:landscape) and (max-height:500px){.vf-video{min-height:calc(100dvh - 160px)}}
-    @media(min-width:600px) and (orientation:landscape){.vf-video{min-height:calc(100dvh - 180px)}}
+    @media(min-width:600px){.vf-angle{font-size:68px}}
     @keyframes pulse-sensor{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
   </style>
 
@@ -1053,9 +1048,13 @@ function renderMisure(){
     <video id="clino-video" autoplay playsinline muted class="vf-video" style="display:none"></video>
 
     <!-- Pulsante attiva camera — visibile solo prima dell'attivazione -->
-    <div id="vf-start" style="position:absolute;inset:0;display:flex;flex-direction:column;
+    <div id="vf-start" style="min-height:220px;width:100%;display:flex;flex-direction:column;
       align-items:center;justify-content:center;gap:10px;background:#0d1a0d">
-      <button onclick="startClinoCamera()" class="vf-cam-btn">📷 Attiva camera</button>
+      <button onclick="startClinoCamera()"
+        style="padding:14px 28px;font-size:15px;font-weight:600;background:var(--green-600);
+        color:#e8f0d8;border:none;border-radius:var(--r-md);cursor:pointer;
+        box-shadow:0 4px 14px rgba(0,0,0,.5);touch-action:manipulation;
+        -webkit-tap-highlight-color:transparent">📷 Attiva camera</button>
       <div style="font-size:11px;color:var(--green-400)">Inquadra la pianta per misurare</div>
     </div>
 
