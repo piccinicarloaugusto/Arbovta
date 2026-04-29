@@ -459,41 +459,39 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
       }
     };
 
-    /* ── Sincronizzazione iniziale ── */
-    window._fb.loadAll().then(cloudTrees => {
-      if (!cloudTrees.length) {
-        /* Cloud vuoto — pubblica da localStorage dopo che è caricato */
-        setTimeout(() => {
-          if (window.G && G.trees.length) {
-            G.trees.forEach(t => window._fb.saveTree(t));
-            console.log('ArboVTA FB: pubblicato', G.trees.length, 'piante');
-          }
-        }, 2000);
-        return;
-      }
+    /* ── Sincronizzazione: onSnapshot come meccanismo principale ── */
+    window._fbReady = false;
 
-      /* Cloud ha dati — aggiorna G.trees e localStorage */
-      const waitForG = (attempts) => {
+    window._fb.listenAll(cloudTrees => {
+      const apply = (attempts) => {
         if (!window.G || typeof render !== 'function') {
-          if (attempts > 0) setTimeout(() => waitForG(attempts-1), 300);
+          if (attempts > 0) setTimeout(() => apply(attempts - 1), 200);
           return;
         }
-        /* Merge: cloud sovrascrive locale per stesso id */
-        const localMap = new Map(G.trees.map(t=>[String(t.id), t]));
-        cloudTrees.forEach(t => localMap.set(String(t.id), t));
-        G.trees = [...localMap.values()];
-        try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
-        /* Aggiorna UI solo se sulla view lista */
-        if (G.currentView === 'lista') render('lista');
-        console.log('ArboVTA FB: caricato', G.trees.length, 'piante');
-      };
-      waitForG(20);
-    }).catch(e => console.warn('FB loadAll error:', e));
+        if (!cloudTrees.length) return;
 
-    /* Indicatore stato connessione Firebase */
-    window._fbReady = true;
+        /* Merge cloud -> locale */
+        const map = new Map(G.trees.map(t => [String(t.id), t]));
+        cloudTrees.forEach(t => map.set(String(t.id), t));
+        G.trees = [...map.values()];
+        try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+
+        /* Aggiorna UI */
+        if (G.currentView === 'lista') render('lista');
+        else if (G.currentView === 'mappa' && window.leafletMap) {
+          treeMarkers.forEach(m => leafletMap.removeLayer(m.marker));
+          treeMarkers = [];
+          G.trees.filter(t => t.lat && t.lng).forEach(t => addTreeMarker(t));
+        }
+        console.log('ArboVTA FB: sincronizzato', G.trees.length, 'piante');
+      };
+      apply(30);
+    });
+
+    /* Indicatore connessione */
     const dot = document.getElementById('fb-dot');
     if (dot) { dot.style.background = '#6ee87a'; dot.title = 'Firebase connesso'; }
+    window._fbReady = true;
   </script>
 </head>
 <body>
