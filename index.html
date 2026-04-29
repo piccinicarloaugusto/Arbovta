@@ -459,36 +459,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
       }
     };
 
-    /* ── Sincronizzazione: onSnapshot come meccanismo principale ── */
-    window._fbReady = false;
-
-    window._fb.listenAll(cloudTrees => {
-      const apply = (attempts) => {
-        if (!window.G || typeof render !== 'function') {
-          if (attempts > 0) setTimeout(() => apply(attempts - 1), 200);
-          return;
-        }
-        if (!cloudTrees.length) return;
-
-        /* Merge cloud -> locale */
-        const map = new Map(G.trees.map(t => [String(t.id), t]));
-        cloudTrees.forEach(t => map.set(String(t.id), t));
-        G.trees = [...map.values()];
-        try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
-
-        /* Aggiorna UI */
-        if (G.currentView === 'lista') render('lista');
-        else if (G.currentView === 'mappa' && window.leafletMap) {
-          treeMarkers.forEach(m => leafletMap.removeLayer(m.marker));
-          treeMarkers = [];
-          G.trees.filter(t => t.lat && t.lng).forEach(t => addTreeMarker(t));
-        }
-        console.log('ArboVTA FB: sincronizzato', G.trees.length, 'piante');
-      };
-      apply(30);
-    });
-
-    /* Indicatore connessione */
+    /* ── Indicatore connessione ── */
     const dot = document.getElementById('fb-dot');
     if (dot) { dot.style.background = '#6ee87a'; dot.title = 'Firebase connesso'; }
     window._fbReady = true;
@@ -612,6 +583,19 @@ function render(v){
 ═══════════════════════════════════════ */
 function renderLista(){
   const cc=l=>G.trees.filter(t=>t.cpc===l).length;
+  const emptyState = G.trees.length === 0 ? `
+  <div style="text-align:center;padding:32px 16px;color:var(--text-muted)">
+    <div style="font-size:40px;margin-bottom:12px">🌳</div>
+    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Archivio vuoto</div>
+    <div style="font-size:12px;margin-bottom:20px">I tuoi rilievi sono salvati su Firebase</div>
+    <button onclick="loadFromFirebase()" 
+      style="background:var(--green-600);color:#e8f0d8;border:none;padding:12px 28px;
+      border-radius:var(--r-md);font-size:14px;font-weight:600;cursor:pointer;
+      font-family:var(--font-sans);box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      ☁ Carica da Firebase
+    </button>
+    <div id="fb-load-status" style="font-size:11px;margin-top:10px;color:var(--green-600)"></div>
+  </div>` : '';
   return `
   <div class="card">
     <div class="sec">Archivio rilievi</div>
@@ -632,6 +616,7 @@ function renderLista(){
     <input placeholder="Cerca specie..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:140px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
   </div>
   <div id="tree-list">
+    ${emptyState}
     ${G.trees.map(t=>`
     <div class="tree-item" style="position:relative">
       <div style="flex:1;display:flex;align-items:center;gap:9px;min-width:0" onclick="openTree('${t.id}')">
@@ -654,6 +639,36 @@ function renderLista(){
     </div>`).join('')}
   </div>`;
 }
+async function loadFromFirebase() {
+  const btn = document.querySelector('[onclick="loadFromFirebase()"]');
+  const status = document.getElementById('fb-load-status');
+  if (!window._fb) {
+    if (status) status.textContent = '⚠ Firebase non disponibile';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Caricamento...'; }
+  if (status) status.textContent = 'Connessione a Firebase...';
+  try {
+    const cloudTrees = await window._fb.loadAll();
+    if (!cloudTrees.length) {
+      if (status) status.textContent = '⚠ Nessun dato trovato su Firebase';
+      if (btn) { btn.disabled = false; btn.textContent = '☁ Carica da Firebase'; }
+      return;
+    }
+    /* Merge e salva */
+    const map = new Map(G.trees.map(t => [String(t.id), t]));
+    cloudTrees.forEach(t => map.set(String(t.id), t));
+    G.trees = [...map.values()];
+    try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+    render('lista');
+    console.log('ArboVTA FB: caricato', G.trees.length, 'piante');
+  } catch(e) {
+    console.error('loadFromFirebase error:', e);
+    if (status) status.textContent = '⚠ Errore: ' + e.message;
+    if (btn) { btn.disabled = false; btn.textContent = '☁ Carica da Firebase'; }
+  }
+}
+
 function filterTrees(q){
   const list=document.getElementById('tree-list');
   if(!list) return;
