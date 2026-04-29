@@ -462,11 +462,13 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
     /* ── Sincronizzazione iniziale ── */
     window._fb.loadAll().then(cloudTrees => {
       if (!cloudTrees.length) {
-        /* Cloud vuoto — carica da localStorage e pubblica su cloud */
-        if (window.G && G.trees.length) {
-          G.trees.forEach(t => window._fb.saveTree(t));
-          console.log('ArboVTA: archivio locale pubblicato su Firebase', G.trees.length, 'piante');
-        }
+        /* Cloud vuoto — aspetta che loadTrees() abbia caricato il localStorage */
+        setTimeout(() => {
+          if (window.G && G.trees.length) {
+            G.trees.forEach(t => window._fb.saveTree(t));
+            console.log('ArboVTA: archivio locale pubblicato su Firebase', G.trees.length, 'piante');
+          }
+        }, 1500);
       } else {
         /* Cloud ha dati — merge con locale (cloud ha priorità se stesso id) */
         const localMap = new Map((window.G?.trees||[]).map(t=>[t.id,t]));
@@ -2579,6 +2581,14 @@ function renderImpostazioniView(){
     </div>
   </div>
   <div class="card">
+    <div class="sec">Firebase Cloud</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">
+      Sincronizza l'archivio locale con Firebase per renderlo disponibile su tutti i dispositivi.
+    </div>
+    <div id="fb-sync-status" style="font-size:11px;color:var(--text-muted);margin-bottom:8px"></div>
+    <button class="btn-secondary" onclick="forceSyncToFirebase()">☁ Sincronizza con Firebase</button>
+  </div>
+  <div class="card">
     <div class="sec">Gestione dati</div>
     <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Cancella tutto l'archivio locale per ripartire da zero. I dati non potranno essere recuperati.</div>
     <button class="btn-secondary" style="border-color:var(--red);color:var(--red)" onclick="resetArchivio()">Cancella archivio locale</button>
@@ -3173,6 +3183,36 @@ function loadTrees() {
     }
   } catch(e) {}
 }
+function forceSyncToFirebase() {
+  const statusEl = document.getElementById('fb-sync-status');
+  if (!window._fb) {
+    if (statusEl) statusEl.textContent = '⚠ Firebase non disponibile — verifica la connessione.';
+    return;
+  }
+  if (!G.trees.length) {
+    if (statusEl) statusEl.textContent = '⚠ Archivio vuoto — nessuna pianta da sincronizzare.';
+    return;
+  }
+  if (statusEl) statusEl.textContent = '⏳ Sincronizzazione in corso...';
+  let done = 0;
+  const total = G.trees.length;
+  G.trees.forEach(t => {
+    window._fb.saveTree(t).then ? 
+      window._fb.saveTree(t).then(() => {
+        done++;
+        if (statusEl) statusEl.textContent = `⏳ ${done}/${total} piante sincronizzate...`;
+        if (done === total && statusEl) {
+          statusEl.textContent = `✓ ${total} piante sincronizzate con Firebase.`;
+          statusEl.style.color = 'var(--green-600)';
+        }
+      }) :
+      window._fb.saveTree(t);
+  });
+  if (statusEl && !window._fb.saveTree(G.trees[0])?.then) {
+    statusEl.textContent = `✓ ${total} piante inviate a Firebase.`;
+  }
+}
+
 function resetArchivio() {
   if (!confirm('Cancellare tutto l\'archivio? Questa operazione non è reversibile.')) return;
   G.trees = [];
