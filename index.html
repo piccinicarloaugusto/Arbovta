@@ -462,49 +462,33 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
     /* ── Sincronizzazione iniziale ── */
     window._fb.loadAll().then(cloudTrees => {
       if (!cloudTrees.length) {
-        /* Cloud vuoto — pubblica localStorage su Firebase dopo che è caricato */
+        /* Cloud vuoto — pubblica da localStorage dopo che è caricato */
         setTimeout(() => {
           if (window.G && G.trees.length) {
             G.trees.forEach(t => window._fb.saveTree(t));
-            console.log('ArboVTA: pubblicato su Firebase', G.trees.length, 'piante');
+            console.log('ArboVTA FB: pubblicato', G.trees.length, 'piante');
           }
-        }, 1500);
-      } else {
-        /* Cloud ha dati — sovrascrive localStorage e aggiorna UI */
-        const mergeAndUpdate = () => {
-          if (!window.G) { setTimeout(mergeAndUpdate, 200); return; }
-          const localMap = new Map(G.trees.map(t=>[String(t.id),t]));
-          cloudTrees.forEach(t => localMap.set(String(t.id), t));
-          G.trees = [...localMap.values()];
-          try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
-          /* Aggiorna sempre la UI — indipendentemente dalla view corrente */
-          if (typeof render === 'function') render('lista');
-          /* Aggiorna mappa se aperta */
-          if (G.currentView === 'mappa' && window.leafletMap) {
-            treeMarkers.forEach(m => leafletMap.removeLayer(m.marker));
-            treeMarkers = [];
-            G.trees.filter(t=>t.lat&&t.lng).forEach(t => addTreeMarker(t));
-          }
-          console.log('ArboVTA: caricato da Firebase', G.trees.length, 'piante');
-        };
-        mergeAndUpdate();
+        }, 2000);
+        return;
       }
 
-      /* Listener realtime — aggiorna quando cambiano dati su altri dispositivi */
-      window._fbUnsub = window._fb.listenAll(cloudTrees => {
-        if (!window.G) return;
-        const localMap = new Map(G.trees.map(t=>[String(t.id),t]));
+      /* Cloud ha dati — aggiorna G.trees e localStorage */
+      const waitForG = (attempts) => {
+        if (!window.G || typeof render !== 'function') {
+          if (attempts > 0) setTimeout(() => waitForG(attempts-1), 300);
+          return;
+        }
+        /* Merge: cloud sovrascrive locale per stesso id */
+        const localMap = new Map(G.trees.map(t=>[String(t.id), t]));
         cloudTrees.forEach(t => localMap.set(String(t.id), t));
         G.trees = [...localMap.values()];
         try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
-        if (typeof render === 'function') render('lista');
-        if (G.currentView === 'mappa' && window.leafletMap) {
-          treeMarkers.forEach(m => leafletMap.removeLayer(m.marker));
-          treeMarkers = [];
-          G.trees.filter(t=>t.lat&&t.lng).forEach(t => addTreeMarker(t));
-        }
-      });
-    });
+        /* Aggiorna UI solo se sulla view lista */
+        if (G.currentView === 'lista') render('lista');
+        console.log('ArboVTA FB: caricato', G.trees.length, 'piante');
+      };
+      waitForG(20);
+    }).catch(e => console.warn('FB loadAll error:', e));
 
     /* Indicatore stato connessione Firebase */
     window._fbReady = true;
@@ -3031,7 +3015,8 @@ function showGinveFeedback(msg, ok) {
 /* ═══════════════════════════════════════
    AVVIO
 ═══════════════════════════════════════ */
-render('lista');
+loadTrees();   /* Prima carica i dati salvati */
+render('lista'); /* Poi renderizza con i dati */
 
 /* ═══════════════════════════════════════
    PWA — Service Worker + Install
@@ -3228,8 +3213,7 @@ window.saveRilievo = function() {
   saveTrees();
 };
 
-/* Carica dati salvati all'avvio */
-loadTrees();
+/* Carica dati salvati all'avvio — già chiamato sopra */
 
 /* ── Indicatore stato rete — aggiorna fb-dot invece di creare net-dot ── */
 function updateOnlineStatus() {
