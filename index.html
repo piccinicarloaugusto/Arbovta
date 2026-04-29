@@ -657,7 +657,7 @@ function renderLista(){
         <div class="tree-info">
           <div class="tree-name">${t.specie}</div>
           <div class="tree-loc">${t.sito}</div>
-          <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+          <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m${t.cd?' × '+t.cd+'m':''} · ${t.data}</div>
         </div>
         <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
       </div>
@@ -683,7 +683,7 @@ function filterTrees(q){
       <div class="tree-info">
         <div class="tree-name">${t.specie}</div>
         <div class="tree-loc">${t.sito}</div>
-        <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw}×${t.cd}m · ${t.data}</div>
+        <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m${t.cd?' × '+t.cd+'m':''} · ${t.data}</div>
       </div>
       <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
     </div>
@@ -3193,23 +3193,23 @@ window.saveRilievo = function() {
 /* Carica dati salvati all'avvio */
 loadTrees();
 
-/* ── Indicatore stato rete ── */
+/* ── Indicatore stato rete — aggiorna fb-dot invece di creare net-dot ── */
 function updateOnlineStatus() {
   const isOnline = navigator.onLine;
-  let dot = document.getElementById('net-dot');
-  if (!dot) {
-    dot = document.createElement('div');
-    dot.id = 'net-dot';
-    dot.style.cssText = 'width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background 0.3s';
-    const tr = document.querySelector('.topbar-right');
-    if (tr) tr.insertBefore(dot, tr.firstChild);
+  const dot = document.getElementById('fb-dot');
+  if (!dot) return;
+  /* Se Firebase è connesso mostra verde, se offline mostra rosso */
+  if (!isOnline) {
+    dot.style.background = '#E24B4A';
+    dot.title = 'Offline — modalità locale attiva';
+  } else if (window._fbReady) {
+    dot.style.background = '#6ee87a';
+    dot.title = 'Firebase connesso';
   }
-  dot.style.background = isOnline ? '#6ee87a' : '#E24B4A';
-  dot.title = isOnline ? 'Online' : 'Offline — modalità locale attiva';
 }
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
-setTimeout(updateOnlineStatus, 500);
+setTimeout(updateOnlineStatus, 1000);
 </script>
 </body>
 </html>
