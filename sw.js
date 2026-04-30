@@ -45,6 +45,20 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
+  /* index.html — sempre network first per aggiornamenti immediati */
+  if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/Arbovta/') || url.pathname === '/Arbovta') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_STATIC).then(c => c.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   /* 1. API Anthropic — sempre rete, mai cache */
   if (url.hostname === 'api.anthropic.com') {
     event.respondWith(
