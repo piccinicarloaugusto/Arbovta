@@ -528,7 +528,7 @@ const G = {
   trees: [],
   form: {codice:'',specie:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
   clino: {angle:0,captured:{},dist:15,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
-  ai: {photos:[],activeType:'foglie',result:null,history:[],cameraStream:null},
+  ai: {photos:[],activeType:'Radici',currentPhotoType:'Radici',result:null,history:[],cameraStream:null},
   currentView: 'lista'
 };
 
@@ -740,7 +740,8 @@ function openTree(id){
     data:           t.data || '',
     _editingId:     t.id,
     vta:            t.vta ? JSON.parse(JSON.stringify(t.vta)) : {},
-    _cpcManual:     t._cpcManual || false
+    _cpcManual:     t._cpcManual || false,
+    photos:         t.photos ? JSON.parse(JSON.stringify(t.photos)) : [],
   };
 
   /* Porta le misure del clinometro in sincronia se presenti */
@@ -822,15 +823,17 @@ function renderSpecie(){
   return `
   <div class="seg">
     <button class="seg-b active" onclick="setAIView('scan',this)">Scansiona</button>
+    <button class="seg-b" onclick="setAIView('tips',this)">Consigli foto</button>
     <button class="seg-b" onclick="setAIView('history',this)">Storico</button>
   </div>
   <div id="ai-scan">${renderAIScan()}</div>
+  <div id="ai-tips" style="display:none">${renderAITips()}</div>
   <div id="ai-history" style="display:none">${renderAIHistory()}</div>`;
 }
 function setAIView(v,btn){
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['scan','history'].forEach(id=>{ const el=document.getElementById('ai-'+id); if(el) el.style.display=id===v?'block':'none'; });
+  ['scan','tips','history'].forEach(id=>{ const el=document.getElementById('ai-'+id); if(el) el.style.display=id===v?'block':'none'; });
   if(v==='history') refreshHistory();
 }
 function renderAIScan(){
@@ -855,12 +858,18 @@ function renderAIScan(){
   <div class="card">
     <div class="sec">Tipo di foto</div>
     <div class="type-chips">
-      ${['foglie','corteccia','fiori/frutti','portamento','rametti','colletto'].map(t=>`<button class="chip${t==='foglie'?' on':''}" onclick="setPhotoType('${t}',this)">${t}</button>`).join('')}
+      ${['Radici','Colletto','Tronco','Chioma','Foglie','Pianta intera'].map((t,i)=>`<button class="chip${i===0?' on':''}" onclick="setPhotoType('${t}',this)">${t}</button>`).join('')}
     </div>
     <div class="photo-strip" id="photo-strip">
       <div style="width:54px;height:54px;border-radius:var(--r-md);border:0.5px dashed var(--border-2);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:22px;cursor:pointer;flex-shrink:0" onclick="document.getElementById('file-in').click()">+</div>
     </div>
     <div style="font-size:10px;color:var(--text-muted);margin-top:4px" id="photo-count">0 foto — carica almeno 1 foto per procedere</div>
+    ${G.form._editingId ? `
+    <button onclick="savePhotosToRilievo()" style="margin-top:8px;width:100%;padding:9px;background:var(--green-100);color:var(--green-700);border:0.5px solid var(--green-300);border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">
+      Salva foto nel rilievo #${G.form._editingId}
+    </button>
+    <div id="foto-save-status" style="font-size:10px;color:var(--green-600);text-align:center;margin-top:4px;min-height:14px"></div>
+    ` : '<div style="font-size:10px;color:var(--text-muted);margin-top:6px;padding:6px;background:var(--surface-2);border-radius:var(--r-sm)">Apri un rilievo dalla Scheda per salvare le foto</div>'}
   </div>
   <div class="card">
     <div class="sec">Contesto geografico</div>
@@ -938,7 +947,7 @@ function showStoredResult(i){
   setTimeout(()=>displayResult(G.ai.result),100);
 }
 function setPhotoType(t,btn){
-  G.ai.activeType=t;
+  G.ai.activeType=t; G.ai.currentPhotoType=t;
   document.querySelectorAll('.type-chips .chip').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
 }
@@ -957,13 +966,12 @@ function snapPhoto(){
   const v=document.getElementById('cam-video'), c=document.getElementById('cam-canvas');
   c.width=v.videoWidth; c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  addPhoto(c.toDataURL('image/jpeg',0.85),G.ai.activeType);
+  addPhoto(c.toDataURL('image/jpeg',0.85), G.ai.currentPhotoType||G.ai.activeType||'Pianta intera');
 }
 function loadFiles(e){
   Array.from(e.target.files).forEach(f=>{
-    const r=new FileReader();
-    r.onload=ev=>addPhoto(ev.target.result,G.ai.activeType);
-    r.readAsDataURL(f);
+    const type = G.ai.currentPhotoType || G.ai.activeType || 'Pianta intera';
+    compressPhoto(f).then(dataUrl => addPhoto(dataUrl, type));
   });
   e.target.value='';
 }
@@ -2492,9 +2500,12 @@ function showExportFeedback(msg, ok) {
   setTimeout(() => el.style.display = 'none', 4000);
 }
 function renderReportView(){
+  const t = G.trees.find(x => x.id === G.form._editingId) || G.trees[0];
+  const photos = (t && t.photos) ? t.photos : [];
+  const treeOptions = G.trees.map(tr=>`<option value="${tr.id}" ${tr.id===G.form._editingId?'selected':''}>#${tr.id} — ${tr.specie}</option>`).join('');
   return `<div class="card">
     <div class="sec">Genera report PDF</div>
-    <div class="field"><label>Pianta</label><select><option>Tutte le piante</option>${G.trees.map(t=>`<option>#${t.id} — ${t.specie}</option>`).join('')}</select></div>
+    <div class="field"><label>Pianta</label><select id="report-tree-sel" onchange="updateReportPreview(this.value)"><option value="">Tutte le piante</option>${treeOptions}</select></div>
     <div class="field" style="margin-top:7px"><label>Tipo di report</label>
       <div class="chips" style="margin-top:4px">
         <button class="chip on">Scheda VTA completa</button>
@@ -2507,12 +2518,28 @@ function renderReportView(){
       <div class="toggle-row"><span class="toggle-lbl">Dati clinometro (misurazioni)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
       <div class="toggle-row"><span class="toggle-lbl">Specie (riconoscimento AI)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
       <div class="toggle-row"><span class="toggle-lbl">Intestazione professionale</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
-      <div class="toggle-row"><span class="toggle-lbl">Foto pianta allegate</span><label class="tog"><input type="checkbox"><span class="tog-slider"></span></label></div>
+      <div class="toggle-row"><span class="toggle-lbl">Allegato fotografico</span><label class="tog"><input type="checkbox" id="tog-photos" ${photos.length?'checked':''}><span class="tog-slider"></span></label></div>
     </div>
-    <div style="margin-top:9px;padding:9px;background:var(--surface-2);border-radius:var(--r-sm);font-size:11px;color:var(--text-muted);border:0.5px solid var(--border);line-height:1.6">Il report includerà: dati identificativi, georeferenziazione GPS, misure da clinometro (H, DBH, chioma, snellezza), analisi VTA completa per sezioni anatomiche, diagnosi, prescrizioni, firma rilevatore.</div>
-    <button class="btn-primary" style="margin-top:9px" onclick="window.print()">Genera / Stampa PDF</button>
-    <button class="btn-secondary" style="font-size:12px">Esporta CSV / GIS</button>
+    <div style="margin-top:9px;padding:9px;background:var(--surface-2);border-radius:var(--r-sm);font-size:11px;color:var(--text-muted);border:0.5px solid var(--border);line-height:1.6">Il report includerà: dati identificativi, georeferenziazione GPS, misure da clinometro (H, DBH, chioma, snellezza), analisi VTA completa per sezioni anatomiche, diagnosi, prescrizioni, firma rilevatore${photos.length?', allegato fotografico ('+photos.length+' foto)':''}.</div>
+    <button class="btn-primary" style="margin-top:9px" onclick="generatePDF()">Genera / Stampa PDF</button>
   </div>
+  ${photos.length ? `
+  <div class="card">
+    <div class="sec">Allegato fotografico (${photos.length} foto)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+      ${photos.map((p,i)=>`
+        <div style="position:relative;width:100px;height:100px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border)">
+          <img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover">
+          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);font-size:9px;color:#fff;padding:3px 5px;text-align:center;font-weight:600">${p.type||''}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:8px">Le foto saranno incluse nell'allegato fotografico del report PDF.</div>
+  </div>` : `
+  <div class="card" style="text-align:center;padding:20px;color:var(--text-muted)">
+    <div style="font-size:32px;margin-bottom:8px">📷</div>
+    <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Nessuna foto per questo rilievo</div>
+    <div style="font-size:11px">Vai al tab <strong>Specie</strong>, scatta o carica le foto e usa <strong>"Salva foto nel rilievo"</strong></div>
+  </div>`}
   <div class="card">
     <div class="sec">Riepilogo archivio</div>
     <div class="stat-grid">
@@ -3206,6 +3233,128 @@ function forceSyncToFirebase() {
   if (statusEl && !window._fb.saveTree(G.trees[0])?.then) {
     statusEl.textContent = `✓ ${total} piante inviate a Firebase.`;
   }
+}
+
+/* ── FOTO RILIEVO ── */
+/* ── FOTO RILIEVO — salvataggio dal tab Specie ── */
+function savePhotosToRilievo() {
+  if (!G.form._editingId) return;
+  const status = document.getElementById('foto-save-status');
+  if (!G.ai.photos.length) {
+    if (status) status.textContent = '⚠ Nessuna foto da salvare';
+    return;
+  }
+  const idx = G.trees.findIndex(t => t.id === G.form._editingId);
+  if (idx < 0) return;
+  if (!G.trees[idx].photos) G.trees[idx].photos = [];
+  // Aggiungi le foto nuove
+  G.ai.photos.forEach(p => {
+    G.trees[idx].photos.push({ dataUrl: p.dataUrl, type: p.type || G.ai.currentPhotoType || 'Pianta intera', date: new Date().toISOString() });
+  });
+  G.form.photos = G.trees[idx].photos;
+  try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+  if (window._fb) window._fb.saveTree(G.trees[idx]);
+  if (status) { status.textContent = `✓ ${G.ai.photos.length} foto salvate nel rilievo #${G.form._editingId}`; status.style.color = 'var(--green-600)'; }
+  console.log('Foto salvate nel rilievo', G.form._editingId);
+}
+
+function compressPhoto(file, maxPx=800, quality=0.72) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function getPhotoType() {
+  const sel = document.getElementById('photo-type-sel');
+  return sel ? sel.value : 'Pianta intera';
+}
+
+function refreshSchedaPhotoGrid() {
+  const grid = document.getElementById('scheda-photo-grid');
+  if (!grid) return;
+  const photos = G.form.photos || [];
+  if (photos.length === 0) {
+    grid.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">Nessuna foto aggiunta</div>';
+    return;
+  }
+  grid.innerHTML = photos.map((p,i) => `
+    <div style="position:relative;width:88px;height:88px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border)">
+      <img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover">
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);font-size:8px;color:#fff;padding:2px 4px;text-align:center">${p.type||''}</div>
+      <button onclick="deleteSchedaPhoto(${i})" style="position:absolute;top:3px;right:3px;width:18px;height:18px;background:rgba(0,0,0,0.6);border:none;border-radius:50%;color:#fff;font-size:10px;cursor:pointer;line-height:1">x</button>
+    </div>`).join('');
+}
+
+async function addPhotosFromFiles(e) {
+  const status = document.getElementById('photo-save-status');
+  const type = getPhotoType();
+  if (!G.form.photos) G.form.photos = [];
+  const files = [...e.target.files];
+  if (status) status.textContent = 'Compressione foto...';
+  for (const file of files) {
+    const dataUrl = await compressPhoto(file);
+    G.form.photos.push({ dataUrl, type, date: new Date().toISOString() });
+  }
+  autosaveField('photos', G.form.photos);
+  refreshSchedaPhotoGrid();
+  if (status) status.textContent = `✓ ${G.form.photos.length} foto salvate`;
+  e.target.value = ''; // reset input
+}
+
+async function addPhotoFromCamera() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.onchange = async (e) => {
+    const status = document.getElementById('photo-save-status');
+    const type = getPhotoType();
+    if (!G.form.photos) G.form.photos = [];
+    const dataUrl = await compressPhoto(e.target.files[0]);
+    G.form.photos.push({ dataUrl, type, date: new Date().toISOString() });
+    autosaveField('photos', G.form.photos);
+    refreshSchedaPhotoGrid();
+    if (status) status.textContent = `✓ ${G.form.photos.length} foto salvate`;
+  };
+  input.click();
+}
+
+function deleteSchedaPhoto(i) {
+  if (!G.form.photos) return;
+  G.form.photos.splice(i, 1);
+  autosaveField('photos', G.form.photos);
+  refreshSchedaPhotoGrid();
+}
+
+function updateReportPreview(treeId) {
+  const t = G.trees.find(x => x.id === treeId);
+  if (t) { G.form._editingId = treeId; }
+  // Ri-renderizza la view report
+  const el = document.getElementById('mv-report');
+  if (el) el.innerHTML = renderReportView();
+}
+
+function generatePDF() {
+  const treeId = document.getElementById('report-tree-sel')?.value || G.form._editingId;
+  const t = G.trees.find(x => x.id === treeId) || G.trees[0];
+  if (!t) { alert('Seleziona una pianta prima di generare il report'); return; }
+  const inclFoto = document.getElementById('tog-photos')?.checked && t.photos?.length;
+  // Per ora usa window.print() — il PDF completo è in sviluppo
+  window.print();
 }
 
 function resetArchivio() {
