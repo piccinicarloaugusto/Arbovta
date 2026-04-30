@@ -1022,11 +1022,16 @@ async function analyzePhotos(){
       const mt=p.dataUrl.startsWith('data:image/png')?'image/png':'image/jpeg';
       msgs_api[0].content.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});
     });
-    msgs_api[0].content.push({type:'text',text:`Sei un botanico esperto in arboricoltura e dendologia italiana. Analizza queste ${G.ai.photos.length} foto (${photoDesc}) di una pianta arborea${zone?` in zona: ${zone}, contesto: ${ctx}`:''}.
+    msgs_api[0].content.push({type:'text',text:`Sei un botanico esperto in arboricoltura e dendologia italiana.
 
-Rispondi SOLO con JSON valido, senza testo aggiuntivo:
-{"scientific_name":"Nome scientifico","common_name":"Nome comune italiano","family":"Famiglia (Ordine)","confidence":87,"diagnostic_chars":["carattere1","carattere2","carattere3","carattere4"],"vta_notes":"Note per rilievo VTA: caratteristiche strutturali, problematiche fitosanitarie tipiche, comportamento radicale, rischi per sicurezza arborea.","alternatives":[{"scientific_name":"Alt1","common_name":"Nome","confidence":45,"key_difference":"Differenza principale"},{"scientific_name":"Alt2","common_name":"Nome","confidence":20,"key_difference":"Differenza principale"}],"caution":null}`});
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:msgs_api})});
+Analizza le ${G.ai.photos.length} foto fornite (${photoDesc}) di una pianta arborea${zone?`, zona: ${zone}, contesto: ${ctx}`:''}.
+
+Identifica la specie con la massima precisione possibile analizzando: morfologia foglie (forma, dimensione, margine, nervature), corteccia (colore, texture, solchi), portamento, frutti/fiori/semi se visibili, ramificazione e castello.
+
+Rispondi ESCLUSIVAMENTE con JSON valido, nessun altro testo:
+{"scientific_name":"Nome scientifico completo","common_name":"Nome comune italiano","family":"Famiglia botanica","confidence":85,"diagnostic_chars":["carattere diagnostico 1","carattere 2","carattere 3","carattere 4"],"vta_notes":"Note per rilievo VTA: comportamento radicale tipico, problematiche fitosanitarie frequenti, vulnerabilità strutturali, rischi per sicurezza.","alternatives":[{"scientific_name":"Prima alternativa","common_name":"Nome comune","confidence":10,"key_difference":"Carattere che la distingue dalla specie principale"},{"scientific_name":"Seconda alternativa","common_name":"Nome comune","confidence":5,"key_difference":"Carattere che la distingue"}],"caution":null}`});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,messages:msgs_api})});
+    if(!res.ok){ const err=await res.text(); throw new Error(`API ${res.status}: ${err.substring(0,200)}`); }
     const data=await res.json();
     clearInterval(lt);
     const raw=data.content.map(b=>b.text||'').join('');
@@ -1036,12 +1041,20 @@ Rispondi SOLO con JSON valido, senza testo aggiuntivo:
     displayResult(result);
   } catch(e){
     clearInterval(lt);
-    const demo={scientific_name:'Pinus pinea',common_name:'Pino domestico',family:'Pinaceae (Pinales)',confidence:91,diagnostic_chars:['Chioma ad ombrello','Pigne globose 8-15 cm','Corteccia rossastra a placche','Aghi in coppia 10-18 cm','Portamento a candelabro'],vta_notes:'Apparato radicale inizialmente fittonante poi espanso lateralmente. Frequente sviluppo di radici tabulari superficiali in terreni compatti — verificare sollevamento pavimentazioni. Vulnerabile a Matsucoccus feytaudi. Il castello sviluppa inserzioni angolate strette: monitorare la stabilità. Tendenza al deperimento apicale in esemplari adulti stressati.',alternatives:[{scientific_name:'Pinus halepensis',common_name:'Pino d\'Aleppo',confidence:6,key_difference:'Aghi più sottili (6-10 cm), pigne asimmetriche, corteccia grigio-cenere'},{scientific_name:'Pinus radiata',common_name:'Pino di Monterey',confidence:3,key_difference:'Aghi in fascetti di 3, pigne asimmetriche persistenti sul ramo'}],caution:null};
-    G.ai.result=demo;
-    G.ai.history.unshift({result:demo,date:new Date().toLocaleDateString('it-IT'),thumb:G.ai.photos[0]?.dataUrl||null,photoCount:G.ai.photos.length});
-    displayResult(demo);
+    console.error('analyzePhotos error:', e);
+    lb.style.display='none';
+    const rc=document.getElementById('result-card');
+    if(rc){
+      rc.style.display='block';
+      rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--red)">
+        <div style="font-size:24px;margin-bottom:8px">⚠</div>
+        <div style="font-weight:600;margin-bottom:6px">Errore riconoscimento</div>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6">${e.message}</div>
+        <button onclick="analyzePhotos()" style="margin-top:12px;padding:8px 20px;background:var(--green-600);color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:13px">Riprova</button>
+      </div>`;
+    }
+    return;
   }
-  lb.style.display='none';
 }
 function displayResult(r){
   const rc=document.getElementById('result-card');
