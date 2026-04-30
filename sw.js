@@ -1,5 +1,5 @@
-/* ArboVTA Service Worker v64 */
-const CACHE = 'arbovta-v64';
+/* ArboVTA Service Worker v65 */
+const CACHE = 'arbovta-v65';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/Arbovta/','/Arbovta/index.html','/Arbovta/manifest.json'])).then(() => self.skipWaiting()));
 });

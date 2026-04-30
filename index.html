@@ -1004,58 +1004,88 @@ function removePhoto(i){
   const btn=document.getElementById('analyze-btn');
   if(btn) btn.disabled=G.ai.photos.length===0;
 }
+const PLANTNET_KEY = '2b10kMxoUKGC8Q1FonCCpp1mje';
+
 async function analyzePhotos(){
-  const lb=document.getElementById('loading-box'), rc=document.getElementById('result-card'), ac=document.getElementById('analyze-btn');
-  lb.style.display='block'; rc.style.display='none';
-  const msgs=[['Analisi morfologica foglie...','Rilevamento forma lamina, margine, nervature'],['Analisi pattern corteccia...','Riconoscimento texture e colorazione'],['Confronto con database botanico...','Matching specie area mediterranea'],['Valutazione caratteri diagnostici...','Calcolo confidenza e alternative']];
+  const lb=document.getElementById('loading-box');
+  const rc=document.getElementById('result-card');
+  lb.style.display='block'; if(rc) rc.style.display='none';
+  const msgs=[
+    ['Invio foto a PlantNet...','Caricamento immagini'],
+    ['Analisi morfologica...','Confronto con database botanico globale'],
+    ['Calcolo confidenza...','Valutazione caratteri diagnostici'],
+  ];
   let step=0;
   const lt=setInterval(()=>{
-    if(step<msgs.length){ document.getElementById('loading-txt').textContent=msgs[step][0]; document.getElementById('loading-sub').textContent=msgs[step][1]; step++; }
-  },900);
+    if(step<msgs.length){
+      const el=document.getElementById('loading-txt');
+      const el2=document.getElementById('loading-sub');
+      if(el) el.textContent=msgs[step][0];
+      if(el2) el2.textContent=msgs[step][1];
+      step++;
+    }
+  },1000);
   try {
-    const zone=document.getElementById('geo-zone')?.value||'';
-    const ctx=document.getElementById('geo-ctx')?.value||'';
-    const photoDesc=G.ai.photos.map(p=>`tipo: ${p.type}`).join('; ');
-    const msgs_api=[{role:'user',content:[]}];
-    G.ai.photos.forEach(p=>{
-      const b64=p.dataUrl.split(',')[1];
-      const mt=p.dataUrl.startsWith('data:image/png')?'image/png':'image/jpeg';
-      msgs_api[0].content.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});
-    });
-    msgs_api[0].content.push({type:'text',text:`Sei un botanico esperto in arboricoltura e dendologia italiana.
-
-Analizza le ${G.ai.photos.length} foto fornite (${photoDesc}) di una pianta arborea${zone?`, zona: ${zone}, contesto: ${ctx}`:''}.
-
-Identifica la specie con la massima precisione possibile analizzando: morfologia foglie (forma, dimensione, margine, nervature), corteccia (colore, texture, solchi), portamento, frutti/fiori/semi se visibili, ramificazione e castello.
-
-Rispondi ESCLUSIVAMENTE con JSON valido, nessun altro testo:
-{"scientific_name":"Nome scientifico completo","common_name":"Nome comune italiano","family":"Famiglia botanica","confidence":85,"diagnostic_chars":["carattere diagnostico 1","carattere 2","carattere 3","carattere 4"],"vta_notes":"Note per rilievo VTA: comportamento radicale tipico, problematiche fitosanitarie frequenti, vulnerabilità strutturali, rischi per sicurezza.","alternatives":[{"scientific_name":"Prima alternativa","common_name":"Nome comune","confidence":10,"key_difference":"Carattere che la distingue dalla specie principale"},{"scientific_name":"Seconda alternativa","common_name":"Nome comune","confidence":5,"key_difference":"Carattere che la distingue"}],"caution":null}`});
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,messages:msgs_api})});
-    if(!res.ok){ const err=await res.text(); throw new Error(`API ${res.status}: ${err.substring(0,200)}`); }
-    const data=await res.json();
+    const photos=G.ai.photos.slice(0,5);
+    if(!photos.length) throw new Error('Carica almeno una foto prima di analizzare');
+    const formData=new FormData();
+    for(const p of photos){
+      const res=await fetch(p.dataUrl);
+      const blob=await res.blob();
+      formData.append('images',blob,'photo.jpg');
+      const organMap={'Foglie':'leaf','Tronco':'bark','Radici':'other','Colletto':'other','Chioma':'flower','Pianta intera':'habit'};
+      formData.append('organs',organMap[p.type]||'auto');
+    }
+    const url=`https://my-api.plantnet.org/v2/identify/all?api-key=${PLANTNET_KEY}&lang=it&include-related-images=false&no-reject=false&nb-results=5`;
+    const response=await fetch(url,{method:'POST',body:formData});
+    if(!response.ok){const err=await response.text();throw new Error(`PlantNet ${response.status}: ${err.substring(0,200)}`);}
+    const data=await response.json();
     clearInterval(lt);
-    const raw=data.content.map(b=>b.text||'').join('');
-    const result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    if(!data.results||!data.results.length) throw new Error('Nessun risultato — prova con foto più nitide di foglie o corteccia');
+    const best=data.results[0];
+    const conf=Math.round(best.score*100);
+    const result={
+      scientific_name:best.species.scientificNameWithoutAuthor,
+      common_name:best.species.commonNames?.[0]||best.species.scientificNameWithoutAuthor,
+      family:best.species.family?.scientificNameWithoutAuthor||'',
+      confidence:conf,
+      diagnostic_chars:[
+        `Famiglia: ${best.species.family?.scientificNameWithoutAuthor||'—'}`,
+        `Genere: ${best.species.genus?.scientificNameWithoutAuthor||'—'}`,
+        `Score: ${(best.score*100).toFixed(1)}%`,
+        `Foto analizzate: ${photos.length}`,
+      ],
+      vta_notes:`Identificata da PlantNet con confidenza ${conf}%. Verificare in campo prima di inserire in scheda VTA.`,
+      alternatives:data.results.slice(1,3).map(r=>({
+        scientific_name:r.species.scientificNameWithoutAuthor,
+        common_name:r.species.commonNames?.[0]||r.species.scientificNameWithoutAuthor,
+        confidence:Math.round(r.score*100),
+        key_difference:`Famiglia: ${r.species.family?.scientificNameWithoutAuthor||'—'}`
+      })),
+      caution:conf<50?'Confidenza bassa — aggiungi foto di foglie e corteccia':null,
+      source:'PlantNet'
+    };
     G.ai.result=result;
-    G.ai.history.unshift({result,date:new Date().toLocaleDateString('it-IT'),thumb:G.ai.photos[0]?.dataUrl,photoCount:G.ai.photos.length});
+    G.ai.history.unshift({result,date:new Date().toLocaleDateString('it-IT'),thumb:G.ai.photos[0]?.dataUrl,photoCount:photos.length});
     displayResult(result);
   } catch(e){
     clearInterval(lt);
-    console.error('analyzePhotos error:', e);
+    console.error('PlantNet error:',e);
     lb.style.display='none';
-    const rc=document.getElementById('result-card');
     if(rc){
       rc.style.display='block';
-      rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--red)">
-        <div style="font-size:24px;margin-bottom:8px">⚠</div>
-        <div style="font-weight:600;margin-bottom:6px">Errore riconoscimento</div>
-        <div style="font-size:11px;color:var(--text-muted);line-height:1.6">${e.message}</div>
-        <button onclick="analyzePhotos()" style="margin-top:12px;padding:8px 20px;background:var(--green-600);color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:13px">Riprova</button>
+      rc.innerHTML=`<div style="padding:16px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">⚠</div>
+        <div style="font-weight:600;margin-bottom:6px;color:var(--red)">Errore riconoscimento</div>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">${e.message}</div>
+        <button onclick="analyzePhotos()" style="padding:8px 20px;background:var(--green-600);color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:13px;font-family:var(--font-sans)">Riprova</button>
       </div>`;
     }
     return;
   }
+  lb.style.display='none';
 }
+
 function displayResult(r){
   const rc=document.getElementById('result-card');
   if(!rc) return;
