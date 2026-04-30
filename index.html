@@ -822,17 +822,15 @@ function renderSpecie(){
   return `
   <div class="seg">
     <button class="seg-b active" onclick="setAIView('scan',this)">Scansiona</button>
-    <button class="seg-b" onclick="setAIView('tips',this)">Consigli foto</button>
     <button class="seg-b" onclick="setAIView('history',this)">Storico</button>
   </div>
   <div id="ai-scan">${renderAIScan()}</div>
-  <div id="ai-tips" style="display:none">${renderAITips()}</div>
   <div id="ai-history" style="display:none">${renderAIHistory()}</div>`;
 }
 function setAIView(v,btn){
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['scan','tips','history'].forEach(id=>{ const el=document.getElementById('ai-'+id); if(el) el.style.display=id===v?'block':'none'; });
+  ['scan','history'].forEach(id=>{ const el=document.getElementById('ai-'+id); if(el) el.style.display=id===v?'block':'none'; });
   if(v==='history') refreshHistory();
 }
 function renderAIScan(){
