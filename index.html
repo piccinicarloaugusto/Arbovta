@@ -1004,7 +1004,7 @@ function removePhoto(i){
   const btn=document.getElementById('analyze-btn');
   if(btn) btn.disabled=G.ai.photos.length===0;
 }
-const PLANTNET_KEY = '2b10kMxoUKGC8Q1FonCCpp1mje';
+const PLANTNET_PROXY = 'https://arbotva-proxy.piccini-carlo-augusto.workers.dev/';
 
 async function analyzePhotos(){
   const lb=document.getElementById('loading-box');
@@ -1036,8 +1036,7 @@ async function analyzePhotos(){
       const organMap={'Foglie':'leaf','Tronco':'bark','Radici':'other','Colletto':'other','Chioma':'flower','Pianta intera':'habit'};
       formData.append('organs',organMap[p.type]||'auto');
     }
-    const url=`https://my-api.plantnet.org/v2/identify/all?api-key=${PLANTNET_KEY}&lang=it&include-related-images=false&no-reject=false&nb-results=5`;
-    const response=await fetch(url,{method:'POST',body:formData});
+    const response=await fetch(PLANTNET_PROXY,{method:'POST',body:formData});
     if(!response.ok){const err=await response.text();throw new Error(`PlantNet ${response.status}: ${err.substring(0,200)}`);}
     const data=await response.json();
     clearInterval(lt);
