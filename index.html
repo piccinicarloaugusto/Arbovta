@@ -2061,19 +2061,6 @@ function updateRisk(){
     dv.style.color=FD===1&&!G.form.fattoreDimensionale?'var(--text-muted)':'';
   }
 
-  /* Aggiorna automaticamente il label "Fattore di danno" in base al valore FD calcolato */
-  const fdSel = document.querySelector('[onchange*="fattoreDanno"]');
-  if(fdSel && !G.form.fattoreDimensionale){
-    let fdLabel = 'Seleziona...';
-    if(FD>0  && FD<=2)  fdLabel='Trascurabile';
-    else if(FD<=4)      fdLabel='Basso';
-    else if(FD<=6)      fdLabel='Moderato';
-    else if(FD<=8)      fdLabel='Elevato';
-    else if(FD>8)       fdLabel='Estremo';
-    const opt=[...fdSel.options].find(o=>o.text===fdLabel);
-    if(opt) fdSel.value=opt.value;
-  }
-
   /* Aggiorna CPC solo se NON è stata impostata manualmente */
   if(!G.form._cpcManual){
     G.form.cpc=cpc;
