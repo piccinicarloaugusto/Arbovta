@@ -212,11 +212,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .tree-loc{font-size:11px;color:var(--text-muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tree-meta{font-size:10px;color:var(--text-muted);margin-top:3px;font-family:var(--font-mono)}
 .cpc-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:9px;flex-shrink:0;letter-spacing:0.02em}
-.cA{background:var(--green-100);color:var(--green-700);border:0.5px solid var(--green-300)}
-.cB{background:var(--amber-light);color:var(--amber-dark);border:0.5px solid var(--amber)}
-.cC{background:var(--coral-light);color:#4A1B0C;border:0.5px solid var(--coral)}
-.cCD{background:var(--red-light);color:var(--red-dark);border:0.5px solid var(--red)}
-.cD{background:var(--red-light);color:var(--red-dark);border:0.5px solid var(--red)}
+.cA{background:#DBEAFE;color:#1D4ED8;border:0.5px solid #93C5FD}
+.cB{background:#DCFCE7;color:#15803D;border:0.5px solid #86EFAC}
+.cC{background:#FEF9C3;color:#A16207;border:0.5px solid #FDE047}
+.cCD{background:#FFEDD5;color:#C2410C;border:0.5px solid #FED7AA}
+.cD{background:#FEE2E2;color:#B91C1C;border:0.5px solid #FCA5A5}
 
 /* ── CPC SUMMARY ── */
 .cpc-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}
@@ -362,7 +362,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .risk-card{background:var(--surface-2);border-radius:var(--r-md);padding:11px;text-align:center;border:0.5px solid var(--border)}
 .risk-val{font-size:24px;font-weight:600;font-family:var(--font-mono)}
 .risk-lbl{font-size:10px;color:var(--text-muted);margin-top:2px;letter-spacing:0.02em}
-.rA{color:var(--green-600)}.rB{color:var(--amber-dark)}.rC{color:var(--coral)}.rCD{color:var(--red)}.rD{color:var(--red)}
+.rA{color:#2563EB}.rB{color:#16A34A}.rC{color:#CA8A04}.rCD{color:#EA580C}.rD{color:#DC2626}
 
 /* ── DIM BANNER ── */
 .dim-banner{background:var(--green-100);border:0.5px solid var(--green-300);border-radius:var(--r-md);padding:10px 12px;margin-top:6px}
@@ -2297,7 +2297,7 @@ function setTileLayer(type) {
 let moveMode = { active: false, treeId: null, originalLatLng: null };
 
 function addTreeMarker(t) {
-  const cpcColors = {A:'#3B6D11', B:'#EF9F27', C:'#D85A30', D:'#E24B4A'};
+  const cpcColors = {A:'#2563EB', B:'#16A34A', C:'#CA8A04', 'C/D':'#EA580C', D:'#DC2626'};
   const col = cpcColors[t.cpc] || '#888';
   const icon = L.divIcon({
     className: '',
@@ -2495,7 +2495,7 @@ function exportGeoJSON() {
 function exportKML() {
   const georef = G.trees.filter(t => t.lat && t.lng);
   if (!georef.length) { showExportFeedback('Nessuna pianta georeferenziata.', false); return; }
-  const cpcColors = {A:'ff3B6D11', B:'ff27B7EF', C:'ff305AD8', D:'ff4A4BE2'};
+  const cpcColors = {A:'ffEB6325', B:'ff4AA316', C:'ff04CAA0', 'C/D':'ff0C58EA', D:'ff2626DC'};
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
@@ -3043,7 +3043,7 @@ function showGinvePreview(items) {
 
   title.textContent = `${items.length} piante trovate — ${nuovi} nuove, ${dupes} già presenti (verranno aggiornate)`;
 
-  const cpcColors = {A:'var(--green-700)',B:'var(--amber-dark)',C:'#4A1B0C',D:'var(--red-dark)'};
+  const cpcColors = {A:'#2563EB',B:'#16A34A',C:'#CA8A04','C/D':'#EA580C',D:'#DC2626'};
   const cpcBg = {A:'var(--green-100)',B:'var(--amber-light)',C:'var(--coral-light)',D:'var(--red-light)'};
 
   list.innerHTML = items.map(t => `
