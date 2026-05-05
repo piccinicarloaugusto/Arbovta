@@ -1734,48 +1734,32 @@ function setGjd(btn){
   autosave('gjd_'+lbl, btn.textContent);
 }
 function setPer(btn){
-  const pericEl = btn.closest('.peric');
-  const wasOn = btn.classList.contains('on');
-
-  /* Deseleziona tutti */
-  pericEl.querySelectorAll('.per').forEach(b => {
+  const pericEl=btn.closest('.peric');
+  const wasOn=btn.classList.contains('on');
+  pericEl.querySelectorAll('.per').forEach(b=>{
     b.classList.remove('on');
-    /* Reset numero al valore basso */
-    const numEl = b.querySelector('.per-num');
-    if(numEl) { b.dataset.cur = b.dataset.v1; numEl.textContent = b.dataset.v1; }
+    const numEl=b.querySelector('.per-num');
+    if(numEl){b.dataset.cur=b.dataset.v1;numEl.textContent=b.dataset.v1;}
   });
-
   if(wasOn){
-    /* Secondo tap sullo stesso bottone: alterna al valore alto */
-    const cur = parseInt(btn.dataset.cur);
-    const v1  = parseInt(btn.dataset.v1);
-    const v2  = parseInt(btn.dataset.v2);
-    const next = cur === v1 ? v2 : v1;
-    btn.dataset.cur = next;
-    const numEl = btn.querySelector('.per-num');
-    if(numEl) numEl.textContent = next;
+    const cur=parseInt(btn.dataset.cur),v1=parseInt(btn.dataset.v1),v2=parseInt(btn.dataset.v2);
+    const next=cur===v1?v2:v1;
+    btn.dataset.cur=next;
+    const numEl=btn.querySelector('.per-num');
+    if(numEl) numEl.textContent=next;
     btn.classList.add('on');
   } else {
-    /* Primo tap: seleziona con valore basso */
     btn.classList.add('on');
   }
-
-  const num = parseInt(btn.dataset.cur);
-  const sec = btn.closest('.card')?.querySelector('.sec')?.textContent?.trim() || '';
+  const num=parseInt(btn.dataset.cur);
+  const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||'';
   autosave('per_'+sec, btn.textContent.split(' ')[0].trim());
   autosave('per_'+sec+'_num', num);
-
-  /* Mappa sezione → chiave numerica IR */
-  const secLow = sec.toLowerCase();
-  if(secLow.includes('radici') || secLow.includes('colletto')) {
-    autosave('per_rc_num', num);
-  } else if(secLow.includes('fusto') || secLow.includes('castello')) {
-    autosave('per_fc_num', num);
-  } else if(secLow.includes('branche') || secLow.includes('chioma')) {
-    autosave('per_bc_num', num);
-  }
-
-  setTimeout(updateRisk, 50);
+  const secLow=sec.toLowerCase();
+  if(secLow.includes('radici')||secLow.includes('colletto')) autosave('per_rc_num',num);
+  else if(secLow.includes('fusto')||secLow.includes('castello')) autosave('per_fc_num',num);
+  else if(secLow.includes('branche')||secLow.includes('chioma')) autosave('per_bc_num',num);
+  setTimeout(updateRisk,50);
 }
 
 
@@ -1833,32 +1817,30 @@ function restoreVTAui(){
     if(btn) setSev(btn, lv.toLowerCase());
   });
 
-  /* ── 3. PERICOLOSITÀ SEZIONI — bottoni .per con numero alternabile ── */
+  /* ── 3. PERICOLOSITÀ SEZIONI — bottoni .per ── */
   Object.keys(vta).filter(k=>k.startsWith('per_') && !k.endsWith('_num')).forEach(k=>{
     const sec = k.slice(4);
     const val = (vta[k]||'').toUpperCase().trim();
-    const savedNum = vta[k+'_num'] || null;
     if(!val) return;
     const card = [...document.querySelectorAll('.card')].find(c=>{
       const t = c.querySelector('.sec')?.textContent?.trim() || '';
       return t.toLowerCase() === sec.toLowerCase();
     });
     if(!card) return;
+    const savedNum = vta[k+'_num'] || null;
     card.querySelectorAll('.per').forEach(b=>{
-      const btnTxt = b.textContent.split(' ')[0].toUpperCase().trim();
-      const match = btnTxt === val ||
-        (val.startsWith('TRASCUR') && btnTxt.startsWith('TRASCUR')) ||
-        (val === 'BASSA' && btnTxt === 'BASSO') ||
-        (val === 'MODERATA' && btnTxt === 'MODERATO') ||
-        (val === 'ELEVATA' && btnTxt === 'ELEVATO') ||
-        (val === 'ESTREMA' && btnTxt === 'ESTREMO');
-      b.classList.toggle('on', match);
-      b.style.fontWeight = match ? '700' : '';
-      b.style.boxShadow  = match ? '0 0 0 2px currentColor' : '';
-      if(match && savedNum){
-        b.dataset.cur = savedNum;
-        const numEl = b.querySelector('.per-num');
-        if(numEl) numEl.textContent = savedNum;
+      const btnTxt=b.textContent.split(' ')[0].toUpperCase().trim();
+      const match=btnTxt===val||
+        (val.startsWith('TRASCUR')&&btnTxt.startsWith('TRASCUR'))||
+        (val==='BASSA'&&btnTxt==='BASSO')||(val==='MODERATA'&&btnTxt==='MODERATO')||
+        (val==='ELEVATA'&&btnTxt==='ELEVATO')||(val==='ESTREMA'&&btnTxt==='ESTREMO');
+      b.classList.toggle('on',match);
+      b.style.fontWeight=match?'700':'';
+      b.style.boxShadow=match?'0 0 0 2px currentColor':'';
+      if(match&&savedNum){
+        b.dataset.cur=savedNum;
+        const numEl=b.querySelector('.per-num');
+        if(numEl) numEl.textContent=savedNum;
       }
     });
   });
@@ -2028,7 +2010,11 @@ function updateRisk(){
   const dv=document.getElementById('fd-v');
   if(rv) rv.textContent=IR>0?IR.toFixed(1):'—';
   if(pv) pv.textContent=IR>0?pericLabel:'—';
-  if(dv) dv.textContent=FD.toFixed(3);
+  if(dv){
+    dv.textContent=FD.toFixed(3);
+    dv.title=FD===1&&!G.form.fattoreDimensionale?'Inserisci H e DBH per calcolo preciso':'';
+    dv.style.color=FD===1&&!G.form.fattoreDimensionale?'var(--text-muted)':'';
+  }
 
   /* Aggiorna CPC solo se NON è stata impostata manualmente */
   if(!G.form._cpcManual){
