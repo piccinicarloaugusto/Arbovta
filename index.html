@@ -2021,7 +2021,7 @@ function updateRisk(){
   const cv=document.getElementById('cpc-v');
   const pv=document.getElementById('peric-v');
   const dv=document.getElementById('fd-v');
-  if(rv) rv.textContent=IR>0?IR.toFixed(1):'—';
+  if(rv) rv.textContent=IR>0?Math.round(IR):'—';
   if(pv) pv.textContent=IR>0?pericLabel:'—';
   if(dv){
     dv.textContent=FD.toFixed(3);
