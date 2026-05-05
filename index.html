@@ -215,6 +215,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .cA{background:var(--green-100);color:var(--green-700);border:0.5px solid var(--green-300)}
 .cB{background:var(--amber-light);color:var(--amber-dark);border:0.5px solid var(--amber)}
 .cC{background:var(--coral-light);color:#4A1B0C;border:0.5px solid var(--coral)}
+.cCD{background:var(--red-light);color:var(--red-dark);border:0.5px solid var(--red)}
 .cD{background:var(--red-light);color:var(--red-dark);border:0.5px solid var(--red)}
 
 /* ── CPC SUMMARY ── */
@@ -361,7 +362,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .risk-card{background:var(--surface-2);border-radius:var(--r-md);padding:11px;text-align:center;border:0.5px solid var(--border)}
 .risk-val{font-size:24px;font-weight:600;font-family:var(--font-mono)}
 .risk-lbl{font-size:10px;color:var(--text-muted);margin-top:2px;letter-spacing:0.02em}
-.rA{color:var(--green-600)}.rB{color:var(--amber-dark)}.rC{color:var(--coral)}.rD{color:var(--red)}
+.rA{color:var(--green-600)}.rB{color:var(--amber-dark)}.rC{color:var(--coral)}.rCD{color:var(--red)}.rD{color:var(--red)}
 
 /* ── DIM BANNER ── */
 .dim-banner{background:var(--green-100);border:0.5px solid var(--green-300);border-radius:var(--r-md);padding:10px 12px;margin-top:6px}
@@ -627,7 +628,7 @@ function renderLista(){
           <div class="tree-loc">${t.sito}</div>
           <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m${t.cd?' × '+t.cd+'m':''} · ${t.data}</div>
         </div>
-        <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
+        <span class="cpc-badge c${(t.cpc||'A').replace('/','')}">CPC ${t.cpc}</span>
       </div>
       <button onclick="deleteTree('${t.id}')"
         style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;
@@ -683,7 +684,7 @@ function filterTrees(q){
         <div class="tree-loc">${t.sito}</div>
         <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m${t.cd?' × '+t.cd+'m':''} · ${t.data}</div>
       </div>
-      <span class="cpc-badge c${t.cpc}">CPC ${t.cpc}</span>
+      <span class="cpc-badge c${(t.cpc||'A').replace('/','')}">CPC ${t.cpc}</span>
     </div>
     <button onclick="deleteTree('${t.id}')"
       style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;
@@ -1621,7 +1622,7 @@ function renderScheda(){
         <select id="cpc-select" onchange="setCPCManual(this.value)"
           style="font-size:11px;padding:3px 6px;border-radius:6px;border:0.5px solid var(--border);
           background:var(--surface);color:var(--text-primary);font-family:var(--font-mono);font-weight:600;cursor:pointer">
-          ${['A','B','C','D'].map(c=>`<option value="${c}" ${(G.form.cpc||'A')===c?'selected':''}>${c}</option>`).join('')}
+          ${['A','B','C','C/D','D'].map(c=>`<option value="${c}" ${(G.form.cpc||'A')===c?'selected':''}>${c}</option>`).join('')}
         </select>
         <div class="risk-lbl">Classe CPC</div>
       </div>
@@ -1972,15 +1973,6 @@ function resetCPCManual() {
     } else { FD = 1; }
   }
 
-  const IR = (J27 + J37 + J47) * FC * FD;
-
-  let pericLabel, cpc;
-  if      (IR < 30)  { pericLabel = 'Trascurabile'; cpc = 'A'; }
-  else if (IR < 120) { pericLabel = 'Bassa';         cpc = 'B'; }
-  else if (IR < 300) { pericLabel = 'Moderata';      cpc = 'C'; }
-  else if (IR < 600) { pericLabel = 'Elevata';       cpc = 'D'; }
-  else               { pericLabel = 'Estrema';       cpc = 'D'; }
-
 function updateRisk(){
   const vta = G.form.vta || {};
   const J27 = vta['per_rc_num'] || 0;
@@ -1998,11 +1990,11 @@ function updateRisk(){
   }
   const IR=(J27+J37+J47)*FC*FD;
   let pericLabel,cpc;
-  if(IR<30){pericLabel='Trascurabile';cpc='A';}
-  else if(IR<120){pericLabel='Bassa';cpc='B';}
-  else if(IR<300){pericLabel='Moderata';cpc='C';}
-  else if(IR<600){pericLabel='Elevata';cpc='D';}
-  else{pericLabel='Estrema';cpc='D';}
+  if(IR<=30){pericLabel='Trascurabile';cpc='A';}
+  else if(IR<=120){pericLabel='Basso';cpc='B';}
+  else if(IR<=300){pericLabel='Moderato';cpc='C';}
+  else if(IR<=600){pericLabel='Elevato';cpc='C/D';}
+  else{pericLabel='Estremo';cpc='D';}
 
   const rv=document.getElementById('risk-v');
   const cv=document.getElementById('cpc-v');
@@ -2019,7 +2011,7 @@ function updateRisk(){
   /* Aggiorna CPC solo se NON è stata impostata manualmente */
   if(!G.form._cpcManual){
     G.form.cpc=cpc;
-    if(cv){cv.textContent=cpc;cv.className='risk-val r'+cpc;}
+    if(cv){cv.textContent=cpc;cv.className='risk-val r'+cpc.replace('/','');}
     const sel=document.getElementById('cpc-select');
     if(sel) sel.value=cpc;
     autosaveField('cpc',cpc);
