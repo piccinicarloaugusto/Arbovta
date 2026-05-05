@@ -1565,7 +1565,16 @@ function renderScheda(){
       <div class="field"><label>Sito radicazione</label><select onchange="autosaveField('sitoCon',this.value)"><option>Seleziona...</option>${['idoneo','mediocre','scadente','inidoneo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Posizione sociale</label><select onchange="autosaveField('posizSoc',this.value)"><option>Seleziona...</option>${['predominante','dominante','codominante','dominato','sottoposto'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Conflitti</label><select onchange="autosaveField('conflitti',this.value)"><option>Seleziona...</option>${['nessun conflitto','specie arbustive','specie arboree','marciapiede','sede stradale','pavimentazione','cavi aerei','cartellonistica','recinzione','utenze interrate','edifici','semaforo','scavi','lampione','parcheggio','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Fattore contatto</label><select onchange="autosaveField('fattoreContatto',this.value);updateRisk()"><option>Seleziona...</option>${['assente','trascurabile','basso','moderato','elevato','estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field">
+        <label>Fattore contatto</label>
+        <div class="peric" style="margin-top:4px">
+          ${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`
+            <button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}"
+              style="background:${bg};color:${col};border-color:${col}"
+              onclick="setFC(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span>
+            </button>`).join('')}
+        </div>
+      </div>
       <div class="field"><label>Età ontogenetica (1-10)</label><input type="number" min="1" max="10" placeholder="—" oninput="G.form.eta=this.value"></div>
     </div>
   </div>
@@ -1734,6 +1743,30 @@ function setGjd(btn){
   const lbl=btn.closest('.field')?.querySelector('label')?.textContent||Math.random();
   autosave('gjd_'+lbl, btn.textContent);
 }
+function setFC(btn){
+  const wasOn = btn.classList.contains('on');
+  btn.closest('.peric').querySelectorAll('.per').forEach(b=>{
+    b.classList.remove('on');
+    const numEl=b.querySelector('.per-num');
+    if(numEl){b.dataset.cur=b.dataset.v1;numEl.textContent=b.dataset.v1;}
+  });
+  if(wasOn){
+    const cur=parseInt(btn.dataset.cur),v1=parseInt(btn.dataset.v1),v2=parseInt(btn.dataset.v2);
+    const next=cur===v1?v2:v1;
+    btn.dataset.cur=next;
+    const numEl=btn.querySelector('.per-num');
+    if(numEl) numEl.textContent=next;
+    btn.classList.add('on');
+  } else {
+    btn.classList.add('on');
+  }
+  const num=parseInt(btn.dataset.cur);
+  const lbl=btn.textContent.split(' ')[0].trim();
+  autosaveField('fattoreContatto', lbl);
+  autosaveField('fattoreContattoNum', num);
+  updateRisk();
+}
+
 function setPer(btn){
   const pericEl=btn.closest('.peric');
   const wasOn=btn.classList.contains('on');
@@ -1880,7 +1913,7 @@ function restoreVTAui(){
   /* ── 6. SELECT ── */
   const selectFields = [
     'sito','disposizione','stazione','suolo','pavimentazione',
-    'sitoCon','posizSoc','conflitti','fattoreContatto',
+    'sitoCon','posizSoc','conflitti',
     'giudVeg','pericolosita','fattoreDanno'
   ];
   selectFields.forEach(key=>{
@@ -1894,6 +1927,24 @@ function restoreVTAui(){
     );
     if(opt) el.value = opt.value;
   });
+
+  /* Fattore contatto — bottoni con numero */
+  const fcVal = (form.fattoreContatto||'').toUpperCase().trim();
+  const fcNum = form.fattoreContattoNum || null;
+  if(fcVal){
+    document.querySelectorAll('[onclick="setFC(this)"]').forEach(b=>{
+      const btnTxt = b.textContent.split(' ')[0].toUpperCase().trim();
+      const match = btnTxt===fcVal || (fcVal.startsWith('TRASCUR')&&btnTxt.startsWith('TRASCUR'));
+      b.classList.toggle('on',match);
+      b.style.fontWeight=match?'700':'';
+      b.style.boxShadow=match?'0 0 0 2px currentColor':'';
+      if(match&&fcNum){
+        b.dataset.cur=fcNum;
+        const numEl=b.querySelector('.per-num');
+        if(numEl) numEl.textContent=fcNum;
+      }
+    });
+  }
 
   /* ── 7. INPUT text (ubicazione, data, codice, specie) ── */
   const inputMap = {
@@ -1980,6 +2031,8 @@ function updateRisk(){
   const J47 = vta['per_bc_num'] || 0;
   const FC_MAP = {'assente':1,'trascurabile':2,'basso':3,'moderato':5,'elevato':8,'estremo':10};
   const FC = G.form.fattoreContattoNum || FC_MAP[(G.form.fattoreContatto||'').toLowerCase()] || 1;
+  const FD_MAP = {'trascur.':1,'trascurabile':1,'basso':3,'moderato':5,'elevato':7,'estremo':9};
+  const FD_num = G.form.fattoreDannoNum || FD_MAP[(G.form.fattoreDanno||'').toLowerCase()] || 1;
   let FD = G.form.fattoreDimensionale || 0;
   if (!FD) {
     const h=parseFloat(G.form.h)||0, dbh=parseFloat(G.form.dbh)||0;
@@ -2006,6 +2059,19 @@ function updateRisk(){
     dv.textContent=FD.toFixed(3);
     dv.title=FD===1&&!G.form.fattoreDimensionale?'Inserisci H e DBH per calcolo preciso':'';
     dv.style.color=FD===1&&!G.form.fattoreDimensionale?'var(--text-muted)':'';
+  }
+
+  /* Aggiorna automaticamente il label "Fattore di danno" in base al valore FD calcolato */
+  const fdSel = document.querySelector('[onchange*="fattoreDanno"]');
+  if(fdSel && !G.form.fattoreDimensionale){
+    let fdLabel = 'Seleziona...';
+    if(FD>0  && FD<=2)  fdLabel='Trascurabile';
+    else if(FD<=4)      fdLabel='Basso';
+    else if(FD<=6)      fdLabel='Moderato';
+    else if(FD<=8)      fdLabel='Elevato';
+    else if(FD>8)       fdLabel='Estremo';
+    const opt=[...fdSel.options].find(o=>o.text===fdLabel);
+    if(opt) fdSel.value=opt.value;
   }
 
   /* Aggiorna CPC solo se NON è stata impostata manualmente */
