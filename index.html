@@ -606,7 +606,7 @@ function renderLista(){
       <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('D')}</div><div class="stat-l">Priorità intervento</div></div>
     </div>
     <div class="cpc-row">
-      ${[['A','#DBEAFE','#1D4ED8','#93C5FD'],['B','#DCFCE7','#15803D','#86EFAC'],['C','#FEF9C3','#A16207','#FDE047'],['C/D','#FFEDD5','#C2410C','#FED7AA'],['D','#FEE2E2','#B91C1C','#FCA5A5']].map(([l,bg,col,bord])=>`
+      ${[['A','var(--green-100)','var(--green-700)','var(--green-300)'],['B','var(--amber-light)','var(--amber-dark)','var(--amber)'],['C','var(--coral-light)','#4A1B0C','var(--coral)'],['D','var(--red-light)','var(--red-dark)','var(--red)']].map(([l,bg,col,bord])=>`
       <div class="cpc-cell" style="background:${bg};border:0.5px solid ${bord}">
         <div class="cv" style="color:${col}">${cc(l)}</div>
         <div class="cl" style="color:${col}">CPC ${l}</div>
@@ -1505,7 +1505,7 @@ function renderScheda(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
   const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
 
   const specieBanner=G.ai.result?`<div class="specie-banner" id="sp-banner" style="display:flex;align-items:center;justify-content:space-between">
     <span>AI: <strong>${G.ai.result.scientific_name}</strong></span>
@@ -1565,14 +1565,9 @@ function renderScheda(){
       <div class="field"><label>Sito radicazione</label><select onchange="autosaveField('sitoCon',this.value)"><option>Seleziona...</option>${['idoneo','mediocre','scadente','inidoneo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Posizione sociale</label><select onchange="autosaveField('posizSoc',this.value)"><option>Seleziona...</option>${['predominante','dominante','codominante','dominato','sottoposto'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Conflitti</label><select onchange="autosaveField('conflitti',this.value)"><option>Seleziona...</option>${['nessun conflitto','specie arbustive','specie arboree','marciapiede','sede stradale','pavimentazione','cavi aerei','cartellonistica','recinzione','utenze interrate','edifici','semaforo','scavi','lampione','parcheggio','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field">
-        <label>Fattore contatto</label>
+      <div class="field"><label>Fattore contatto</label>
         <div class="peric" style="margin-top:4px">
-          ${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`
-            <button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}"
-              style="background:${bg};color:${col};border-color:${col}"
-              onclick="setFC(this)">${v}<span class="per-num" style="font-size:9px;opacity:0.7;margin-left:3px">${n1}</span>
-            </button>`).join('')}
+          ${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setFC(this)">${v}<span class="per-num" style="font-size:9px;opacity:0.7;margin-left:3px">${n1}</span></button>`).join('')}
         </div>
       </div>
       <div class="field"><label>Età ontogenetica (1-10)</label><input type="number" min="1" max="10" placeholder="—" oninput="G.form.eta=this.value"></div>
@@ -1658,7 +1653,7 @@ function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,
 function renderSezioneFusto(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
   return `<div class="card">
     <div class="sec">Fusto</div>
     <div class="field"><label>Forma fusto</label>${ms(['regolare','asimmetrico','costolato','capitozzato','biforcato','policormico','ramificato','sinuoso'],'fustoForma',false)}</div>
@@ -1673,7 +1668,7 @@ function renderSezioneFusto(){
 function renderSezioneBranche(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
   const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
   return `<div class="card">
     <div class="sec">Branche e rami</div>
@@ -1690,7 +1685,7 @@ function renderSezioneBranche(){
 function renderSezioneChioma(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
   return `<div class="card">
     <div class="sec">Chioma</div>
     <div class="field"><label>Portamento</label>${ms(['sferico','ovoidale','espanso','fastigiato','conico','cespuglioso','piangente','capitozzato'],'chiPort',false)}</div>
@@ -1752,18 +1747,15 @@ function setFC(btn){
   });
   if(wasOn){
     const cur=parseInt(btn.dataset.cur),v1=parseInt(btn.dataset.v1),v2=parseInt(btn.dataset.v2);
-    const next=cur===v1?v2:v1;
-    btn.dataset.cur=next;
-    const n=btn.querySelector('.per-num');
-    if(n) n.textContent=next;
+    const next=cur===v1?v2:v1; btn.dataset.cur=next;
+    const n=btn.querySelector('.per-num'); if(n) n.textContent=next;
     btn.classList.add('on');
   } else { btn.classList.add('on'); }
   const num=parseInt(btn.dataset.cur);
-  autosaveField('fattoreContatto', btn.textContent.split(' ')[0].trim());
-  autosaveField('fattoreContattoNum', num);
+  autosaveField('fattoreContatto',btn.textContent.split(' ')[0].trim());
+  autosaveField('fattoreContattoNum',num);
   updateRisk();
 }
-
 function setPer(btn){
   const pericEl=btn.closest('.peric');
   const wasOn=btn.classList.contains('on');
@@ -2005,27 +1997,19 @@ function resetCPCManual() {
 
 function updateRisk(){
   const vta = G.form.vta || {};
-  /* Pericolosità sezioni */
   const J27 = vta['per_rc_num'] || 0;
   const J37 = vta['per_fc_num'] || 0;
   const J47 = vta['per_bc_num'] || 0;
-  /* Fattore contatto — legge il numero dai bottoni */
   const FC = G.form.fattoreContattoNum || 1;
-  /* Fattore di danno — sigmoide su H, DBH, chioma:
-     =(10/(1+EXP(-0.4*(H-12)))+10/(1+EXP(-0.04*(CIRC-100)))+10/(1+EXP(-0.7*(DC-12))))/3 */
   let FD = G.form.fattoreDimensionale || 0;
   if (!FD) {
-    const h  = parseFloat(G.form.h)   || 0;
-    const dbh = parseFloat(G.form.dbh) || 0;
-    const circ = dbh * Math.PI;
-    const dc = parseFloat(G.form.cw)  || 0;
-    if(h>0 || dbh>0 || dc>0){
-      FD = (10/(1+Math.exp(-0.4*(h-12))) +
-            10/(1+Math.exp(-0.04*(circ-100))) +
-            10/(1+Math.exp(-0.7*(dc-12)))) / 3;
-    } else { FD = 1; }
+    const h=parseFloat(G.form.h)||0, dbh=parseFloat(G.form.dbh)||0;
+    const circ=dbh*Math.PI, dc=parseFloat(G.form.cw)||0;
+    if(h>0||circ>0||dc>0){
+      FD=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-12))))/3;
+    } else { FD=1; }
   }
-  const IR = (J27+J37+J47) * FC * FD;
+  const IR=(J27+J37+J47)*FC*FD;
   let pericLabel,cpc;
   if(IR<=30){pericLabel='Trascurabile';cpc='A';}
   else if(IR<=120){pericLabel='Basso';cpc='B';}
@@ -3165,37 +3149,21 @@ let deferredInstallPrompt = null;
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      /* Forza disinstallazione di tutti i SW vecchi */
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) {
-        const swUrl = reg.active?.scriptURL || '';
-        /* Disinstalla se non è la versione v75 */
-        if (!swUrl.includes('v75') && !swUrl.includes('sw.js?v=75')) {
-          await reg.unregister();
-          console.log('[ArboVTA] SW vecchio rimosso:', swUrl);
-        }
-      }
-
-      /* Registra il nuovo SW con versione nel nome per forzare aggiornamento */
-      const reg = await navigator.serviceWorker.register('/Arbovta/sw.js?v=75', { scope: '/Arbovta/' });
-      console.log('[ArboVTA] Service Worker v75 registrato:', reg.scope);
-
-      /* Forza attivazione immediata */
-      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-      if (reg.installing) {
-        reg.installing.addEventListener('statechange', e => {
-          if (e.target.state === 'installed') e.target.postMessage({ type: 'SKIP_WAITING' });
-        });
-      }
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      console.log('[ArboVTA] Service Worker registrato:', reg.scope);
 
       /* Controlla aggiornamenti ogni 60 minuti */
       setInterval(() => reg.update(), 60 * 60 * 1000);
 
-      /* Ricarica quando nuovo SW attivo */
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+      /* Notifica aggiornamento disponibile */
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW?.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner();
+          }
+        });
       });
-
     } catch (err) {
       console.warn('[ArboVTA] SW non registrato:', err);
     }
