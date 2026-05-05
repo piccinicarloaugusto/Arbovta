@@ -219,7 +219,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary)}
 .cD{background:#FEE2E2;color:#B91C1C;border:0.5px solid #FCA5A5}
 
 /* ── CPC SUMMARY ── */
-.cpc-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}
+.cpc-row{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px}
 .cpc-cell{text-align:center;border-radius:var(--r-sm);padding:6px 4px}
 .cpc-cell .cv{font-size:17px;font-weight:600;font-family:var(--font-mono)}
 .cpc-cell .cl{font-size:9px;margin-top:1px;font-weight:600;letter-spacing:0.04em}
@@ -606,7 +606,7 @@ function renderLista(){
       <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('D')}</div><div class="stat-l">Priorità intervento</div></div>
     </div>
     <div class="cpc-row">
-      ${[['A','var(--green-100)','var(--green-700)','var(--green-300)'],['B','var(--amber-light)','var(--amber-dark)','var(--amber)'],['C','var(--coral-light)','#4A1B0C','var(--coral)'],['D','var(--red-light)','var(--red-dark)','var(--red)']].map(([l,bg,col,bord])=>`
+      ${[['A','#DBEAFE','#1D4ED8','#93C5FD'],['B','#DCFCE7','#15803D','#86EFAC'],['C','#FEF9C3','#A16207','#FDE047'],['C/D','#FFEDD5','#C2410C','#FED7AA'],['D','#FEE2E2','#B91C1C','#FCA5A5']].map(([l,bg,col,bord])=>`
       <div class="cpc-cell" style="background:${bg};border:0.5px solid ${bord}">
         <div class="cv" style="color:${col}">${cc(l)}</div>
         <div class="cl" style="color:${col}">CPC ${l}</div>
@@ -2114,7 +2114,7 @@ function renderMappaView(){
     </div>
     <div id="leaflet-map" style="height:320px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border);z-index:0"></div>
     <div class="map-legend" style="margin-top:8px">
-      ${[['CPC A','#3B6D11'],['CPC B','#EF9F27'],['CPC C','#D85A30'],['CPC D','#E24B4A']].map(([l,c])=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${c}"></div>${l}</div>`).join('')}
+      ${[['CPC A','#2563EB'],['CPC B','#16A34A'],['CPC C','#CA8A04'],['CPC C/D','#EA580C'],['CPC D','#DC2626']].map(([l,c])=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${c}"></div>${l}</div>`).join('')}
     </div>
   </div>
 
@@ -2644,7 +2644,7 @@ function renderReportView(){
     <div class="sec">Riepilogo archivio</div>
     <div class="stat-grid">
       <div class="stat-c"><div class="stat-v">${G.trees.length}</div><div class="stat-l">Piante totali</div></div>
-      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${G.trees.filter(t=>t.cpc==='C'||t.cpc==='D').length}</div><div class="stat-l">Priorità intervento</div></div>
+      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${G.trees.filter(t=>t.cpc==='C'||t.cpc==='C/D'||t.cpc==='D').length}</div><div class="stat-l">Priorità intervento</div></div>
     </div>
   </div>`;
 }
