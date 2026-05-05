@@ -606,7 +606,7 @@ function renderLista(){
       <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('D')}</div><div class="stat-l">Priorità intervento</div></div>
     </div>
     <div class="cpc-row">
-      ${[['A','var(--green-100)','var(--green-700)','var(--green-300)'],['B','var(--amber-light)','var(--amber-dark)','var(--amber)'],['C','var(--coral-light)','#4A1B0C','var(--coral)'],['D','var(--red-light)','var(--red-dark)','var(--red)']].map(([l,bg,col,bord])=>`
+      ${[['A','#DBEAFE','#1D4ED8','#93C5FD'],['B','#DCFCE7','#15803D','#86EFAC'],['C','#FEF9C3','#A16207','#FDE047'],['C/D','#FFEDD5','#C2410C','#FED7AA'],['D','#FEE2E2','#B91C1C','#FCA5A5']].map(([l,bg,col,bord])=>`
       <div class="cpc-cell" style="background:${bg};border:0.5px solid ${bord}">
         <div class="cv" style="color:${col}">${cc(l)}</div>
         <div class="cl" style="color:${col}">CPC ${l}</div>
