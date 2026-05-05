@@ -1505,7 +1505,7 @@ function renderScheda(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
   const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
 
   const specieBanner=G.ai.result?`<div class="specie-banner" id="sp-banner" style="display:flex;align-items:center;justify-content:space-between">
     <span>AI: <strong>${G.ai.result.scientific_name}</strong></span>
@@ -1571,7 +1571,7 @@ function renderScheda(){
           ${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`
             <button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}"
               style="background:${bg};color:${col};border-color:${col}"
-              onclick="setFC(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span>
+              onclick="setFC(this)">${v}<span class="per-num" style="font-size:9px;opacity:0.7;margin-left:3px">${n1}</span>
             </button>`).join('')}
         </div>
       </div>
@@ -1658,7 +1658,7 @@ function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,
 function renderSezioneFusto(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
   return `<div class="card">
     <div class="sec">Fusto</div>
     <div class="field"><label>Forma fusto</label>${ms(['regolare','asimmetrico','costolato','capitozzato','biforcato','policormico','ramificato','sinuoso'],'fustoForma',false)}</div>
@@ -1673,7 +1673,7 @@ function renderSezioneFusto(){
 function renderSezioneBranche(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
   const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
   return `<div class="card">
     <div class="sec">Branche e rami</div>
@@ -1690,7 +1690,7 @@ function renderSezioneBranche(){
 function renderSezioneChioma(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
-  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#DBEAFE','#1D4ED8'],['BASSO',3,4,'#DCFCE7','#15803D'],['MODERATO',5,6,'#FEF9C3','#A16207'],['ELEVATO',7,8,'#FFEDD5','#C2410C'],['ESTREMO',9,10,'#FEE2E2','#B91C1C']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
   return `<div class="card">
     <div class="sec">Chioma</div>
     <div class="field"><label>Portamento</label>${ms(['sferico','ovoidale','espanso','fastigiato','conico','cespuglioso','piangente','capitozzato'],'chiPort',false)}</div>
@@ -1744,25 +1744,22 @@ function setGjd(btn){
   autosave('gjd_'+lbl, btn.textContent);
 }
 function setFC(btn){
-  const wasOn = btn.classList.contains('on');
+  const wasOn=btn.classList.contains('on');
   btn.closest('.peric').querySelectorAll('.per').forEach(b=>{
     b.classList.remove('on');
-    const numEl=b.querySelector('.per-num');
-    if(numEl){b.dataset.cur=b.dataset.v1;numEl.textContent=b.dataset.v1;}
+    const n=b.querySelector('.per-num');
+    if(n){b.dataset.cur=b.dataset.v1;n.textContent=b.dataset.v1;}
   });
   if(wasOn){
     const cur=parseInt(btn.dataset.cur),v1=parseInt(btn.dataset.v1),v2=parseInt(btn.dataset.v2);
     const next=cur===v1?v2:v1;
     btn.dataset.cur=next;
-    const numEl=btn.querySelector('.per-num');
-    if(numEl) numEl.textContent=next;
+    const n=btn.querySelector('.per-num');
+    if(n) n.textContent=next;
     btn.classList.add('on');
-  } else {
-    btn.classList.add('on');
-  }
+  } else { btn.classList.add('on'); }
   const num=parseInt(btn.dataset.cur);
-  const lbl=btn.textContent.split(' ')[0].trim();
-  autosaveField('fattoreContatto', lbl);
+  autosaveField('fattoreContatto', btn.textContent.split(' ')[0].trim());
   autosaveField('fattoreContattoNum', num);
   updateRisk();
 }
@@ -1913,7 +1910,7 @@ function restoreVTAui(){
   /* ── 6. SELECT ── */
   const selectFields = [
     'sito','disposizione','stazione','suolo','pavimentazione',
-    'sitoCon','posizSoc','conflitti',
+    'sitoCon','posizSoc','conflitti','fattoreContatto',
     'giudVeg','pericolosita','fattoreDanno'
   ];
   selectFields.forEach(key=>{
@@ -1927,24 +1924,6 @@ function restoreVTAui(){
     );
     if(opt) el.value = opt.value;
   });
-
-  /* Fattore contatto — bottoni con numero */
-  const fcVal = (form.fattoreContatto||'').toUpperCase().trim();
-  const fcNum = form.fattoreContattoNum || null;
-  if(fcVal){
-    document.querySelectorAll('[onclick="setFC(this)"]').forEach(b=>{
-      const btnTxt = b.textContent.split(' ')[0].toUpperCase().trim();
-      const match = btnTxt===fcVal || (fcVal.startsWith('TRASCUR')&&btnTxt.startsWith('TRASCUR'));
-      b.classList.toggle('on',match);
-      b.style.fontWeight=match?'700':'';
-      b.style.boxShadow=match?'0 0 0 2px currentColor':'';
-      if(match&&fcNum){
-        b.dataset.cur=fcNum;
-        const numEl=b.querySelector('.per-num');
-        if(numEl) numEl.textContent=fcNum;
-      }
-    });
-  }
 
   /* ── 7. INPUT text (ubicazione, data, codice, specie) ── */
   const inputMap = {
@@ -2026,22 +2005,27 @@ function resetCPCManual() {
 
 function updateRisk(){
   const vta = G.form.vta || {};
+  /* Pericolosità sezioni */
   const J27 = vta['per_rc_num'] || 0;
   const J37 = vta['per_fc_num'] || 0;
   const J47 = vta['per_bc_num'] || 0;
-  const FC_MAP = {'assente':1,'trascurabile':2,'basso':3,'moderato':5,'elevato':8,'estremo':10};
-  const FC = G.form.fattoreContattoNum || FC_MAP[(G.form.fattoreContatto||'').toLowerCase()] || 1;
-  const FD_MAP = {'trascur.':1,'trascurabile':1,'basso':3,'moderato':5,'elevato':7,'estremo':9};
-  const FD_num = G.form.fattoreDannoNum || FD_MAP[(G.form.fattoreDanno||'').toLowerCase()] || 1;
+  /* Fattore contatto — legge il numero dai bottoni */
+  const FC = G.form.fattoreContattoNum || 1;
+  /* Fattore di danno — sigmoide su H, DBH, chioma:
+     =(10/(1+EXP(-0.4*(H-12)))+10/(1+EXP(-0.04*(CIRC-100)))+10/(1+EXP(-0.7*(DC-12))))/3 */
   let FD = G.form.fattoreDimensionale || 0;
   if (!FD) {
-    const h=parseFloat(G.form.h)||0, dbh=parseFloat(G.form.dbh)||0;
-    const circ=dbh*Math.PI, dc=parseFloat(G.form.cw)||0;
-    if(h>0||circ>0||dc>0){
-      FD=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-12))))/3;
-    } else { FD=1; }
+    const h  = parseFloat(G.form.h)   || 0;
+    const dbh = parseFloat(G.form.dbh) || 0;
+    const circ = dbh * Math.PI;
+    const dc = parseFloat(G.form.cw)  || 0;
+    if(h>0 || dbh>0 || dc>0){
+      FD = (10/(1+Math.exp(-0.4*(h-12))) +
+            10/(1+Math.exp(-0.04*(circ-100))) +
+            10/(1+Math.exp(-0.7*(dc-12)))) / 3;
+    } else { FD = 1; }
   }
-  const IR=(J27+J37+J47)*FC*FD;
+  const IR = (J27+J37+J47) * FC * FD;
   let pericLabel,cpc;
   if(IR<=30){pericLabel='Trascurabile';cpc='A';}
   else if(IR<=120){pericLabel='Basso';cpc='B';}
@@ -2152,7 +2136,7 @@ function renderMappaView(){
     <div class="sec">Elenco piante georeferenziate</div>
     ${G.trees.filter(t=>t.lat&&t.lng).map(t=>`
     <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="centerOnTree(${t.lat},${t.lng},'${t.id}')">
-      <span class="cpc-badge c${t.cpc}" style="font-size:9px;padding:2px 5px">CPC ${t.cpc}</span>
+      <span class="cpc-badge c${(t.cpc||'A').replace('/','')}" style="font-size:9px;padding:2px 5px">CPC ${t.cpc}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</div>
         <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:1px">#${t.id} · ${t.lat.toFixed(5)}, ${t.lng.toFixed(5)}</div>
