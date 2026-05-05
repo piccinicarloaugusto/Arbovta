@@ -3165,21 +3165,37 @@ let deferredInstallPrompt = null;
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      console.log('[ArboVTA] Service Worker registrato:', reg.scope);
+      /* Forza disinstallazione di tutti i SW vecchi */
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        const swUrl = reg.active?.scriptURL || '';
+        /* Disinstalla se non è la versione v75 */
+        if (!swUrl.includes('v75') && !swUrl.includes('sw.js?v=75')) {
+          await reg.unregister();
+          console.log('[ArboVTA] SW vecchio rimosso:', swUrl);
+        }
+      }
+
+      /* Registra il nuovo SW con versione nel nome per forzare aggiornamento */
+      const reg = await navigator.serviceWorker.register('/Arbovta/sw.js?v=75', { scope: '/Arbovta/' });
+      console.log('[ArboVTA] Service Worker v75 registrato:', reg.scope);
+
+      /* Forza attivazione immediata */
+      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      if (reg.installing) {
+        reg.installing.addEventListener('statechange', e => {
+          if (e.target.state === 'installed') e.target.postMessage({ type: 'SKIP_WAITING' });
+        });
+      }
 
       /* Controlla aggiornamenti ogni 60 minuti */
       setInterval(() => reg.update(), 60 * 60 * 1000);
 
-      /* Notifica aggiornamento disponibile */
-      reg.addEventListener('updatefound', () => {
-        const newSW = reg.installing;
-        newSW?.addEventListener('statechange', () => {
-          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            showUpdateBanner();
-          }
-        });
+      /* Ricarica quando nuovo SW attivo */
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
       });
+
     } catch (err) {
       console.warn('[ArboVTA] SW non registrato:', err);
     }
