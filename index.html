@@ -1849,35 +1849,35 @@ function restoreVTAui(){
     if(btn) setSev(btn, lv.toLowerCase());
   });
 
-  /* ── 3. PERICOLOSITÀ SEZIONI — bottoni .per ── */
-  Object.keys(vta).filter(k=>k.startsWith('per_') && !k.endsWith('_num')).forEach(k=>{
-    const sec = k.slice(4);
-    const val = (vta[k]||'').toUpperCase().trim();
-    if(!val) return;
-    const card = [...document.querySelectorAll('.card')].find(c=>{
-      const t = c.querySelector('.sec')?.textContent?.trim() || '';
-      return t.toLowerCase() === sec.toLowerCase();
-    });
-    if(!card) return;
-    const savedNum = vta[k+'_num'] || null;
-    card.querySelectorAll('.per').forEach(b=>{
-      const btnTxt=b.textContent.split(' ')[0].toUpperCase().trim();
-      const match=btnTxt===val||
-        (val.startsWith('TRASCUR')&&btnTxt.startsWith('TRASCUR'))||
-        (val==='BASSA'&&btnTxt==='BASSO')||(val==='MODERATA'&&btnTxt==='MODERATO')||
-        (val==='ELEVATA'&&btnTxt==='ELEVATO')||(val==='ESTREMA'&&btnTxt==='ESTREMO');
-      b.classList.toggle('on',match);
-      b.style.fontWeight=match?'700':'';
-      b.style.boxShadow=match?'0 0 0 2px currentColor':'';
-      if(match&&savedNum){
-        b.dataset.cur=savedNum;
-        const numEl=b.querySelector('.per-num');
-        if(numEl) numEl.textContent=savedNum;
-      }
+    /* ── 3. PERICOLOSITÀ SEZIONI — bottoni .per con valore numerico ── */
+  const perMap = [
+    { numKey: 'per_rc_num', secs: ['radici','colletto'] },
+    { numKey: 'per_fc_num', secs: ['fusto','castello'] },
+    { numKey: 'per_bc_num', secs: ['branche','chioma'] },
+  ];
+  perMap.forEach(({numKey, secs}) => {
+    const savedNum = vta[numKey] ? parseInt(vta[numKey]) : null;
+    if(!savedNum) return;
+    document.querySelectorAll('.card').forEach(card => {
+      const secName = (card.querySelector('.sec')?.textContent||'').trim().toLowerCase();
+      if(!secs.some(s => secName.includes(s))) return;
+      card.querySelectorAll('.per').forEach(b => {
+        const v1 = parseInt(b.dataset.v1);
+        const v2 = parseInt(b.dataset.v2);
+        const match = savedNum >= v1 && savedNum <= v2;
+        b.classList.toggle('on', match);
+        b.style.fontWeight = match ? '700' : '';
+        b.style.boxShadow  = match ? '0 0 0 2px currentColor' : '';
+        if(match) {
+          b.dataset.cur = savedNum;
+          const n = b.querySelector('.per-num');
+          if(n) n.textContent = savedNum;
+        }
+      });
     });
   });
 
-  /* ── 4. GIUDIZI — bottoni .gj ── */
+  /* ── 4.* ── 4. GIUDIZI — bottoni .gj ── */
   Object.keys(vta).filter(k=>k.startsWith('gjd_')).forEach(k=>{
     const lbl = k.slice(4).toLowerCase().replace(/[-\s]/g,'');
     const val = (vta[k]||'').toUpperCase().trim();
