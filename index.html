@@ -1622,7 +1622,7 @@ function renderScheda(){
     <div class="risk-grid">
       <div class="risk-card"><div class="risk-val" id="risk-v">—</div><div class="risk-lbl">Indice di rischio</div></div>
       <div class="risk-card" style="display:flex;flex-direction:column;align-items:center;gap:6px">
-        <div class="risk-val r${G.form.cpc||'A'}" id="cpc-v">${G.form.cpc||'A'}</div>
+        <div class="risk-val r${(G.form.cpc||'A').replace('/','')}" id="cpc-v">${G.form.cpc||'A'}</div>
         <select id="cpc-select" onchange="setCPCManual(this.value)"
           style="font-size:11px;padding:3px 6px;border-radius:6px;border:0.5px solid var(--border);
           background:var(--surface);color:var(--text-primary);font-family:var(--font-mono);font-weight:600;cursor:pointer">
@@ -1979,7 +1979,7 @@ function setCPCManual(cpc) {
   G.form.cpc = cpc;
   G.form._cpcManual = true;   /* flag: l'utente ha scelto manualmente */
   const cv = document.getElementById('cpc-v');
-  if(cv){ cv.textContent = cpc; cv.className = 'risk-val r' + cpc; }
+  if(cv){ cv.textContent = cpc; cv.className = 'risk-val r' + cpc.replace('/',''); }
   autosaveField('cpc', cpc);
   autosaveField('_cpcManual', true);
 }
