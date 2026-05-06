@@ -1943,10 +1943,28 @@ function restoreVTAui(){
   if(cpcSel && G.form.cpc) {
     cpcSel.value = G.form.cpc;
     const cv = document.getElementById('cpc-v');
-    if(cv){ cv.textContent = G.form.cpc; cv.className = 'risk-val r' + G.form.cpc; }
+    if(cv){ cv.textContent = G.form.cpc; cv.className = 'risk-val r' + (G.form.cpc||'A').replace('/',''); }
   }
 
-  /* ── 9. AGGIORNA INDICE DI RISCHIO ── */
+  /* ── 9. RESTORE BOTTONI FC ── */
+  const fcVal = (form.fattoreContatto||'').toUpperCase().trim();
+  const fcNum = form.fattoreContattoNum || null;
+  if(fcVal){
+    document.querySelectorAll('[onclick="setFC(this)"]').forEach(b=>{
+      const t = b.textContent.split(' ')[0].toUpperCase().trim();
+      const m = t===fcVal || (fcVal.startsWith('TRASCUR')&&t.startsWith('TRASCUR'));
+      b.classList.toggle('on', m);
+      b.style.fontWeight = m ? '700' : '';
+      b.style.boxShadow  = m ? '0 0 0 2px currentColor' : '';
+      if(m && fcNum){
+        b.dataset.cur = fcNum;
+        const n = b.querySelector('.per-num');
+        if(n) n.textContent = fcNum;
+      }
+    });
+  }
+
+  /* ── 10. AGGIORNA INDICE DI RISCHIO ── */
   setTimeout(updateRisk, 100);
 }
 function checkPino(v){
