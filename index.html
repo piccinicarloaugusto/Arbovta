@@ -1633,7 +1633,16 @@ function renderScheda(){
       <div class="risk-card"><div class="risk-val" id="peric-v" style="font-size:14px">—</div><div class="risk-lbl">Pericolosità</div></div>
       <div class="risk-card"><div class="risk-val" id="fd-v" style="font-size:16px">—</div><div class="risk-lbl">Fattore dimensionale</div></div>
     </div>
-    <div class="field" style="margin-top:8px"><label>Fattore di danno</label><select onchange="autosaveField('fattoreDanno',this.value)"><option>Seleziona...</option>${['Assente','Trascurabile','Basso','Moderato','Elevato','Estremo'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:8px">
+      <label>Fattore di danno</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;padding:10px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--r-md)">
+        <div id="fd-num-v" style="font-size:22px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary);min-width:36px">—</div>
+        <div>
+          <div id="fd-label-v" style="font-size:13px;font-weight:600;color:var(--text-primary)">—</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:1px">Calcolato da H, DBH e chioma</div>
+        </div>
+      </div>
+    </div>
     <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="autosaveField('prescrizioni',this.value)"></textarea></div>
     <div class="field" style="margin-top:7px"><label>Il rilevatore</label><input type="text" value="Carlo Piccini — Dottore Agronomo" placeholder="Nome, titolo"></div>
   </div>`;
@@ -2021,13 +2030,28 @@ function updateRisk(){
   const cv=document.getElementById('cpc-v');
   const pv=document.getElementById('peric-v');
   const dv=document.getElementById('fd-v');
+  const fdNumV=document.getElementById('fd-num-v');
+  const fdLabelV=document.getElementById('fd-label-v');
   if(rv) rv.textContent=IR>0?Math.round(IR):'—';
   if(pv) pv.textContent=IR>0?pericLabel:'—';
+  const noMeas=!G.form.fattoreDimensionale&&!(parseFloat(G.form.h)||parseFloat(G.form.dbh));
   if(dv){
     dv.textContent=FD.toFixed(3);
-    dv.title=FD===1&&!G.form.fattoreDimensionale?'Inserisci H e DBH per calcolo preciso':'';
-    dv.style.color=FD===1&&!G.form.fattoreDimensionale?'var(--text-muted)':'';
+    dv.title=noMeas?'Inserisci H e DBH per calcolo preciso':'';
+    dv.style.color=noMeas?'var(--text-muted)':'';
   }
+  /* Fattore di danno — valore numerico e label dalla sigmoide */
+  let fdLabel='—';
+  if(!noMeas){
+    if(FD<=2)      fdLabel='Trascurabile';
+    else if(FD<=4) fdLabel='Basso';
+    else if(FD<=6) fdLabel='Moderato';
+    else if(FD<=8) fdLabel='Elevato';
+    else           fdLabel='Estremo';
+  }
+  if(fdNumV){ fdNumV.textContent=noMeas?'—':FD.toFixed(1); fdNumV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
+  if(fdLabelV){ fdLabelV.textContent=noMeas?'Inserisci misure nel tab Misure':fdLabel; fdLabelV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
+  autosaveField('fattoreDanno', fdLabel);
 
   /* Aggiorna CPC solo se NON è stata impostata manualmente */
   if(!G.form._cpcManual){
