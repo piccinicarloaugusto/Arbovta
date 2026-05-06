@@ -2071,15 +2071,13 @@ function updateRisk(){
   if(fdLabelV){ fdLabelV.textContent=noMeas?'Inserisci misure nel tab Misure':fdLabel; fdLabelV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
   autosaveField('fattoreDanno', fdLabel);
 
-  /* Aggiorna CPC solo se NON è stata impostata manualmente */
-  if(!G.form._cpcManual){
-    G.form.cpc=cpc;
-    if(cv){cv.textContent=cpc;cv.className='risk-val r'+cpc.replace('/','');}
-    const sel=document.getElementById('cpc-select');
-    if(sel) sel.value=cpc;
-    autosaveField('cpc',cpc);
-  }
-  autosaveField('indiceRischio',IR);
+  /* Aggiorna sempre CPC in base all'IR calcolato */
+  G.form.cpc=cpc;
+  if(cv){cv.textContent=cpc;cv.className='risk-val r'+cpc.replace('/','');}
+  const sel=document.getElementById('cpc-select');
+  if(sel) sel.value=cpc;
+  autosaveField('cpc',cpc);
+  autosaveField('indiceRischio',Math.round(IR));
 }
 
 function requestGPS(){
