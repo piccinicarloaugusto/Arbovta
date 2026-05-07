@@ -2241,91 +2241,6 @@ function updateRisk(){
 }
 
 /* ── EXPORT MAPPA ── */
-async function exportMapImage(format) {
-  const status = document.getElementById('map-export-status');
-  if(status) status.textContent = 'Preparazione immagine...';
-
-  try {
-    const mapEl = document.getElementById('leaflet-map');
-    if(!mapEl) throw new Error('Mappa non trovata');
-
-    /* Usa leaflet-image se disponibile, altrimenti html2canvas */
-    if(typeof html2canvas !== 'undefined') {
-      const canvas = await html2canvas(mapEl, {
-        useCORS: true, allowTaint: true, scale: 2,
-        width: mapEl.offsetWidth, height: mapEl.offsetHeight
-      });
-      const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-      const quality = format === 'jpg' ? 0.92 : 1;
-      const dataUrl = canvas.toDataURL(mimeType, quality);
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.${format}`;
-      a.click();
-      if(status) status.textContent = `✓ Mappa esportata come ${format.toUpperCase()}`;
-    } else {
-      /* Fallback: usa window.print() con solo la mappa visibile */
-      exportMapPrint(format);
-    }
-  } catch(e) {
-    console.error('Export map error:', e);
-    if(status) status.textContent = 'Errore: ' + e.message;
-    /* Fallback a stampa */
-    exportMapPrint(format);
-  }
-}
-
-function exportMapPrint(format) {
-  const status = document.getElementById('map-export-status');
-  /* Apri finestra di stampa con solo la mappa */
-  const mapEl = document.getElementById('leaflet-map');
-  if(!mapEl) return;
-
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head>
-    <style>
-      body{margin:0;padding:0;background:#000}
-      .map-container{width:100vw;height:100vh;overflow:hidden}
-      img{width:100%;height:100%;object-fit:contain}
-    </style>
-    <title>ArboVTA — Mappa rilievi</title>
-  </head><body>
-    <p style="color:#fff;font-family:sans-serif;padding:10px;font-size:12px">
-      ArboVTA — Mappa rilievi — ${new Date().toLocaleDateString('it-IT')}<br>
-      <small>Usa File → Stampa per esportare come PDF, o tasto destro → Salva immagine</small>
-    </p>
-  </body></html>`);
-  win.document.close();
-  setTimeout(() => win.print(), 500);
-  if(status) status.textContent = 'Usa "Salva come PDF" nella finestra di stampa';
-}
-
-async function exportMapPDF() {
-  const status = document.getElementById('map-export-status');
-  if(status) status.textContent = 'Apertura dialogo di stampa...';
-
-  /* Il modo più affidabile su mobile è window.print() con CSS @print */
-  const style = document.createElement('style');
-  style.id = 'print-map-style';
-  style.textContent = `
-    @media print {
-      body > *:not(.page) { display:none !important; }
-      .page > *:not(#mv-map-container) { display:none !important; }
-      .seg, .card:not(:has(#leaflet-map)), .bottombar, .topbar, .navbar { display:none !important; }
-      #leaflet-map { width:100% !important; height:90vh !important; }
-      #mv-map-container { display:block !important; }
-    }
-  `;
-  document.head.appendChild(style);
-  setTimeout(() => {
-    window.print();
-    setTimeout(() => {
-      document.getElementById('print-map-style')?.remove();
-      if(status) status.textContent = '';
-    }, 2000);
-  }, 300);
-}
-
 /* ── ESPORTAZIONE MAPPA ── */
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -2336,25 +2251,99 @@ async function loadScript(src) {
   });
 }
 
-async function captureMap() {
+async function exportMapImage(format) {
   const status = document.getElementById('map-export-status');
-  if (status) status.textContent = 'Caricamento librerie...';
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-  if (status) status.textContent = 'Acquisizione mappa...';
+  try {
+    if (status) status.textContent = 'Acquisizione mappa...';
+    const mapEl = document.getElementById('leaflet-map');
+    const rect = mapEl.getBoundingClientRect();
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = Math.round(rect.width * 2);
+    outCanvas.height = Math.round(rect.height * 2);
+    const ctx = outCanvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.fillStyle = '#1a2e1a';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    mapEl.querySelectorAll('canvas').forEach(c => {
+      try {
+        const cr = c.getBoundingClientRect();
+        ctx.drawImage(c, cr.left - rect.left, cr.top - rect.top, cr.width, cr.height);
+      } catch(e) {}
+    });
+    const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+    const dataUrl = outCanvas.toDataURL(mimeType, 0.92);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.${format}`;
+    a.click();
+    if (status) status.textContent = `✓ Esportato come ${format.toUpperCase()}`;
+  } catch(e) {
+    console.error(e);
+    if (status) status.textContent = '⚠ ' + e.message;
+  }
+}
 
-  /* Forza ridisegno Leaflet prima della cattura */
-  if (window.leafletMap) window.leafletMap.invalidateSize();
-  await new Promise(r => setTimeout(r, 500));
-
-  const mapEl = document.getElementById('leaflet-map');
-  const canvas = await html2canvas(mapEl, {
-    useCORS: true,
-    allowTaint: true,
-    scale: 2,
-    backgroundColor: '#0d1a0d',
-    logging: false,
-  });
-  return canvas;
+async function exportMapPDF() {
+  const status = document.getElementById('map-export-status');
+  try {
+    if (status) status.textContent = 'Preparazione PDF...';
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const mapEl = document.getElementById('leaflet-map');
+    const rect = mapEl.getBoundingClientRect();
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = Math.round(rect.width * 2);
+    outCanvas.height = Math.round(rect.height * 2);
+    const ctx = outCanvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.fillStyle = '#1a2e1a';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    mapEl.querySelectorAll('canvas').forEach(c => {
+      try {
+        const cr = c.getBoundingClientRect();
+        ctx.drawImage(c, cr.left - rect.left, cr.top - rect.top, cr.width, cr.height);
+      } catch(e) {}
+    });
+    if (status) status.textContent = 'Generazione PDF...';
+    const { jsPDF } = window.jspdf;
+    const orient = rect.width > rect.height ? 'landscape' : 'portrait';
+    const pdf = new jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    pdf.setFontSize(13); pdf.setFont('helvetica', 'bold');
+    pdf.text('ArboVTA — Mappa rilievi fitosanitari VTA', margin, margin + 6);
+    pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+    pdf.text(`Carlo Piccini — Dottore Agronomo | ${new Date().toLocaleDateString('it-IT')}`, margin, margin + 11);
+    pdf.setDrawColor(100,180,100); pdf.setLineWidth(0.3);
+    pdf.line(margin, margin + 13, pageW - margin, margin + 13);
+    const imgData = outCanvas.toDataURL('image/jpeg', 0.85);
+    const availW = pageW - margin * 2;
+    const availH = pageH - margin * 2 - 22;
+    const ratio = Math.min(availW / rect.width, availH / rect.height);
+    const imgW = rect.width * ratio;
+    const imgH = rect.height * ratio;
+    const x = margin + (availW - imgW) / 2;
+    pdf.addImage(imgData, 'JPEG', x, margin + 16, imgW, imgH);
+    const legY = margin + 16 + imgH + 4;
+    if (legY < pageH - 8) {
+      const cpcList = [['A','#2563EB'],['B','#16A34A'],['C','#CA8A04'],['C/D','#EA580C'],['D','#DC2626']];
+      let lx = margin;
+      cpcList.forEach(([l, col]) => {
+        pdf.setFillColor(parseInt(col.slice(1,3),16), parseInt(col.slice(3,5),16), parseInt(col.slice(5,7),16));
+        pdf.circle(lx+2, legY+2, 2, 'F');
+        pdf.setFontSize(7); pdf.setTextColor(60,60,60);
+        pdf.text(`CPC ${l}`, lx+5, legY+3.5);
+        lx += 22;
+      });
+      pdf.setFontSize(7); pdf.setTextColor(80,80,80);
+      pdf.text(`Totale: ${G.trees.length} piante | CPC D: ${G.trees.filter(t=>t.cpc==='D').length} | CPC C/D: ${G.trees.filter(t=>t.cpc==='C/D').length}`, margin, legY+8);
+    }
+    pdf.save(`ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.pdf`);
+    if (status) status.textContent = '✓ PDF salvato';
+  } catch(e) {
+    console.error(e);
+    if (status) status.textContent = '⚠ ' + e.message;
+  }
 }
 
 function requestGPS(){
