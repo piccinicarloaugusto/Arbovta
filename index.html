@@ -105,7 +105,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
   .crosshair-wrap{width:100px;height:100px}
   .ch-tl,.ch-tr,.ch-bl,.ch-br{width:20px;height:20px}
   /* Mappa tablet */
-  #leaflet-map{height:400px !important}
+  #leaflet-map{height:80dvh !important;min-height:450px}
   /* Scheda VTA tablet — 3 colonne */
   .chips{gap:6px}
   .chip{font-size:12px;padding:5px 11px}
@@ -2240,6 +2240,123 @@ function updateRisk(){
   autosaveField('indiceRischio',Math.round(IR));
 }
 
+/* ── EXPORT MAPPA ── */
+async function exportMapImage(format) {
+  const status = document.getElementById('map-export-status');
+  if(status) status.textContent = 'Preparazione immagine...';
+
+  try {
+    const mapEl = document.getElementById('leaflet-map');
+    if(!mapEl) throw new Error('Mappa non trovata');
+
+    /* Usa leaflet-image se disponibile, altrimenti html2canvas */
+    if(typeof html2canvas !== 'undefined') {
+      const canvas = await html2canvas(mapEl, {
+        useCORS: true, allowTaint: true, scale: 2,
+        width: mapEl.offsetWidth, height: mapEl.offsetHeight
+      });
+      const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+      const quality = format === 'jpg' ? 0.92 : 1;
+      const dataUrl = canvas.toDataURL(mimeType, quality);
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.${format}`;
+      a.click();
+      if(status) status.textContent = `✓ Mappa esportata come ${format.toUpperCase()}`;
+    } else {
+      /* Fallback: usa window.print() con solo la mappa visibile */
+      exportMapPrint(format);
+    }
+  } catch(e) {
+    console.error('Export map error:', e);
+    if(status) status.textContent = 'Errore: ' + e.message;
+    /* Fallback a stampa */
+    exportMapPrint(format);
+  }
+}
+
+function exportMapPrint(format) {
+  const status = document.getElementById('map-export-status');
+  /* Apri finestra di stampa con solo la mappa */
+  const mapEl = document.getElementById('leaflet-map');
+  if(!mapEl) return;
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <style>
+      body{margin:0;padding:0;background:#000}
+      .map-container{width:100vw;height:100vh;overflow:hidden}
+      img{width:100%;height:100%;object-fit:contain}
+    </style>
+    <title>ArboVTA — Mappa rilievi</title>
+  </head><body>
+    <p style="color:#fff;font-family:sans-serif;padding:10px;font-size:12px">
+      ArboVTA — Mappa rilievi — ${new Date().toLocaleDateString('it-IT')}<br>
+      <small>Usa File → Stampa per esportare come PDF, o tasto destro → Salva immagine</small>
+    </p>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+  if(status) status.textContent = 'Usa "Salva come PDF" nella finestra di stampa';
+}
+
+async function exportMapPDF() {
+  const status = document.getElementById('map-export-status');
+  if(status) status.textContent = 'Apertura dialogo di stampa...';
+
+  /* Il modo più affidabile su mobile è window.print() con CSS @print */
+  const style = document.createElement('style');
+  style.id = 'print-map-style';
+  style.textContent = `
+    @media print {
+      body > *:not(.page) { display:none !important; }
+      .page > *:not(#mv-map-container) { display:none !important; }
+      .seg, .card:not(:has(#leaflet-map)), .bottombar, .topbar, .navbar { display:none !important; }
+      #leaflet-map { width:100% !important; height:90vh !important; }
+      #mv-map-container { display:block !important; }
+    }
+  `;
+  document.head.appendChild(style);
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.getElementById('print-map-style')?.remove();
+      if(status) status.textContent = '';
+    }, 2000);
+  }, 300);
+}
+
+/* ── ESPORTAZIONE MAPPA ── */
+async function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function captureMap() {
+  const status = document.getElementById('map-export-status');
+  if (status) status.textContent = 'Caricamento librerie...';
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  if (status) status.textContent = 'Acquisizione mappa...';
+
+  /* Forza ridisegno Leaflet prima della cattura */
+  if (window.leafletMap) window.leafletMap.invalidateSize();
+  await new Promise(r => setTimeout(r, 500));
+
+  const mapEl = document.getElementById('leaflet-map');
+  const canvas = await html2canvas(mapEl, {
+    useCORS: true,
+    allowTaint: true,
+    scale: 2,
+    backgroundColor: '#0d1a0d',
+    logging: false,
+  });
+  return canvas;
+}
+
 function requestGPS(){
   const gt=document.getElementById('gps-txt');
   if(gt) gt.textContent='Acquisizione GPS...';
@@ -2296,10 +2413,21 @@ function renderMappaView(){
         <button class="btn-sm" id="btn-fit" onclick="fitAllTrees()" style="font-size:10px;padding:4px 8px">⌖ Tutto</button>
       </div>
     </div>
-    <div id="leaflet-map" style="height:320px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border);z-index:0"></div>
+    <div id="leaflet-map" style="height:75dvh;min-height:420px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border);z-index:0"></div>
     <div class="map-legend" style="margin-top:8px">
       ${[['CPC A','#2563EB'],['CPC B','#16A34A'],['CPC C','#CA8A04'],['CPC C/D','#EA580C'],['CPC D','#DC2626']].map(([l,c])=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${c}"></div>${l}</div>`).join('')}
     </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Esporta mappa</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.5">Esporta la mappa satellitare con i pin come immagine o PDF.</div>
+    <div style="display:flex;gap:7px">
+      <button onclick="exportMapPDF()" style="flex:1;padding:9px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;color:var(--text-primary);font-family:var(--font-sans)">📄 PDF</button>
+      <button onclick="exportMapImage('png')" style="flex:1;padding:9px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;color:var(--text-primary);font-family:var(--font-sans)">🖼 PNG</button>
+      <button onclick="exportMapImage('jpg')" style="flex:1;padding:9px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;color:var(--text-primary);font-family:var(--font-sans)">📷 JPG</button>
+    </div>
+    <div id="map-export-status" style="font-size:10px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
   </div>
 
   <div class="card">
