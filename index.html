@@ -2242,6 +2242,8 @@ function updateRisk(){
 
 /* ── EXPORT MAPPA ── */
 /* ── ESPORTAZIONE MAPPA ── */
+const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z2eDQ5cTAwaWwyeXNsZzZ6dWFieG4ifQ.kJrx1oHlIgX7SF7EMXA64w';
+
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -2251,27 +2253,62 @@ async function loadScript(src) {
   });
 }
 
+/* Genera URL Mapbox Static API con pin colorati */
+function buildMapboxUrl(w, h) {
+  if (!window.leafletMap) return null;
+  const center = window.leafletMap.getCenter();
+  const zoom   = Math.min(window.leafletMap.getZoom(), 20);
+  const lat    = center.lat.toFixed(6);
+  const lng    = center.lng.toFixed(6);
+
+  const colMap = {A:'2563EB', B:'16A34A', C:'CA8A04', 'C/D':'EA580C', D:'DC2626'};
+
+  /* Overlay pin — max 100 markers */
+  const overlays = G.trees
+    .filter(t => t.lat && t.lng)
+    .slice(0, 100)
+    .map(t => {
+      const col = colMap[t.cpc] || 'DC2626';
+      return `pin-s-tree+${col}(${t.lng},${t.lat})`;
+    }).join(',');
+
+  const ov = overlays ? overlays + '/' : '';
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${ov}${lng},${lat},${zoom},0/${w}x${h}@2x?access_token=${MAPBOX_TOKEN}`;
+}
+
+async function buildMapboxCanvas(w, h) {
+  const url = buildMapboxUrl(w, h);
+  if (!url) throw new Error('Mappa non inizializzata');
+  const status = document.getElementById('map-export-status');
+  if (status) status.textContent = 'Download immagine satellitare...';
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Mapbox error ${response.status}: ${await response.text()}`);
+  const blob = await response.blob();
+  const imgUrl = URL.createObjectURL(blob);
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w * 2; canvas.height = h * 2;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w * 2, h * 2);
+      URL.revokeObjectURL(imgUrl);
+      resolve(canvas);
+    };
+    img.onerror = () => reject(new Error('Errore rendering immagine Mapbox'));
+    img.src = imgUrl;
+  });
+}
+
 async function exportMapImage(format) {
   const status = document.getElementById('map-export-status');
   try {
-    if (status) status.textContent = 'Acquisizione mappa...';
-    const mapEl = document.getElementById('leaflet-map');
-    const rect = mapEl.getBoundingClientRect();
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = Math.round(rect.width * 2);
-    outCanvas.height = Math.round(rect.height * 2);
-    const ctx = outCanvas.getContext('2d');
-    ctx.scale(2, 2);
-    ctx.fillStyle = '#1a2e1a';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    mapEl.querySelectorAll('canvas').forEach(c => {
-      try {
-        const cr = c.getBoundingClientRect();
-        ctx.drawImage(c, cr.left - rect.left, cr.top - rect.top, cr.width, cr.height);
-      } catch(e) {}
-    });
+    if (status) status.textContent = 'Generazione immagine...';
+    const canvas = await buildMapboxCanvas(1200, 800);
     const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-    const dataUrl = outCanvas.toDataURL(mimeType, 0.92);
+    const dataUrl = canvas.toDataURL(mimeType, 0.92);
     const a = document.createElement('a');
     a.href = dataUrl;
     a.download = `ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.${format}`;
@@ -2286,44 +2323,36 @@ async function exportMapImage(format) {
 async function exportMapPDF() {
   const status = document.getElementById('map-export-status');
   try {
-    if (status) status.textContent = 'Preparazione PDF...';
+    if (status) status.textContent = 'Download mappa satellitare...';
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    const mapEl = document.getElementById('leaflet-map');
-    const rect = mapEl.getBoundingClientRect();
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = Math.round(rect.width * 2);
-    outCanvas.height = Math.round(rect.height * 2);
-    const ctx = outCanvas.getContext('2d');
-    ctx.scale(2, 2);
-    ctx.fillStyle = '#1a2e1a';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    mapEl.querySelectorAll('canvas').forEach(c => {
-      try {
-        const cr = c.getBoundingClientRect();
-        ctx.drawImage(c, cr.left - rect.left, cr.top - rect.top, cr.width, cr.height);
-      } catch(e) {}
-    });
-    if (status) status.textContent = 'Generazione PDF...';
+    const canvas = await buildMapboxCanvas(1200, 800);
+    if (status) status.textContent = 'Composizione PDF...';
+
     const { jsPDF } = window.jspdf;
-    const orient = rect.width > rect.height ? 'landscape' : 'portrait';
-    const pdf = new jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
     const margin = 10;
+
+    /* Intestazione */
     pdf.setFontSize(13); pdf.setFont('helvetica', 'bold');
     pdf.text('ArboVTA — Mappa rilievi fitosanitari VTA', margin, margin + 6);
     pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
     pdf.text(`Carlo Piccini — Dottore Agronomo | ${new Date().toLocaleDateString('it-IT')}`, margin, margin + 11);
     pdf.setDrawColor(100,180,100); pdf.setLineWidth(0.3);
     pdf.line(margin, margin + 13, pageW - margin, margin + 13);
-    const imgData = outCanvas.toDataURL('image/jpeg', 0.85);
+
+    /* Mappa */
+    const imgData = canvas.toDataURL('image/jpeg', 0.90);
     const availW = pageW - margin * 2;
-    const availH = pageH - margin * 2 - 22;
-    const ratio = Math.min(availW / rect.width, availH / rect.height);
-    const imgW = rect.width * ratio;
-    const imgH = rect.height * ratio;
-    const x = margin + (availW - imgW) / 2;
+    const availH = pageH - margin * 2 - 24;
+    const ratio  = Math.min(availW / 1200, availH / 800);
+    const imgW   = 1200 * ratio;
+    const imgH   = 800  * ratio;
+    const x      = margin + (availW - imgW) / 2;
     pdf.addImage(imgData, 'JPEG', x, margin + 16, imgW, imgH);
+
+    /* Legenda */
     const legY = margin + 16 + imgH + 4;
     if (legY < pageH - 8) {
       const cpcList = [['A','#2563EB'],['B','#16A34A'],['C','#CA8A04'],['C/D','#EA580C'],['D','#DC2626']];
@@ -2336,8 +2365,11 @@ async function exportMapPDF() {
         lx += 22;
       });
       pdf.setFontSize(7); pdf.setTextColor(80,80,80);
-      pdf.text(`Totale: ${G.trees.length} piante | CPC D: ${G.trees.filter(t=>t.cpc==='D').length} | CPC C/D: ${G.trees.filter(t=>t.cpc==='C/D').length}`, margin, legY+8);
+      const nD  = G.trees.filter(t=>t.cpc==='D').length;
+      const nCD = G.trees.filter(t=>t.cpc==='C/D').length;
+      pdf.text(`Totale: ${G.trees.length} piante | CPC D: ${nD} | CPC C/D: ${nCD}`, margin, legY + 8);
     }
+
     pdf.save(`ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.pdf`);
     if (status) status.textContent = '✓ PDF salvato';
   } catch(e) {
