@@ -2242,7 +2242,7 @@ function updateRisk(){
 
 /* ── EXPORT MAPPA ── */
 /* ── ESPORTAZIONE MAPPA ── */
-const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z2eDQ5cTAwaWwyeXNsZzZ6dWFieG4ifQ.kJrx1oHlIgX7SF7EMXA64w';
+const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z4YzVoZDA0bjkyc3NhMjZpcWxxem0ifQ.myjQhOd9fEbizGwqGLdoPQ';
 
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -2507,6 +2507,7 @@ function initLeafletMap() {
     zoomControl: true,
     attributionControl: true
   });
+  window.leafletMap = leafletMap; /* esposto per export mappa */
 
   /* Smette di seguire se l'utente sposta manualmente la mappa */
   leafletMap.on('dragstart', () => {
