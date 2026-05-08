@@ -2269,7 +2269,7 @@ function buildMapboxUrl(w, h) {
     .slice(0, 100)
     .map(t => {
       const col = colMap[t.cpc] || 'DC2626';
-      return `pin-s-tree+${col}(${t.lng},${t.lat})`;
+      return `pin-s+${col}(${t.lng},${t.lat})`;
     }).join(',');
 
   const ov = overlays ? overlays + '/' : '';
