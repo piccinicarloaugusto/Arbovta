@@ -1751,14 +1751,14 @@ function renderScheda(){
   ${renderSezioneAnat('Radici',
     ms(['non visibile','superficiale','ridotto','asimmetrico'],'radApp',false),
     ms(['affioranti','scoperte','esposte','decorticate','avventizie','avvolgenti','strozzanti','contrafforti','non rilevati'],'radDif'),
-    sev(), '', '', '')}
+    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
 
   ${renderSezioneAnat('Colletto',
     ms(['cilindrico','azzampato','ovalizzato','asimmetrico','cordonato','a imbuto','collo di bottiglia'],'collForma',false),
     ms(['gibbosità','ad anello','a fisarmonica','depressione','incavo','cretti verticali','cretti trasversali','non rilevati'],'collDif') +
     `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','taglio','bruciatura','nessuna anomalia'],'collCort')}</div>` +
     `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','nessuna anomalia'],'collLeg')}`,
-    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
+    sev(), peric(), null, null)}
 
   ${renderSezioneFusto()}
 
@@ -1814,7 +1814,7 @@ function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,
     <div class="field"><label>Forma / tipologia</label>${formaHTML}</div>
     <div class="field" style="margin-top:7px"><label>Difetti</label>${difettiHTML}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sevHTML}</div>
-    ${pericHTML?`<div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>`:''}
+    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>
     ${gjdHTML&&gjdLabel?`<div class="field" style="margin-top:7px"><label>${gjdLabel}</label>${gjdHTML}</div>`:''}
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su ${nome.toLowerCase()}..."></textarea></div>
   </div>`;
@@ -1846,6 +1846,8 @@ function renderSezioneBranche(){
     <div class="field" style="margin-top:7px"><label>Anomalie corteccia rami</label>${ms(['assenza','degradazione','colorazione anomala','bruciatura','nessuna anomalia'],'ramiCort')}</div>
     <div class="field" style="margin-top:7px"><label>Anomalie legno rami</label>${ms(['carie','carpofori','cancro','cavità','neoplasia','stroncamento','moncone','spaccatura','fessura','scosciatura','nessuna anomalia'],'ramiLeg')}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
+    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
+    <div class="field" style="margin-top:7px"><label>Giudizio branche-chioma</label>${gjd()}</div>
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su branche e rami..."></textarea></div>
   </div>`;
 }
@@ -1859,7 +1861,6 @@ function renderSezioneChioma(){
     <div class="field" style="margin-top:7px"><label>Difetti chioma</label>${ms(['sbilanciamento','riduzione','lacunosa','a bandiera','a pennello','nidi di insetti','alterazione cromatica','microfillia','necrosi fogliare','assenza'],'chiDif')}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
     <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
-    <div class="field" style="margin-top:7px"><label>Giudizio branche-chioma</label>${gjd()}</div>
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni sulla chioma..."></textarea></div>
   </div>`;
 }
