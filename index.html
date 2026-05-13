@@ -1814,7 +1814,7 @@ function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,
     <div class="field"><label>Forma / tipologia</label>${formaHTML}</div>
     <div class="field" style="margin-top:7px"><label>Difetti</label>${difettiHTML}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sevHTML}</div>
-    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>
+    ${pericHTML?`<div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>`:''}
     ${gjdHTML&&gjdLabel?`<div class="field" style="margin-top:7px"><label>${gjdLabel}</label>${gjdHTML}</div>`:''}
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su ${nome.toLowerCase()}..."></textarea></div>
   </div>`;
