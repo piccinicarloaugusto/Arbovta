@@ -1751,7 +1751,7 @@ function renderScheda(){
   ${renderSezioneAnat('Radici',
     ms(['non visibile','superficiale','ridotto','asimmetrico'],'radApp',false),
     ms(['affioranti','scoperte','esposte','decorticate','avventizie','avvolgenti','strozzanti','contrafforti','non rilevati'],'radDif'),
-    sev(), null, null, null)}
+    sev(), '', '', '')}
 
   ${renderSezioneAnat('Colletto',
     ms(['cilindrico','azzampato','ovalizzato','asimmetrico','cordonato','a imbuto','collo di bottiglia'],'collForma',false),
@@ -1809,15 +1809,15 @@ function renderScheda(){
 }
 
 function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,gjdLabel){
-  return '<div class="card">'
-    +'<div class="sec">'+nome+'</div>'
-    +'<div class="field"><label>Forma / tipologia</label>'+formaHTML+'</div>'
-    +'<div class="field" style="margin-top:7px"><label>Difetti</label>'+difettiHTML+'</div>'
-    +'<div class="field" style="margin-top:7px"><label>Gravità</label>'+sevHTML+'</div>'
-    +(pericHTML?'<div class="field" style="margin-top:7px"><label>Pericolosità</label>'+pericHTML+'</div>':'')
-    +(gjdHTML&&gjdLabel?'<div class="field" style="margin-top:7px"><label>'+gjdLabel+'</label>'+gjdHTML+'</div>':'')
-    +'<div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su '+nome.toLowerCase()+'..."></textarea></div>'
-    +'</div>';
+  return `<div class="card">
+    <div class="sec">${nome}</div>
+    <div class="field"><label>Forma / tipologia</label>${formaHTML}</div>
+    <div class="field" style="margin-top:7px"><label>Difetti</label>${difettiHTML}</div>
+    <div class="field" style="margin-top:7px"><label>Gravità</label>${sevHTML}</div>
+    ${pericHTML?`<div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>`:''}
+    ${gjdHTML&&gjdLabel?`<div class="field" style="margin-top:7px"><label>${gjdLabel}</label>${gjdHTML}</div>`:''}
+    <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su ${nome.toLowerCase()}..."></textarea></div>
+  </div>`;
 }
 function renderSezioneFusto(){
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
