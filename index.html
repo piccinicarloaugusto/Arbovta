@@ -1773,8 +1773,8 @@ function renderScheda(){
 
   <div class="card">
     <div class="sec">Diagnosi e valutazione finale</div>
-    <div class="field"><label>Giudizio fisiopatologico</label><textarea rows="2" placeholder="Stato vegetativo e fitosanitario..." oninput="autosaveField('giudFisio',this.value)"></textarea></div>
-    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><textarea rows="2" placeholder="Valutazione stabilità strutturale..." oninput="autosaveField('giudBiomec',this.value)"></textarea></div>
+    <div class="field"><label>Giudizio fisiopatologico</label><select onchange="autosaveField('giudFisio',this.value)"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><select onchange="autosaveField('giudBiomec',this.value)"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="fg" style="margin-top:8px">
       <div class="field"><label>Giudizio vegetativo</label><select onchange="autosaveField('giudVeg',this.value)"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Pericolosità</label><select onchange="autosaveField('pericolosita',this.value);updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
@@ -2072,7 +2072,7 @@ function restoreVTAui(){
   const selectFields = [
     'sito','disposizione','stazione','suolo','pavimentazione',
     'sitoCon','posizSoc','conflitti',
-    'giudVeg','pericolosita','fattoreDanno'
+    'giudVeg','giudFisio','giudBiomec','pericolosita','fattoreDanno'
   ];
   selectFields.forEach(key=>{
     const val = (form[key] || vta[key] || '').toLowerCase().trim();
