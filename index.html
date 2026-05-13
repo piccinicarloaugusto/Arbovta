@@ -1751,14 +1751,14 @@ function renderScheda(){
   ${renderSezioneAnat('Radici',
     ms(['non visibile','superficiale','ridotto','asimmetrico'],'radApp',false),
     ms(['affioranti','scoperte','esposte','decorticate','avventizie','avvolgenti','strozzanti','contrafforti','non rilevati'],'radDif'),
-    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
+    sev(), null, null, null)}
 
   ${renderSezioneAnat('Colletto',
     ms(['cilindrico','azzampato','ovalizzato','asimmetrico','cordonato','a imbuto','collo di bottiglia'],'collForma',false),
     ms(['gibbosità','ad anello','a fisarmonica','depressione','incavo','cretti verticali','cretti trasversali','non rilevati'],'collDif') +
     `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','taglio','bruciatura','nessuna anomalia'],'collCort')}</div>` +
     `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','nessuna anomalia'],'collLeg')}`,
-    sev(), peric(), null, null)}
+    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
 
   ${renderSezioneFusto()}
 
@@ -1846,7 +1846,6 @@ function renderSezioneBranche(){
     <div class="field" style="margin-top:7px"><label>Anomalie corteccia rami</label>${ms(['assenza','degradazione','colorazione anomala','bruciatura','nessuna anomalia'],'ramiCort')}</div>
     <div class="field" style="margin-top:7px"><label>Anomalie legno rami</label>${ms(['carie','carpofori','cancro','cavità','neoplasia','stroncamento','moncone','spaccatura','fessura','scosciatura','nessuna anomalia'],'ramiLeg')}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
-    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
     <div class="field" style="margin-top:7px"><label>Giudizio branche-chioma</label>${gjd()}</div>
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su branche e rami..."></textarea></div>
   </div>`;
@@ -1861,6 +1860,7 @@ function renderSezioneChioma(){
     <div class="field" style="margin-top:7px"><label>Difetti chioma</label>${ms(['sbilanciamento','riduzione','lacunosa','a bandiera','a pennello','nidi di insetti','alterazione cromatica','microfillia','necrosi fogliare','assenza'],'chiDif')}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
     <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
+    <div class="field" style="margin-top:7px"><label>Giudizio branche-chioma</label>${gjd()}</div>
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni sulla chioma..."></textarea></div>
   </div>`;
 }
