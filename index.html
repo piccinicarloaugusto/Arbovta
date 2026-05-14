@@ -2170,20 +2170,6 @@ function resetCPCManual() {
     || 1;
 
   /* Fattore dimensionale — usa valore Excel se disponibile, altrimenti calcola */
-  let FD = G.form.fattoreDimensionale || 0;
-  if (!FD) {
-    const h    = parseFloat(G.form.h)   || 0;
-    const dbh  = parseFloat(G.form.dbh) || 0;
-    const circ = dbh * Math.PI;
-    const dc   = parseFloat(G.form.cw)  || 0;
-    if (h > 0 || circ > 0 || dc > 0) {
-      FD = (
-        10 / (1 + Math.exp(-0.4  * (h    - 12))) +
-        10 / (1 + Math.exp(-0.04 * (circ - 100))) +
-        10 / (1 + Math.exp(-0.7  * (dc   - 12)))
-      ) / 3;
-    } else { FD = 1; }
-  }
 
 function updateRisk(){
   const vta = G.form.vta || {};
@@ -2194,7 +2180,7 @@ function updateRisk(){
   let FD = G.form.fattoreDimensionale || 0;
   if (!FD) {
     const h=parseFloat(G.form.h)||0, dbh=parseFloat(G.form.dbh)||0;
-    const circ=dbh*Math.PI, dc=parseFloat(G.form.cw)||0;
+    const circ=(dbh/100)*Math.PI, dc=parseFloat(G.form.cw)||0;
     if(h>0||circ>0||dc>0){
       FD=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;
     } else { FD=1; }

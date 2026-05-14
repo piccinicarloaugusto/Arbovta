@@ -1,5 +1,5 @@
 /* ArboVTA Service Worker v81 */
-const CACHE = 'arbovta-v100';
+const CACHE = 'arbovta-v102';
 
 self.addEventListener('install', e => {
   e.waitUntil(
