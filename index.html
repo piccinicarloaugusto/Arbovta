@@ -2215,14 +2215,15 @@ function updateRisk(){
   }
   /* Fattore di danno — valore numerico e label dalla sigmoide */
   let fdLabel='—';
+  const fdRounded = Math.round(FD);
   if(!noMeas){
-    if(FD<3)       fdLabel='Trascurabile';
-    else if(FD<5)  fdLabel='Basso';
-    else if(FD<7)  fdLabel='Moderato';
-    else if(FD<9)  fdLabel='Elevato';
-    else           fdLabel='Estremo';
+    if(FD<=2.5)      fdLabel='Trascurabile';
+    else if(FD<=4.5) fdLabel='Basso';
+    else if(FD<=6.5) fdLabel='Moderato';
+    else if(FD<=8.5) fdLabel='Elevato';
+    else             fdLabel='Estremo';
   }
-  if(fdNumV){ fdNumV.textContent=noMeas?'—':FD.toFixed(1); fdNumV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
+  if(fdNumV){ fdNumV.textContent=noMeas?'—':fdRounded; fdNumV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
   if(fdLabelV){ fdLabelV.textContent=noMeas?'Inserisci misure nel tab Misure':fdLabel; fdLabelV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
   autosaveField('fattoreDanno', fdLabel);
 
