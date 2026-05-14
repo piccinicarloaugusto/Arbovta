@@ -1777,7 +1777,9 @@ function renderScheda(){
     <div class="field" style="margin-top:7px"><label>Giudizio biomeccanico</label><select onchange="autosaveField('giudBiomec',this.value)"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="fg" style="margin-top:8px">
       <div class="field"><label>Giudizio vegetativo</label><select onchange="autosaveField('giudVeg',this.value)"><option>Seleziona...</option>${['PESSIMO','GRAVE','MEDIOCRE','DISCRETO','BUONO'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Pericolosità</label><select onchange="autosaveField('pericolosita',this.value);updateRisk()"><option>Seleziona...</option>${['Assente','Trascurabile','Bassa','Moderata','Elevata','Estrema'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Pericolosità</label>
+        <div style="padding:9px 12px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--r-md);font-size:13px;font-weight:600" id="peric-label-display">—</div>
+      </div>
     </div>
     <div class="risk-grid">
       <div class="risk-card"><div class="risk-val" id="risk-v">—</div><div class="risk-lbl">Indice di rischio</div></div>
@@ -2072,7 +2074,7 @@ function restoreVTAui(){
   const selectFields = [
     'sito','disposizione','stazione','suolo','pavimentazione',
     'sitoCon','posizSoc','conflitti',
-    'giudVeg','giudFisio','giudBiomec','pericolosita','fattoreDanno'
+    'giudVeg','giudFisio','giudBiomec','fattoreDanno'
   ];
   selectFields.forEach(key=>{
     const val = (form[key] || vta[key] || '').toLowerCase().trim();
@@ -2201,6 +2203,10 @@ function updateRisk(){
   const fdLabelV=document.getElementById('fd-label-v');
   if(rv) rv.textContent=IR>0?Math.round(IR):'—';
   if(pv) pv.textContent=IR>0?pericLabel:'—';
+  /* Aggiorna display pericolosità finale */
+  const perdisplay=document.getElementById('peric-label-display');
+  if(perdisplay){ perdisplay.textContent=IR>0?pericLabel:'—'; }
+  autosaveField('pericolosita', IR>0?pericLabel:'');
   const noMeas=!G.form.fattoreDimensionale&&!(parseFloat(G.form.h)||parseFloat(G.form.dbh));
   if(dv){
     dv.textContent=FD.toFixed(3);
@@ -2210,10 +2216,10 @@ function updateRisk(){
   /* Fattore di danno — valore numerico e label dalla sigmoide */
   let fdLabel='—';
   if(!noMeas){
-    if(FD<=2)      fdLabel='Trascurabile';
-    else if(FD<=4) fdLabel='Basso';
-    else if(FD<=6) fdLabel='Moderato';
-    else if(FD<=8) fdLabel='Elevato';
+    if(FD<3)       fdLabel='Trascurabile';
+    else if(FD<5)  fdLabel='Basso';
+    else if(FD<7)  fdLabel='Moderato';
+    else if(FD<9)  fdLabel='Elevato';
     else           fdLabel='Estremo';
   }
   if(fdNumV){ fdNumV.textContent=noMeas?'—':FD.toFixed(1); fdNumV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
