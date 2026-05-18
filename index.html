@@ -1458,36 +1458,37 @@ function renderMisure(){
 }
 
 /* ── Camera clinometro — identica a startCamera() del tab Specie ── */
-async function startClinoCamera(){
-  /* Attiva sensore orientamento */
+async function startClinoCamera(firstTarget){
+  /* Attiva sensore */
   if('DeviceOrientationEvent' in window){
     if(typeof DeviceOrientationEvent.requestPermission==='function'){
       try{const s=await DeviceOrientationEvent.requestPermission();if(s==='granted')startSensor();}
       catch(e){}
-    } else {
-      startSensor();
-    }
+    } else { startSensor(); }
   }
 
-  /* Apri fullscreen con mirino clinometro */
+  const hints = {
+    base: 'Punta il mirino sulla <b>base del tronco</b> e premi cattura',
+    cw_l: 'Punta il mirino sul <b>bordo sinistro</b> della chioma e premi cattura',
+    dbh_l: 'Punta il mirino sul <b>bordo sinistro</b> del tronco e premi cattura'
+  };
+
   const overlay = document.createElement('div');
   overlay.id = 'cam-fs-overlay';
   overlay.className = 'cam-fullscreen';
   overlay.innerHTML = `
     <video id="cam-fs-video" autoplay playsinline muted style="flex:1;width:100%;height:100%;object-fit:cover"></video>
-    <!-- Mirino orizzontale -->
     <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(100,255,100,0.8);pointer-events:none"></div>
     <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border:2px solid rgba(100,255,100,0.8);border-radius:50%;pointer-events:none"></div>
-    <!-- Angolo live -->
     <div id="fs-clino-angle" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#6eff6e;font-size:28px;font-weight:700;font-family:monospace;padding:8px 20px;border-radius:12px">0.0°</div>
     <div class="cam-fullscreen-bar">
       <button class="cam-fullscreen-close" onclick="closeClinoFullscreen()">✕</button>
-      <button class="cam-fullscreen-snap" onclick="captureClinoAngle()" style="background:#6eff6e"></button>
-      <div class="cam-fullscreen-label" id="fs-clino-label">Inquadra il bersaglio</div>
+      <button class="cam-fullscreen-snap" onclick="captureFromOverlay()" style="background:#6eff6e"></button>
+      <div class="cam-fullscreen-label" id="fs-clino-label">${hints[firstTarget]||'Inquadra e cattura'}</div>
     </div>`;
+  overlay._pendingTarget = firstTarget;
   document.body.appendChild(overlay);
 
-  /* Stream camera */
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false
@@ -1497,7 +1498,26 @@ async function startClinoCamera(){
     if(v){ v.srcObject=stream; v.play(); }
   } catch(e){
     overlay.remove();
-    alert('Fotocamera non disponibile — il clinometro funziona ugualmente con il sensore di inclinazione.');
+    alert('Fotocamera non disponibile — usa il sensore di inclinazione.');
+  }
+}
+
+function captureFromOverlay(){
+  const overlay = document.getElementById('cam-fs-overlay');
+  if(!overlay) return;
+  const target = overlay._pendingTarget;
+  if(!target) return;
+
+  /* Cattura angolo e aggiorna il pulsante */
+  captureA(target);
+
+  /* Imposta prossimo target */
+  const nextMap = {base:'top', cw_l:'cw_r', dbh_l:'dbh_r'};
+  const next = nextMap[target];
+  if(next){
+    overlay._pendingTarget = next;
+  } else {
+    overlay._pendingTarget = null;
   }
 }
 
@@ -1605,30 +1625,50 @@ function updateClinoDisplay(){
 }
 
 function captureA(target){
-  const a = G.clino.angle;
+  /* Primo tap del gruppo → apri camera se non è già aperta */
+  const firstOfGroup = {base:true, cw_l:true, dbh_l:true};
+  const lastOfGroup  = {top:true,  cw_r:true,  dbh_r:true};
+  const labelNext    = {base:'Punta il mirino sull\'<b>apice della cima</b> e cattura',
+                        cw_l:'Punta il mirino sul <b>bordo destro</b> e cattura',
+                        dbh_l:'Punta il mirino sul <b>bordo destro</b> del tronco e cattura'};
+
+  if(firstOfGroup[target] && !document.getElementById('cam-fs-overlay')){
+    startClinoCamera(target);
+    return; /* La cattura avverrà dentro startClinoCamera */
+  }
+
+  /* Cattura angolo corrente */
+  const a = G.clino.lastAngle || G.clino.angle || 0;
   G.clino.captured[target] = a;
   recalcAll();
-  /* Aggiorna UI pulsanti senza re-render completo */
+
   const fa = v => v!==undefined?(v>=0?'+':'')+v.toFixed(1)+'°':'—°';
-  const labels = {
-    top:'Cima', base:'Base tronco', cw_l:'Bordo sx', cw_r:'Bordo dx',
-    dbh_l:'Bordo sx', dbh_r:'Bordo dx'
-  };
+  const labels = {top:'Cima', base:'Base tronco', cw_l:'Bordo sx', cw_r:'Bordo dx', dbh_l:'Bordo sx', dbh_r:'Bordo dx'};
+
+  /* Aggiorna pulsante corrente */
   const btn = document.querySelector(`[onclick="captureA('${target}')"]`);
   if(btn){
-    btn.classList.remove('cap-ready','cap-locked');
-    btn.classList.add('cap-done');
+    btn.classList.remove('cap-ready','cap-locked'); btn.classList.add('cap-done');
     btn.querySelector('.cap-icon').textContent = '✓';
-    const lbl = labels[target]||target;
-    btn.querySelector('span:last-child').textContent = `${lbl}: ${fa(a)}`;
+    btn.querySelector('span:last-child').textContent = `${labels[target]||target}: ${fa(a)}`;
   }
-  /* Sblocca pulsante successivo */
-  const nextMap={base:'top',cw_l:'cw_r',dbh_l:'dbh_r'};
+
+  /* Sblocca pulsante successivo o chiudi camera */
+  const nextMap = {base:'top', cw_l:'cw_r', dbh_l:'dbh_r'};
   if(nextMap[target]){
-    const nextBtn=document.querySelector(`[onclick="captureA('${nextMap[target]}')"]`);
-    if(nextBtn){nextBtn.classList.remove('cap-locked');nextBtn.classList.add('cap-ready');}
+    const nextBtn = document.querySelector(`[onclick="captureA('${nextMap[target]}')"]`);
+    if(nextBtn){nextBtn.classList.remove('cap-locked'); nextBtn.classList.add('cap-ready');}
+    /* Aggiorna label nell overlay */
+    const lbl = document.getElementById('fs-clino-label');
+    if(lbl) lbl.innerHTML = labelNext[target]||'Cattura';
   }
-  /* Aggiorna hint altezza */
+
+  if(lastOfGroup[target]){
+    /* Ultima misura del gruppo → chiudi camera */
+    setTimeout(()=>{ closeClinoFullscreen(); }, 600);
+  }
+
+  /* Hint altezza */
   if(target==='base'){
     const hint=document.getElementById('height-hint');
     if(hint) hint.innerHTML='<b>Passo 2</b> — Punta il mirino sull\'<b>apice della cima</b> e cattura';
