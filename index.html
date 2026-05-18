@@ -1756,15 +1756,17 @@ function renderScheda(){
   ${renderSezioneAnat('Colletto',
     ms(['cilindrico','azzampato','ovalizzato','asimmetrico','cordonato','a imbuto','collo di bottiglia'],'collForma'),
     ms(['gibbosità','ad anello','a fisarmonica','depressione','incavo','cretti verticali','cretti trasversali','non rilevati'],'collDif') +
-    `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','taglio','bruciatura','nessuna anomalia'],'collCort')}</div>` +
-    `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','nessuna anomalia'],'collLeg')}`,
+    `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','piegatura','taglio','bruciatura','nessuna anomalia'],'collCort')}</div>` +
+    `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','resinazione','bruciatura','fessura','colonizzazione da epifite','colonizzazione da insetti','insetti lignivori','colonizzazione da vegetali','nessuna anomalia'],'collLeg')}`,
     sev(), peric(), null, null)}
 
   ${renderSezioneFusto()}
 
   ${renderSezioneAnat('Castello',
     ms(['assente','normale','a fionda','a forchetta','a torrioni','affastellato'],'castForma'),
-    ms(['inserzione stretta','corteccia inclusa','rigonfiamenti','cavità','carie','epifite','non rilevati'],'castDif'),
+    ms(['inserzione stretta','corteccia inclusa','rigonfiamenti','cavità','carie','epifite','non rilevati'],'castDif') +
+    `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','piegatura','taglio','bruciatura','nessuna anomalia'],'castCort')}</div>` +
+    `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','stroncamento','fessura','spaccatura','scosciatura','nessuna anomalia'],'castLeg')}`,
     sev(), peric(), gjd(), 'Giudizio fusto-castello')}
 
   ${renderSezioneBranche()}
@@ -1845,7 +1847,7 @@ function renderSezioneBranche(){
     <div class="sec">Branche e rami</div>
     <div class="field"><label>Forma rami</label>${ms(['naturale','modificata','capitozzata','a pennello','a candelabro','forme speciali'],'ramiForma')}</div>
     <div class="field" style="margin-top:7px"><label>Difetti</label>${ms(['riscoppi','succhioni','polloni','sinuosi','patenti','zampe di cane','assurgenti','torsioni','inserzione orizzontale','inserzione stretta','deperiente','coda di leone','anastomosi','bicchiere','cretti da carico','cretti assiali','cretti di subsidenza','disseccamento','branche codominanti','non rilevati'],'ramiDif')}</div>
-    <div class="field" style="margin-top:7px"><label>Anomalie corteccia rami</label>${ms(['assenza','degradazione','colorazione anomala','bruciatura','nessuna anomalia'],'ramiCort')}</div>
+    <div class="field" style="margin-top:7px"><label>Anomalie corteccia rami</label>${ms(['assenza','degradazione','colorazione anomala','piegatura','bruciatura','nessuna anomalia'],'ramiCort')}</div>
     <div class="field" style="margin-top:7px"><label>Anomalie legno rami</label>${ms(['carie','carpofori','cancro','cavità','neoplasia','stroncamento','moncone','spaccatura','fessura','scosciatura','nessuna anomalia'],'ramiLeg')}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sev()}</div>
     <div class="field" style="margin-top:7px"><label>Pericolosità</label>${peric()}</div>
