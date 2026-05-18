@@ -618,9 +618,7 @@ function render(v){
         startSensor();
       }
     }, 100);
-    /* Avvia camera automaticamente dopo 400ms — la camera su Android
-       funziona all'apertura del tab perché è il gesto dell'utente che lo attiva */
-    setTimeout(startClinoCamera, 400);
+    /* Camera NON si avvia automaticamente — l'utente usa il pulsante dedicato */
   }
   if(v!=='misure' && G.clino._stream){
     G.clino._stream.getTracks().forEach(t=>t.stop());
