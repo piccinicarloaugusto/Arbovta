@@ -1323,8 +1323,8 @@ function renderMisure(){
     <!-- Pulsante attiva camera — visibile solo prima dell'attivazione -->
     <div id="vf-start" style="position:absolute;inset:0;display:flex;flex-direction:column;
       align-items:center;justify-content:center;gap:10px;background:#0d1a0d">
+      <div style="font-size:12px;color:var(--green-400);margin-bottom:12px;text-align:center">Imposta la distanza qui sotto, poi attiva la camera</div>
       <button onclick="startClinoCamera()" class="vf-cam-btn">📷 Attiva camera</button>
-      <div style="font-size:11px;color:var(--green-400)">Inquadra la pianta per misurare</div>
     </div>
 
     <!-- Mirino — sempre visibile -->
@@ -1360,17 +1360,17 @@ function renderMisure(){
   <div class="card" id="cpanel-height" style="${cl.param==='height'?'':'display:none'}">
     <div class="sec">Misurazione altezza</div>
     <div class="step-hint" id="height-hint">
-      <b>Passo 1</b> — Punta il mirino sull'<b>apice della cima</b> e cattura
+      <b>Passo 1</b> — Punta il mirino sulla <b>base del tronco</b> e cattura
     </div>
-    <button class="cap-btn ${cl.captured.top!==undefined?'cap-done':'cap-ready'}"
-      onclick="captureA('top')">
-      <span class="cap-icon">${cl.captured.top!==undefined?'✓':'◉'}</span>
-      <span>${cl.captured.top!==undefined?'Cima: '+fa(cl.captured.top):'Cattura — Apice cima'}</span>
-    </button>
-    <button class="cap-btn ${cl.captured.base!==undefined?'cap-done':cl.captured.top!==undefined?'cap-ready':'cap-locked'}"
+    <button class="cap-btn ${cl.captured.base!==undefined?'cap-done':'cap-ready'}"
       onclick="captureA('base')">
       <span class="cap-icon">${cl.captured.base!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.base!==undefined?'Base: '+fa(cl.captured.base):'Cattura — Base tronco'}</span>
+    </button>
+    <button class="cap-btn ${cl.captured.top!==undefined?'cap-done':cl.captured.base!==undefined?'cap-ready':'cap-locked'}"
+      onclick="captureA('top')">
+      <span class="cap-icon">${cl.captured.top!==undefined?'✓':'◉'}</span>
+      <span>${cl.captured.top!==undefined?'Cima: '+fa(cl.captured.top):'Cattura — Apice cima'}</span>
     </button>
   </div>
 
@@ -1533,12 +1533,38 @@ function captureClinoAngle(){
 }
 
 function resetClino(){
-  if(G.clino._stream){G.clino._stream.getTracks().forEach(t=>t.stop());G.clino._stream=null;}
   G.clino.captured={};
   G.clino.meas={h:null,dbh:null,cw:null,cd:null};
-  render('misure');
-  /* Ri-attiva camera dopo render */
-  setTimeout(startClinoCamera, 200);
+  /* Aggiorna UI senza chiudere/riaprire camera */
+  /* Reset risultati */
+  ['cmv-h','cmv-dbh','cmv-circ','cmv-cw','cmv-cd'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent='—';
+  });
+  /* Reset pulsanti cattura */
+  ['base','cw_l','dbh_l'].forEach(id=>{
+    const btn=document.querySelector('[onclick="captureA(\''+id+'\')"]');
+    if(btn){
+      btn.classList.remove('cap-done','cap-locked');
+      btn.classList.add('cap-ready');
+      const icon=btn.querySelector('.cap-icon'); if(icon) icon.textContent='◉';
+      const lbl=btn.querySelector('span:last-child');
+      if(lbl) lbl.textContent=id==='base'?'Cattura — Base tronco':id==='cw_l'?'Cattura — Bordo sinistro':'Cattura — Bordo sinistro';
+    }
+  });
+  ['top','cw_r','dbh_r'].forEach(id=>{
+    const btn=document.querySelector('[onclick="captureA(\''+id+'\')"]');
+    if(btn){
+      btn.classList.remove('cap-done','cap-ready');
+      btn.classList.add('cap-locked');
+      const icon=btn.querySelector('.cap-icon'); if(icon) icon.textContent='◉';
+      const lbl=btn.querySelector('span:last-child');
+      if(lbl) lbl.textContent=id==='top'?'Cattura — Apice cima':id==='cw_r'?'Cattura — Bordo destro':'Cattura — Bordo destro';
+    }
+  });
+  /* Reset hint */
+  const hint=document.getElementById('height-hint');
+  if(hint) hint.innerHTML='<b>Passo 1</b> — Punta il mirino sulla <b>base del tronco</b> e cattura';
+  const fbox=document.getElementById('cl-formula'); if(fbox) fbox.textContent='';
 }
 
 function setCParam(p,btn){
@@ -1599,15 +1625,15 @@ function captureA(target){
     btn.querySelector('span:last-child').textContent = `${lbl}: ${fa(a)}`;
   }
   /* Sblocca pulsante successivo */
-  const nextMap={top:'base',cw_l:'cw_r',dbh_l:'dbh_r'};
+  const nextMap={base:'top',cw_l:'cw_r',dbh_l:'dbh_r'};
   if(nextMap[target]){
     const nextBtn=document.querySelector(`[onclick="captureA('${nextMap[target]}')"]`);
     if(nextBtn){nextBtn.classList.remove('cap-locked');nextBtn.classList.add('cap-ready');}
   }
   /* Aggiorna hint altezza */
-  if(target==='top'){
+  if(target==='base'){
     const hint=document.getElementById('height-hint');
-    if(hint) hint.innerHTML='<b>Passo 2</b> — Punta il mirino sulla <b>base del tronco</b> e cattura';
+    if(hint) hint.innerHTML='<b>Passo 2</b> — Punta il mirino sull\'<b>apice della cima</b> e cattura';
   }
 }
 
