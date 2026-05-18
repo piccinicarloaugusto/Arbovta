@@ -1751,14 +1751,14 @@ function renderScheda(){
   ${renderSezioneAnat('Radici',
     ms(['non visibile','superficiale','ridotto','asimmetrico'],'radApp'),
     ms(['affioranti','scoperte','esposte','decorticate','avventizie','avvolgenti','strozzanti','contrafforti','non rilevati'],'radDif'),
-    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
+    sev(), '', '', '')}
 
   ${renderSezioneAnat('Colletto',
     ms(['cilindrico','azzampato','ovalizzato','asimmetrico','cordonato','a imbuto','collo di bottiglia'],'collForma'),
     ms(['gibbosità','ad anello','a fisarmonica','depressione','incavo','cretti verticali','cretti trasversali','non rilevati'],'collDif') +
     `<div class="field" style="margin-top:7px"><label>Anomalie corteccia</label>${ms(['assenza','degradazione','colorazione anomala','sollevamento','arricciamento','piegatura','taglio','bruciatura','nessuna anomalia'],'collCort')}</div>` +
     `<div class="field" style="margin-top:7px"><label>Anomalie legno</label>${ms(['legno di reazione','legno di protezione','legno da ferita','carie','legno disfunzionale','carpofori','cancro','cavità','neoplasia','ferita','stroncamento','cretto orizzontale','pizza','moncone','sbraciolatura','spaccatura','bucatura','cretto verticale','fessura','scosciatura','colatura','resinazione','bruciatura','colonizzazione da epifite','colonizzazione insetti','insetti lignivori','colonizzazione da insetti','colonizzazione da vegetali','nessuna anomalia'],'collLeg')}`,
-    sev(), peric(), null, null)}
+    sev(), peric(), gjd(), 'Giudizio radici-colletto')}
 
   ${renderSezioneFusto()}
 
@@ -1818,7 +1818,8 @@ function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,
     <div class="field"><label>Forma / tipologia</label>${formaHTML}</div>
     <div class="field" style="margin-top:7px"><label>Difetti</label>${difettiHTML}</div>
     <div class="field" style="margin-top:7px"><label>Gravità</label>${sevHTML}</div>
-    <div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>
+    ${sevHTML}
+    ${pericHTML?`<div class="field" style="margin-top:7px"><label>Pericolosità</label>${pericHTML}</div>`:''}
     ${gjdHTML&&gjdLabel?`<div class="field" style="margin-top:7px"><label>${gjdLabel}</label>${gjdHTML}</div>`:''}
     <div class="field" style="margin-top:7px"><label>Note</label><textarea placeholder="Osservazioni su ${nome.toLowerCase()}..."></textarea></div>
   </div>`;
