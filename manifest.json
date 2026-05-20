@@ -2,14 +2,18 @@
   "name": "ArboVTA — Rilievi Fitosanitari",
   "short_name": "ArboVTA",
   "description": "Applicazione professionale per rilievi fitosanitari VTA con clinometro digitale, riconoscimento specie AI e gestione archivio.",
-  "start_url": "/Arbovta/?source=pwa",
-  "scope": "/Arbovta/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d1a0d",
   "theme_color": "#1a3320",
   "lang": "it",
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icon-192.png",
@@ -35,7 +39,5 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "screenshots": [],
-  "prefer_related_applications": false
+  ]
 }

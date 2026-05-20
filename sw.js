@@ -1,12 +1,12 @@
 /* ArboVTA Service Worker v118 — Offline first */
-const CACHE = 'arbovta-v118';
+const CACHE = 'arbovta-v119';
 
 const PRECACHE = [
-  '/Arbovta/',
-  '/Arbovta/index.html',
-  '/Arbovta/manifest.json',
-  '/Arbovta/icon-192.png',
-  '/Arbovta/icon-512.png',
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
 ];
@@ -41,7 +41,7 @@ self.addEventListener('fetch', e => {
 
   /* index.html — network first, fallback cache */
   if (e.request.mode === 'navigate' ||
-      url.pathname.endsWith('/Arbovta/') ||
+      url.pathname.endsWith('/') ||
       url.pathname.endsWith('index.html')) {
     e.respondWith(
       fetch(e.request)
