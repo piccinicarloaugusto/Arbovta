@@ -3048,7 +3048,7 @@ function renderReportView(){
 function renderImpostazioniView(){
   return `
   <!-- Card installazione app -->
-  <div class="card" id="install-card">
+  <div class="card" id="install-card" style="display:none">
     <div class="sec">Installa app</div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
       <div style="font-size:36px">📲</div>
@@ -3604,6 +3604,9 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredInstallPrompt = e;
+  /* Mostra card installazione solo se non già installata */
+  const card = document.getElementById('install-card');
+  if (card) card.style.display = 'block';
   showInstallBanner();
 });
 
