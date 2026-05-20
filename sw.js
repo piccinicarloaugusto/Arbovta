@@ -1,10 +1,23 @@
-/* ArboVTA Service Worker v81 */
-const CACHE = 'arbovta-v117';
+/* ArboVTA Service Worker v118 — Offline first */
+const CACHE = 'arbovta-v118';
+
+const PRECACHE = [
+  '/Arbovta/',
+  '/Arbovta/index.html',
+  '/Arbovta/manifest.json',
+  '/Arbovta/icon-192.png',
+  '/Arbovta/icon-512.png',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(['/Arbovta/', '/Arbovta/index.html']))
+      .then(c => c.addAll(PRECACHE).catch(err => {
+        /* Ignora errori su risorse esterne */
+        console.warn('[SW] Precache parziale:', err);
+      }))
       .then(() => self.skipWaiting())
   );
 });
@@ -20,13 +33,13 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  /* manifest — sempre dalla rete, mai in cache */
-  if (url.pathname.includes('manifest.json')) {
-    e.respondWith(fetch(e.request));
+  /* Firebase — sempre dalla rete, non cachare */
+  if (url.hostname.includes('firebase') || url.hostname.includes('firestore')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('', {status: 503})));
     return;
   }
 
-  /* index.html — sempre dalla rete */
+  /* index.html — network first, fallback cache */
   if (e.request.mode === 'navigate' ||
       url.pathname.endsWith('/Arbovta/') ||
       url.pathname.endsWith('index.html')) {
@@ -41,15 +54,17 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  /* Tutto il resto — cache first */
+  /* Tutto il resto — cache first, poi rete */
   e.respondWith(
-    caches.match(e.request).then(cached =>
-      cached || fetch(e.request).then(res => {
-        if (res && res.status === 200)
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(res => {
+        if (res && res.status === 200 && res.type !== 'opaque') {
           caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        }
         return res;
-      })
-    )
+      }).catch(() => cached || new Response('', {status: 503}));
+    })
   );
 });
 

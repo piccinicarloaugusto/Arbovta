@@ -3878,16 +3878,29 @@ function updateOnlineStatus() {
   const isOnline = navigator.onLine;
   const dot = document.getElementById('fb-dot');
   if (!dot) return;
-  /* Se Firebase è connesso mostra verde, se offline mostra rosso */
   if (!isOnline) {
     dot.style.background = '#E24B4A';
-    dot.title = 'Offline — modalità locale attiva';
+    dot.title = 'Offline — dati salvati in locale';
   } else if (window._fbReady) {
     dot.style.background = '#6ee87a';
     dot.title = 'Firebase connesso';
   }
 }
-window.addEventListener('online', updateOnlineStatus);
+
+/* Sync automatica al ritorno online */
+window.addEventListener('online', () => {
+  updateOnlineStatus();
+  /* Aspetta che Firebase sia pronto poi sincronizza */
+  setTimeout(() => {
+    if (window._fb && G.trees.length > 0) {
+      G.trees.forEach(t => window._fb.saveTree(t));
+      const dot = document.getElementById('fb-dot');
+      if (dot) { dot.title = 'Sincronizzato con Firebase'; }
+      console.log('[ArboVTA] Sync automatica:', G.trees.length, 'rilievi');
+    }
+  }, 2000);
+});
+
 window.addEventListener('offline', updateOnlineStatus);
 setTimeout(updateOnlineStatus, 1000);
 </script>
