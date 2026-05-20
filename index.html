@@ -15,7 +15,7 @@
 <meta http-equiv="origin-trial" content="">
 
 <!-- PWA Manifest -->
-<link rel="manifest" href="manifest.json?v=80">
+<link rel="manifest" href="manifest.json">
 
 <!-- Apple Touch Icons -->
 <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
@@ -3047,6 +3047,23 @@ function renderReportView(){
 }
 function renderImpostazioniView(){
   return `
+  <!-- Card installazione app -->
+  <div class="card" id="install-card">
+    <div class="sec">Installa app</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="font-size:36px">📲</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px">ArboVTA — App nativa</div>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Accesso diretto dalla schermata home, funzionamento offline completo, nessuna barra del browser.</div>
+      </div>
+    </div>
+    <button onclick="installPWA()" id="btn-install-pwa"
+      style="width:100%;padding:11px;background:var(--green-600);color:#fff;border:none;border-radius:var(--r-md);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">
+      📥 Installa ArboVTA
+    </button>
+    <div id="install-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;min-height:16px"></div>
+  </div>
+
   <div class="card">
     <div class="sec">Importa da Ginve / QField</div>
     <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Importa i tuoi rilievi da Ginve. Supporta tre formati: GeoJSON con coordinate GPS (consigliato), GeoPackage da QField, e CSV da Ginve.</div>
@@ -3633,10 +3650,22 @@ function hideInstallBanner() {
 }
 
 async function installPWA() {
-  if (!deferredInstallPrompt) return;
+  const status = document.getElementById('install-status');
+  if (!deferredInstallPrompt) {
+    /* Nessun prompt disponibile — mostra istruzioni manuali */
+    if (status) status.textContent = 'Usa i tre puntini di Chrome → "Aggiungi a schermata Home"';
+    return;
+  }
   deferredInstallPrompt.prompt();
   const { outcome } = await deferredInstallPrompt.userChoice;
   console.log('[ArboVTA] Installazione:', outcome);
+  if (outcome === 'accepted') {
+    if (status) status.textContent = '✓ App installata con successo!';
+    const btn = document.getElementById('btn-install-pwa');
+    if (btn) { btn.textContent = '✓ Installata'; btn.disabled = true; btn.style.background = 'var(--green-400)'; }
+  } else {
+    if (status) status.textContent = 'Installazione annullata';
+  }
   hideInstallBanner();
   deferredInstallPrompt = null;
 }
