@@ -573,6 +573,19 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
 
 <script>
 /* ═══════════════════════════════════════
+   CLIENTI / PROGETTI
+═══════════════════════════════════════ */
+let G_projects = [];
+try { G_projects = JSON.parse(localStorage.getItem('arbovta-projects') || '[]'); } catch(e) {}
+
+function saveProjects(){
+  try { localStorage.setItem('arbovta-projects', JSON.stringify(G_projects)); } catch(e) {}
+}
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+let G_nav = { view:'clienti', clienteId:null, progettoId:null };
+
+
+/* ═══════════════════════════════════════
    STATO GLOBALE
 ═══════════════════════════════════════ */
 const G = {
@@ -600,22 +613,21 @@ function go(v,el){
 }
 function resetNav(){ document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',i===0)); }
 function newRilievo(){
-  /* Seleziona progetto se non siamo già dentro uno */
+  /* Se non siamo dentro un progetto, chiedi */
   if(!G_nav.progettoId){
-    const options=[];
-    G_projects.forEach(c=>c.progetti.forEach(p=>options.push({label:`${c.nome} → ${p.nome}`,clienteId:c.id,progettoId:p.id})));
-    if(options.length===0){
-      if(confirm('Nessun progetto disponibile.\nVuoi creare un nuovo cliente/progetto?')){
+    const opts=[];
+    G_projects.forEach(cl=>cl.progetti.forEach(pr=>opts.push({label:cl.nome+' → '+pr.nome,clId:cl.id,prId:pr.id})));
+    if(opts.length===0){
+      if(confirm('Nessun progetto disponibile.\nVuoi creare un nuovo cliente?')){
         G_nav.view='clienti'; render('lista');
       }
       return;
     }
-    const idx=options.map((o,i)=>`${i+1}. ${o.label}`).join('\n');
-    const n=prompt(`Assegna il rilievo a:\n${idx}\n\nInserisci il numero:`);
+    const n=prompt('Assegna il rilievo a:\n'+opts.map((o,i)=>(i+1)+'. '+o.label).join('\n')+'\n\nNumero:');
     if(!n) return;
-    const sel=options[parseInt(n)-1];
+    const sel=opts[parseInt(n)-1];
     if(!sel){alert('Scelta non valida');return;}
-    G_nav.clienteId=sel.clienteId; G_nav.progettoId=sel.progettoId;
+    G_nav.clienteId=sel.clId; G_nav.progettoId=sel.prId;
   }
   G.form={codice:'',specie:G.ai.result?G.ai.result.scientific_name:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:G.clino.meas.h,dbh:G.clino.meas.dbh,cw:G.clino.meas.cw,cd:G.clino.meas.cd,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''};
   go('scheda',navTab(3));
@@ -649,120 +661,34 @@ function render(v){
    1. LISTA / ARCHIVIO
 ═══════════════════════════════════════ */
 function renderLista(){
+  /* Migrazione automatica al primo avvio */
+  if(G_projects.length===0 && G.trees.length>0) migrateProjects();
   if(G_nav.view==='clienti') return renderClienti();
   if(G_nav.view==='progetti') return renderProgetti();
   if(G_nav.view==='rilievi') return renderRilievi();
   return renderClienti();
 }
-
-function renderClienti(){
-  const clienti = G_projects;
+function renderLista_UNUSED(){
+  const cc=l=>G.trees.filter(t=>t.cpc===l).length;
+  const emptyState = G.trees.length === 0 ? `
+  <div style="text-align:center;padding:32px 16px;color:var(--text-muted)">
+    <div style="font-size:40px;margin-bottom:12px">🌳</div>
+    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Archivio vuoto</div>
+    <div style="font-size:12px;margin-bottom:20px">I tuoi rilievi sono salvati su Firebase</div>
+    <button onclick="loadFromFirebase()" 
+      style="background:var(--green-600);color:#e8f0d8;border:none;padding:12px 28px;
+      border-radius:var(--r-md);font-size:14px;font-weight:600;cursor:pointer;
+      font-family:var(--font-sans);box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      ☁ Carica da Firebase
+    </button>
+    <div id="fb-load-status" style="font-size:11px;margin-top:10px;color:var(--green-600)"></div>
+  </div>` : '';
   return `
   <div class="card">
-    <div class="sec">Archivio</div>
+    <div class="sec">Archivio rilievi</div>
     <div class="stat-grid">
-      <div class="stat-c"><div class="stat-v">${clienti.length}</div><div class="stat-l">Clienti</div></div>
-      <div class="stat-c"><div class="stat-v">${clienti.reduce((s,c)=>s+c.progetti.length,0)}</div><div class="stat-l">Progetti</div></div>
-    </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px">
-    <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${clienti.length} clienti</span>
-    <button onclick="newCliente()"
-      style="background:var(--green-600);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">
-      + Nuovo cliente
-    </button>
-  </div>
-  ${clienti.length===0?`
-  <div style="text-align:center;padding:40px 16px;color:var(--text-muted)">
-    <div style="font-size:40px;margin-bottom:12px">🏢</div>
-    <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Nessun cliente</div>
-    <div style="font-size:12px">Crea il primo cliente per iniziare</div>
-  </div>`:
-  clienti.map(c=>`
-  <div class="tree-item" style="position:relative">
-    <div style="flex:1;display:flex;align-items:center;gap:12px;min-width:0" onclick="openCliente('${c.id}')">
-      <div style="width:40px;height:40px;border-radius:50%;background:var(--green-600);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0">
-        ${c.nome.charAt(0).toUpperCase()}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${c.nome}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${c.progetti.length} progett${c.progetti.length===1?'o':'i'} · ${c.progetti.reduce((s,p)=>s+p.rilievi.length,0)} rilievi</div>
-      </div>
-      <div style="color:var(--text-muted);font-size:18px">›</div>
-    </div>
-    <button onclick="deleteCliente('${c.id}')"
-      style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center"
-      title="Elimina cliente">✕</button>
-  </div>`).join('')}`;
-}
-
-function renderProgetti(){
-  const cliente = G_projects.find(c=>c.id===G_nav.clienteId);
-  if(!cliente) { G_nav.view='clienti'; return renderClienti(); }
-  const progetti = cliente.progetti;
-  return `
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-    <button onclick="G_nav.view='clienti';render('lista')"
-      style="background:none;border:none;color:var(--green-600);font-size:22px;cursor:pointer;padding:0 4px">‹</button>
-    <div>
-      <div style="font-size:11px;color:var(--text-muted)">Cliente</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text-primary)">${cliente.nome}</div>
-    </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px">
-    <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${progetti.length} progetti</span>
-    <button onclick="newProgetto('${cliente.id}')"
-      style="background:var(--green-600);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">
-      + Nuovo progetto
-    </button>
-  </div>
-  ${progetti.length===0?`
-  <div style="text-align:center;padding:40px 16px;color:var(--text-muted)">
-    <div style="font-size:40px;margin-bottom:12px">📁</div>
-    <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Nessun progetto</div>
-    <div style="font-size:12px">Crea il primo progetto per questo cliente</div>
-  </div>`:
-  progetti.map(p=>{
-    const rilievi = p.rilievi.map(id=>G.trees.find(t=>String(t.id)===String(id))).filter(Boolean);
-    const byD=rilievi.filter(t=>t.cpc==='D').length;
-    const byCD=rilievi.filter(t=>t.cpc==='C/D').length;
-    return `
-    <div class="tree-item" style="position:relative">
-      <div style="flex:1;display:flex;align-items:center;gap:12px;min-width:0" onclick="openProgetto('${cliente.id}','${p.id}')">
-        <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📁</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${p.nome}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${rilievi.length} rilievi${byD>0?` · <span style="color:var(--red);font-weight:600">${byD} CPC D</span>`:''}${byCD>0?` · <span style="color:#EA580C;font-weight:600">${byCD} CPC C/D</span>`:''}</div>
-          ${p.data?`<div style="font-size:10px;color:var(--text-muted)">${p.data}</div>`:''}
-        </div>
-        <div style="color:var(--text-muted);font-size:18px">›</div>
-      </div>
-      <button onclick="deleteProgetto('${cliente.id}','${p.id}')"
-        style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center"
-        title="Elimina progetto">✕</button>
-    </div>`;
-  }).join('')}`;
-}
-
-function renderRilievi(){
-  const cliente = G_projects.find(c=>c.id===G_nav.clienteId);
-  const progetto = cliente?.progetti.find(p=>p.id===G_nav.progettoId);
-  if(!cliente||!progetto) { G_nav.view='clienti'; return renderClienti(); }
-  const rilievi = progetto.rilievi.map(id=>G.trees.find(t=>String(t.id)===String(id))).filter(Boolean);
-  const cc=l=>rilievi.filter(t=>t.cpc===l).length;
-  return `
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-    <button onclick="G_nav.view='progetti';render('lista')"
-      style="background:none;border:none;color:var(--green-600);font-size:22px;cursor:pointer;padding:0 4px">‹</button>
-    <div>
-      <div style="font-size:11px;color:var(--text-muted)">${cliente.nome}</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text-primary)">${progetto.nome}</div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="stat-grid">
-      <div class="stat-c"><div class="stat-v">${rilievi.length}</div><div class="stat-l">Piante totali</div></div>
-      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('C/D')+cc('D')}</div><div class="stat-l">Priorità intervento</div></div>
+      <div class="stat-c"><div class="stat-v">${G.trees.length}</div><div class="stat-l">Piante totali</div></div>
+      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('D')}</div><div class="stat-l">Priorità intervento</div></div>
     </div>
     <div class="cpc-row">
       ${[['A','#DBEAFE','#1D4ED8','#93C5FD'],['B','#DCFCE7','#15803D','#86EFAC'],['C','#FEF9C3','#A16207','#FDE047'],['C/D','#FFEDD5','#C2410C','#FED7AA'],['D','#FEE2E2','#B91C1C','#FCA5A5']].map(([l,bg,col,bord])=>`
@@ -773,118 +699,33 @@ function renderRilievi(){
     </div>
   </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding:0 2px">
-    <span style="font-size:11px;color:var(--text-muted)">${rilievi.length} piante</span>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input placeholder="Cerca specie..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:120px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
-    </div>
+    <span style="font-size:11px;color:var(--text-muted)">${G.trees.length} piante</span>
+    <input placeholder="Cerca specie..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:140px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
   </div>
   <div id="tree-list">
-    ${rilievi.length===0?`<div style="text-align:center;padding:32px;color:var(--text-muted)"><div style="font-size:13px">Nessun rilievo in questo progetto</div></div>`:''}
-    ${rilievi.map(t=>`
+    ${emptyState}
+    ${G.trees.map(t=>`
     <div class="tree-item" style="position:relative">
       <div style="flex:1;display:flex;align-items:center;gap:9px;min-width:0" onclick="openTree('${t.id}')">
         <div class="tree-code">#${t.id}</div>
         <div class="tree-info">
           <div class="tree-name">${t.specie}</div>
           <div class="tree-loc">${t.sito}</div>
-          <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m · ${t.data}</div>
+          <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m${t.cd?' × '+t.cd+'m':''} · ${t.data}</div>
         </div>
-        <span class="cpc-badge c${(t.cpc||'A').replace('/','')}" style="flex-shrink:0">CPC ${t.cpc}</span>
+        <span class="cpc-badge c${(t.cpc||'A').replace('/','')}">CPC ${t.cpc}</span>
       </div>
-      <button onclick="showMoveRilievo('${t.id}')"
-        style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center"
-        title="Sposta rilievo">⇄</button>
-      <button onclick="removeRilievoFromProgetto('${t.id}')"
-        style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center"
-        title="Rimuovi da progetto">✕</button>
+      <button onclick="deleteTree('${t.id}')"
+        style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;
+        border:0.5px solid var(--border);background:#fff;color:var(--text-muted);
+        font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+        transition:all 0.15s"
+        onmouseenter="this.style.background='var(--red-light)';this.style.color='var(--red)';this.style.borderColor='var(--red)'"
+        onmouseleave="this.style.background='#fff';this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'"
+        title="Elimina rilievo">✕</button>
     </div>`).join('')}
   </div>`;
 }
-
-/* ── AZIONI CLIENTI ── */
-function newCliente(){
-  const nome = prompt('Nome cliente:');
-  if(!nome||!nome.trim()) return;
-  G_projects.push({id:genId(), nome:nome.trim(), progetti:[]});
-  saveProjects();
-  render('lista');
-}
-function openCliente(id){
-  G_nav.view='progetti'; G_nav.clienteId=id;
-  render('lista');
-}
-function deleteCliente(id){
-  const c=G_projects.find(x=>x.id===id);
-  if(!c) return;
-  const nRil=c.progetti.reduce((s,p)=>s+p.rilievi.length,0);
-  if(!confirm(`Eliminare il cliente "${c.nome}" con ${c.progetti.length} progetti e ${nRil} rilievi associati?\nI rilievi non vengono eliminati dall'archivio.`)) return;
-  G_projects=G_projects.filter(x=>x.id!==id);
-  saveProjects();
-  render('lista');
-}
-
-/* ── AZIONI PROGETTI ── */
-function newProgetto(clienteId){
-  const nome=prompt('Nome progetto:');
-  if(!nome||!nome.trim()) return;
-  const c=G_projects.find(x=>x.id===clienteId);
-  if(!c) return;
-  c.progetti.push({id:genId(), nome:nome.trim(), data:new Date().toISOString().slice(0,10), rilievi:[]});
-  saveProjects();
-  render('lista');
-}
-function openProgetto(clienteId,progettoId){
-  G_nav.view='rilievi'; G_nav.clienteId=clienteId; G_nav.progettoId=progettoId;
-  render('lista');
-}
-function deleteProgetto(clienteId,progettoId){
-  const c=G_projects.find(x=>x.id===clienteId);
-  if(!c) return;
-  const p=c.progetti.find(x=>x.id===progettoId);
-  if(!p) return;
-  if(!confirm(`Eliminare il progetto "${p.nome}" con ${p.rilievi.length} rilievi associati?\nI rilievi non vengono eliminati dall'archivio.`)) return;
-  c.progetti=c.progetti.filter(x=>x.id!==progettoId);
-  saveProjects();
-  render('lista');
-}
-
-/* ── AZIONI RILIEVI NEL PROGETTO ── */
-function removeRilievoFromProgetto(rilievoId){
-  const c=G_projects.find(x=>x.id===G_nav.clienteId);
-  const p=c?.progetti.find(x=>x.id===G_nav.progettoId);
-  if(!p) return;
-  p.rilievi=p.rilievi.filter(x=>String(x)!==String(rilievoId));
-  saveProjects();
-  render('lista');
-}
-function showMoveRilievo(rilievoId){
-  /* Costruisce lista destinazioni */
-  const options=[];
-  G_projects.forEach(c=>{
-    c.progetti.forEach(p=>{
-      if(c.id===G_nav.clienteId&&p.id===G_nav.progettoId) return;
-      options.push({label:`${c.nome} → ${p.nome}`, clienteId:c.id, progettoId:p.id});
-    });
-  });
-  if(!options.length){alert('Nessun altro progetto disponibile. Crea prima un altro progetto.');return;}
-  const idx=options.map((o,i)=>`${i+1}. ${o.label}`).join('\n');
-  const n=prompt(`Sposta rilievo #${rilievoId} in:\n${idx}\n\nInserisci il numero:`);
-  if(!n) return;
-  const sel=options[parseInt(n)-1];
-  if(!sel){alert('Scelta non valida');return;}
-  /* Rimuovi dal progetto corrente */
-  const cSrc=G_projects.find(x=>x.id===G_nav.clienteId);
-  const pSrc=cSrc?.progetti.find(x=>x.id===G_nav.progettoId);
-  if(pSrc) pSrc.rilievi=pSrc.rilievi.filter(x=>String(x)!==String(rilievoId));
-  /* Aggiungi al progetto destinazione */
-  const cDst=G_projects.find(x=>x.id===sel.clienteId);
-  const pDst=cDst?.progetti.find(x=>x.id===sel.progettoId);
-  if(pDst&&!pDst.rilievi.includes(String(rilievoId))) pDst.rilievi.push(String(rilievoId));
-  saveProjects();
-  render('lista');
-}
-
-
 async function loadFromFirebase() {
   const btn = document.querySelector('[onclick="loadFromFirebase()"]');
   const status = document.getElementById('fb-load-status');
@@ -1058,11 +899,12 @@ function saveRilievo(){
   /* Nuova pianta */
   G.trees.push(data);
   saveTrees();
+  if(window._fb) window._fb.saveTree(data);
   /* Aggiungi al progetto corrente */
   if(G_nav.progettoId){
-    const c=G_projects.find(x=>x.id===G_nav.clienteId);
-    const p=c?.progetti.find(x=>x.id===G_nav.progettoId);
-    if(p&&!p.rilievi.includes(String(data.id))) p.rilievi.push(String(data.id));
+    const cl=G_projects.find(x=>x.id===G_nav.clienteId);
+    const pr=cl&&cl.progetti.find(x=>x.id===G_nav.progettoId);
+    if(pr&&!pr.rilievi.includes(String(data.id))) pr.rilievi.push(String(data.id));
     saveProjects();
   }
   go('lista', navTab(0)); resetNav();
@@ -4139,22 +3981,203 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', updateOnlineStatus);
 setTimeout(updateOnlineStatus, 1000);
 
-/* ── MIGRAZIONE CLIENTI/PROGETTI ── */
-(function migrateProjects(){
-  if(G_projects.length===0){
-    const cTV={id:genId(),nome:'Tommaso Villirillo',progetti:[]};
-    const pVS={id:genId(),nome:'Via Scassicarli',data:'2026-04-10',rilievi:['3211','3212','3213','3214']};
-    const pVA={id:genId(),nome:"Via dell'Acqua",data:'2026-04-15',rilievi:['3215']};
-    const pVC={id:genId(),nome:'Via Corsica',data:'2026-04-30',rilievi:['3216']};
-    cTV.progetti=[pVS,pVA,pVC];
-    const cCS={id:genId(),nome:'Camping Souvenir',progetti:[]};
-    const pCS={id:genId(),nome:'Camping Souvenir',data:'2026-05-08',rilievi:['99']};
-    cCS.progetti=[pCS];
-    G_projects=[cTV,cCS];
-    saveProjects();
-    console.log('[ArboVTA] Migrazione clienti/progetti completata');
-  }
-})();
+/* ═══════════════════════════════════════
+   RENDER CLIENTI / PROGETTI / RILIEVI
+═══════════════════════════════════════ */
+function renderClienti(){
+  const c=l=>G_projects.reduce((s,cl)=>s+cl.progetti.reduce((s2,p)=>s2+p.rilievi.length,0),0);
+  return `
+  <div class="card">
+    <div class="sec">Archivio</div>
+    <div class="stat-grid">
+      <div class="stat-c"><div class="stat-v">${G_projects.length}</div><div class="stat-l">Clienti</div></div>
+      <div class="stat-c"><div class="stat-v">${G_projects.reduce((s,c)=>s+c.progetti.length,0)}</div><div class="stat-l">Progetti</div></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px">
+    <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${G_projects.length} clienti</span>
+    <button onclick="newCliente()" style="background:var(--green-600);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">+ Nuovo cliente</button>
+  </div>
+  ${G_projects.length===0?'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:40px">🏢</div><div style="font-size:13px;font-weight:600;margin-top:12px">Nessun cliente</div><div style="font-size:12px;margin-top:6px">Crea il primo cliente per iniziare</div></div>':
+  G_projects.map(cl=>`
+  <div class="tree-item">
+    <div style="flex:1;display:flex;align-items:center;gap:12px" onclick="openCliente('${cl.id}')">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--green-600);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0">${cl.nome.charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${cl.nome}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${cl.progetti.length} progett${cl.progetti.length===1?'o':'i'} · ${cl.progetti.reduce((s,p)=>s+p.rilievi.length,0)} rilievi</div>
+      </div>
+      <div style="color:var(--text-muted);font-size:20px">›</div>
+    </div>
+    <button onclick="deleteCliente('${cl.id}')" style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+  </div>`).join('')}`;
+}
+
+function renderProgetti(){
+  const cl=G_projects.find(x=>x.id===G_nav.clienteId);
+  if(!cl){G_nav.view='clienti';return renderClienti();}
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <button onclick="G_nav.view='clienti';render('lista')" style="background:none;border:none;color:var(--green-600);font-size:24px;cursor:pointer;padding:0 4px">‹</button>
+    <div><div style="font-size:11px;color:var(--text-muted)">Cliente</div><div style="font-size:15px;font-weight:700;color:var(--text-primary)">${cl.nome}</div></div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px">
+    <span style="font-size:12px;font-weight:600">${cl.progetti.length} progetti</span>
+    <button onclick="newProgetto('${cl.id}')" style="background:var(--green-600);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">+ Nuovo progetto</button>
+  </div>
+  ${cl.progetti.length===0?'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:40px">📁</div><div style="font-size:13px;font-weight:600;margin-top:12px">Nessun progetto</div></div>':
+  cl.progetti.map(p=>{
+    const rils=p.rilievi.map(id=>G.trees.find(t=>String(t.id)===String(id))).filter(Boolean);
+    const nD=rils.filter(t=>t.cpc==='D').length, nCD=rils.filter(t=>t.cpc==='C/D').length;
+    return `
+    <div class="tree-item">
+      <div style="flex:1;display:flex;align-items:center;gap:12px" onclick="openProgetto('${cl.id}','${p.id}')">
+        <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📁</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${p.nome}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${rils.length} rilievi${nD>0?' · <span style="color:var(--red);font-weight:600">'+nD+' D</span>':''}${nCD>0?' · <span style="color:#EA580C;font-weight:600">'+nCD+' C/D</span>':''}</div>
+        </div>
+        <div style="color:var(--text-muted);font-size:20px">›</div>
+      </div>
+      <button onclick="deleteProgetto('${cl.id}','${p.id}')" style="flex-shrink:0;margin-left:8px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>`;
+  }).join('')}`;
+}
+
+function renderRilievi(){
+  const cl=G_projects.find(x=>x.id===G_nav.clienteId);
+  const pr=cl&&cl.progetti.find(x=>x.id===G_nav.progettoId);
+  if(!cl||!pr){G_nav.view='clienti';return renderClienti();}
+  const rils=pr.rilievi.map(id=>G.trees.find(t=>String(t.id)===String(id))).filter(Boolean);
+  const cc=l=>rils.filter(t=>t.cpc===l).length;
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+    <button onclick="G_nav.view='progetti';render('lista')" style="background:none;border:none;color:var(--green-600);font-size:24px;cursor:pointer;padding:0 4px">‹</button>
+    <div><div style="font-size:11px;color:var(--text-muted)">${cl.nome}</div><div style="font-size:15px;font-weight:700;color:var(--text-primary)">${pr.nome}</div></div>
+  </div>
+  <div class="card">
+    <div class="stat-grid">
+      <div class="stat-c"><div class="stat-v">${rils.length}</div><div class="stat-l">Piante</div></div>
+      <div class="stat-c"><div class="stat-v" style="color:var(--red)">${cc('C')+cc('C/D')+cc('D')}</div><div class="stat-l">Priorità</div></div>
+    </div>
+    <div class="cpc-row">
+      ${[['A','#DBEAFE','#1D4ED8','#93C5FD'],['B','#DCFCE7','#15803D','#86EFAC'],['C','#FEF9C3','#A16207','#FDE047'],['C/D','#FFEDD5','#C2410C','#FED7AA'],['D','#FEE2E2','#B91C1C','#FCA5A5']].map(([l,bg,col,bord])=>`<div class="cpc-cell" style="background:${bg};border:0.5px solid ${bord}"><div class="cv" style="color:${col}">${cc(l)}</div><div class="cl" style="color:${col}">CPC ${l}</div></div>`).join('')}
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding:0 2px">
+    <span style="font-size:11px;color:var(--text-muted)">${rils.length} piante</span>
+    <input placeholder="Cerca..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:120px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
+  </div>
+  <div id="tree-list">
+    ${rils.length===0?'<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">Nessun rilievo in questo progetto</div>':''}
+    ${rils.map(t=>`
+    <div class="tree-item" style="position:relative">
+      <div style="flex:1;display:flex;align-items:center;gap:9px;min-width:0" onclick="openTree('${t.id}')">
+        <div class="tree-code">#${t.id}</div>
+        <div class="tree-info">
+          <div class="tree-name">${t.specie}</div>
+          <div class="tree-loc">${t.sito}</div>
+          <div class="tree-meta">H ${t.h}m · DBH ${t.dbh}cm · Chioma ${t.cw||'—'}m · ${t.data}</div>
+        </div>
+        <span class="cpc-badge c${(t.cpc||'A').replace('/','')}" style="flex-shrink:0">CPC ${t.cpc}</span>
+      </div>
+      <button onclick="showMoveRilievo('${t.id}')" style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Sposta">⇄</button>
+      <button onclick="removeRilievo('${t.id}')" style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Rimuovi">✕</button>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ── CRUD CLIENTI ── */
+function newCliente(){
+  const nome=prompt('Nome cliente:');
+  if(!nome||!nome.trim()) return;
+  G_projects.push({id:genId(),nome:nome.trim(),progetti:[]});
+  saveProjects(); render('lista');
+}
+function openCliente(id){G_nav.view='progetti';G_nav.clienteId=id;render('lista');}
+function deleteCliente(id){
+  const cl=G_projects.find(x=>x.id===id);
+  if(!cl||!confirm('Eliminare il cliente "'+cl.nome+'" e tutti i suoi progetti?\nI rilievi non vengono eliminati.')) return;
+  G_projects=G_projects.filter(x=>x.id!==id);
+  saveProjects(); render('lista');
+}
+
+/* ── CRUD PROGETTI ── */
+function newProgetto(clId){
+  const nome=prompt('Nome progetto:');
+  if(!nome||!nome.trim()) return;
+  const cl=G_projects.find(x=>x.id===clId);
+  if(!cl) return;
+  cl.progetti.push({id:genId(),nome:nome.trim(),data:new Date().toISOString().slice(0,10),rilievi:[]});
+  saveProjects(); render('lista');
+}
+function openProgetto(clId,prId){G_nav.view='rilievi';G_nav.clienteId=clId;G_nav.progettoId=prId;render('lista');}
+function deleteProgetto(clId,prId){
+  const cl=G_projects.find(x=>x.id===clId);
+  const pr=cl&&cl.progetti.find(x=>x.id===prId);
+  if(!pr||!confirm('Eliminare il progetto "'+pr.nome+'"?\nI rilievi non vengono eliminati.')) return;
+  cl.progetti=cl.progetti.filter(x=>x.id!==prId);
+  saveProjects(); render('lista');
+}
+
+/* ── AZIONI RILIEVI ── */
+function removeRilievo(rId){
+  const cl=G_projects.find(x=>x.id===G_nav.clienteId);
+  const pr=cl&&cl.progetti.find(x=>x.id===G_nav.progettoId);
+  if(!pr) return;
+  pr.rilievi=pr.rilievi.filter(x=>String(x)!==String(rId));
+  saveProjects(); render('lista');
+}
+function showMoveRilievo(rId){
+  const opts=[];
+  G_projects.forEach(cl=>cl.progetti.forEach(pr=>{
+    if(cl.id===G_nav.clienteId&&pr.id===G_nav.progettoId) return;
+    opts.push({label:cl.nome+' → '+pr.nome,clId:cl.id,prId:pr.id});
+  }));
+  if(!opts.length){alert('Nessun altro progetto disponibile.');return;}
+  const n=prompt('Sposta in:\n'+opts.map((o,i)=>(i+1)+'. '+o.label).join('\n')+'\n\nNumero:');
+  if(!n) return;
+  const sel=opts[parseInt(n)-1];
+  if(!sel){alert('Scelta non valida');return;}
+  const cl=G_projects.find(x=>x.id===G_nav.clienteId);
+  const pr=cl&&cl.progetti.find(x=>x.id===G_nav.progettoId);
+  if(pr) pr.rilievi=pr.rilievi.filter(x=>String(x)!==String(rId));
+  const clD=G_projects.find(x=>x.id===sel.clId);
+  const prD=clD&&clD.progetti.find(x=>x.id===sel.prId);
+  if(prD&&!prD.rilievi.includes(String(rId))) prD.rilievi.push(String(rId));
+  saveProjects(); render('lista');
+}
+
+/* ── MIGRAZIONE DATI ── */
+function migrateProjects(){
+  if(G_projects.length>0) return;
+  const cTV={id:genId(),nome:'Tommaso Villirillo',progetti:[
+    {id:genId(),nome:'Via Scassicarli',data:'2026-04-10',rilievi:['3211','3212','3213','3214']},
+    {id:genId(),nome:"Via dell'Acqua",data:'2026-04-15',rilievi:['3215']},
+    {id:genId(),nome:'Via Corsica',data:'2026-04-30',rilievi:['3216']}
+  ]};
+  const cCS={id:genId(),nome:'Camping Souvenir',progetti:[
+    {id:genId(),nome:'Camping Souvenir',data:'2026-05-08',rilievi:['99']}
+  ]};
+  G_projects=[cTV,cCS];
+  saveProjects();
+}
+
+/* ── ASSEGNAZIONE RILIEVO A PROGETTO ── */
+function assignRilievoToProgetto(rId){
+  const opts=[];
+  G_projects.forEach(cl=>cl.progetti.forEach(pr=>opts.push({label:cl.nome+' → '+pr.nome,clId:cl.id,prId:pr.id})));
+  if(!opts.length) return;
+  const n=prompt('Assegna a:\n'+opts.map((o,i)=>(i+1)+'. '+o.label).join('\n')+'\n\nNumero:');
+  if(!n) return;
+  const sel=opts[parseInt(n)-1];
+  if(!sel) return;
+  const cl=G_projects.find(x=>x.id===sel.clId);
+  const pr=cl&&cl.progetti.find(x=>x.id===sel.prId);
+  if(pr&&!pr.rilievi.includes(String(rId))) pr.rilievi.push(String(rId));
+  saveProjects();
+}
+
 </script>
 </body>
 </html>
