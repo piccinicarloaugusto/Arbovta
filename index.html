@@ -1809,17 +1809,17 @@ function renderScheda(){
     ${specieBanner}
     <div class="pino-banner" id="pino-banner">🌲 Modalità PINO attiva — parametri specifici abilitati</div>
     <div class="fg" style="margin-top:7px">
-      <div style="display:flex;gap:8px">
-        <div class="field full"><label>Cliente</label><input type="text" placeholder="Nome cliente" value="${f.cliente||''}" oninput="autosaveField('cliente',this.value)"></div>
-        <div class="field full"><label>Comune</label><input type="text" placeholder="Comune..." value="${f.ubicazione}" oninput="autosaveField('ubicazione',this.value)"></div>
+      <div style="display:flex;gap:8px;width:100%">
+        <div class="field" style="flex:1"><label>Cliente</label><input type="text" placeholder="Nome cliente" value="${f.cliente||''}" oninput="autosaveField('cliente',this.value)"></div>
+        <div class="field" style="flex:1"><label>Comune</label><input type="text" placeholder="Comune..." value="${f.ubicazione}" oninput="autosaveField('ubicazione',this.value)"></div>
       </div>
-      <div style="display:flex;gap:8px">
-        <div class="field full"><label>Località</label><input type="text" placeholder="Frazione, quartiere..." value="${f.localita||''}" oninput="autosaveField('localita',this.value)"></div>
-        <div class="field full"><label>Indirizzo</label><input type="text" placeholder="Via, n° civico..." value="${f.indirizzo||''}" oninput="autosaveField('indirizzo',this.value)"></div>
+      <div style="display:flex;gap:8px;width:100%">
+        <div class="field" style="flex:1"><label>Località</label><input type="text" placeholder="Frazione, quartiere..." value="${f.localita||''}" oninput="autosaveField('localita',this.value)"></div>
+        <div class="field" style="flex:1"><label>Indirizzo</label><input type="text" placeholder="Via, n° civico..." value="${f.indirizzo||''}" oninput="autosaveField('indirizzo',this.value)"></div>
       </div>
-      <div style="display:flex;gap:8px">
-        <div class="field full"><label>Sito</label><select onchange="autosaveField('sito',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
-        <div class="field full"><label>Disposizione</label><select onchange="autosaveField('disposizione',this.value)"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div style="display:flex;gap:8px;width:100%">
+        <div class="field" style="flex:1"><label>Sito</label><select onchange="autosaveField('sito',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+        <div class="field" style="flex:1"><label>Disposizione</label><select onchange="autosaveField('disposizione',this.value)"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       </div>
     </div>
   </div>
