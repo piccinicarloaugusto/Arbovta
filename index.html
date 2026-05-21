@@ -590,7 +590,7 @@ let G_nav = { view:'clienti', clienteId:null, progettoId:null };
 ═══════════════════════════════════════ */
 const G = {
   trees: [],
-  form: {codice:'',specie:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
+  form: {codice:'',specie:'',cliente:'',ubicazione:'',indirizzo:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
   clino: {angle:0,captured:{},dist:15,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
   ai: {photos:[],activeType:'Radici',currentPhotoType:'Radici',result:null,history:[],cameraStream:null},
   currentView: 'lista'
@@ -797,7 +797,9 @@ function openTree(id){
   G.form = {
     codice:         t.id,
     specie:         t.specie || '',
+    cliente:        t.cliente || '',
     ubicazione:     t.sito || '',
+    indirizzo:      t.indirizzo || '',
     sito:           t.sito || '',
     disposizione:   t.disposizione || '',
     stazione:       t.stazione || '',
@@ -1801,12 +1803,18 @@ function renderScheda(){
     <div class="fg">
       <div class="field"><label>Codice rilievo *</label><input type="text" placeholder="es. 2049" value="${f.codice}" oninput="autosaveField('codice',this.value)"></div>
       <div class="field"><label>Data rilievo</label><input type="date" value="${f.data||''}" oninput="autosaveField('data',this.value)"></div>
-      <div class="field full"><label>Specie *</label><input type="text" id="fld-specie" placeholder="es. Pinus pinea" value="${f.specie}" oninput="autosaveField('specie',this.value);checkPino(this.value)"></div>
+      <div style="display:flex;gap:8px">
+        <div class="field full"><label>Specie *</label><input type="text" id="fld-specie" placeholder="es. Pinus pinea" value="${f.specie}" oninput="autosaveField('specie',this.value);checkPino(this.value)"></div>
+        <div class="field full"><label>Cliente</label><input type="text" placeholder="Nome cliente" value="${f.cliente||''}" oninput="autosaveField('cliente',this.value)"></div>
+      </div>
     </div>
     ${specieBanner}
     <div class="pino-banner" id="pino-banner">🌲 Modalità PINO attiva — parametri specifici abilitati</div>
     <div class="fg" style="margin-top:7px">
-      <div class="field full"><label>Ubicazione</label><input type="text" placeholder="Via, struttura, comune..." value="${f.ubicazione}" oninput="autosaveField('ubicazione',this.value);autosaveField('sito',this.value)"></div>
+      <div style="display:flex;gap:8px">
+        <div class="field full"><label>Ubicazione</label><input type="text" placeholder="Via, struttura, comune..." value="${f.ubicazione}" oninput="autosaveField('ubicazione',this.value);autosaveField('sito',this.value)"></div>
+        <div class="field full"><label>Indirizzo</label><input type="text" placeholder="Via, n° civico..." value="${f.indirizzo||''}" oninput="autosaveField('indirizzo',this.value)"></div>
+      </div>
       <div class="field"><label>Sito</label><select onchange="autosaveField('sito',this.value);autosaveField('ubicazione',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Disposizione</label><select onchange="autosaveField('disposizione',this.value)"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option>${s}</option>`).join('')}</select></div>
     </div>
