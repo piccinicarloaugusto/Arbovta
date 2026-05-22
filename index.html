@@ -3936,13 +3936,266 @@ function updateReportPreview(treeId) {
   if (el) el.innerHTML = renderReportView();
 }
 
-function generatePDF() {
+async function generatePDF() {
   const treeId = document.getElementById('report-tree-sel')?.value || G.form._editingId;
-  const t = G.trees.find(x => x.id === treeId) || G.trees[0];
+  const t = G.trees.find(x => String(x.id) === String(treeId)) || G.trees[0];
   if (!t) { alert('Seleziona una pianta prima di generare il report'); return; }
-  const inclFoto = document.getElementById('tog-photos')?.checked && t.photos?.length;
-  // Per ora usa window.print() — il PDF completo è in sviluppo
-  window.print();
+
+  /* Carica jsPDF */
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pW = 210, pH = 297;
+  const mL = 15, mR = 15, mT = 15;
+  let y = mT;
+
+  /* ── COLORI ── */
+  const GREEN  = [26, 51, 32];
+  const LGREEN = [59, 109, 17];
+  const GRAY   = [100, 100, 100];
+  const LGRAY  = [220, 220, 220];
+  const BLACK  = [30, 30, 30];
+  const WHITE  = [255, 255, 255];
+
+  const cpcColors = {
+    'A': [37, 99, 235], 'B': [22, 163, 74],
+    'C': [202, 138, 4], 'C/D': [234, 88, 12], 'D': [185, 28, 28]
+  };
+
+  /* ── HELPERS ── */
+  const setFont  = (sz, style='normal', col=BLACK) => {
+    pdf.setFontSize(sz); pdf.setFont('helvetica', style); pdf.setTextColor(...col);
+  };
+  const line = (x1,y1,x2,y2,col=LGRAY,w=0.3) => {
+    pdf.setDrawColor(...col); pdf.setLineWidth(w); pdf.line(x1,y1,x2,y2);
+  };
+  const rect = (x,y,w,h,fill,stroke) => {
+    if(fill) pdf.setFillColor(...fill);
+    if(stroke) pdf.setDrawColor(...stroke); else pdf.setDrawColor(255,255,255);
+    pdf.roundedRect(x,y,w,h,1,1,fill&&stroke?'FD':fill?'F':'D');
+  };
+  const text = (txt,x,y,opts={}) => pdf.text(String(txt||'—'),x,y,opts);
+  const newPage = () => { pdf.addPage(); y = mT; drawHeader(); };
+  const checkY = (need=10) => { if(y + need > pH - 15) newPage(); };
+
+  /* ── INTESTAZIONE OGNI PAGINA ── */
+  function drawHeader() {
+    rect(0, 0, pW, 14, GREEN);
+    setFont(10, 'bold', WHITE);
+    text('ArboVTA — Rilievo Fitosanitario VTA', mL, 9);
+    setFont(7, 'normal', [180,220,180]);
+    text(`Pianta #${t.id} · ${t.specie||'—'} · ${new Date().toLocaleDateString('it-IT')}`, pW-mR, 9, {align:'right'});
+    y = 18;
+  }
+
+  /* ── SEZIONE LABEL ── */
+  function drawSection(title) {
+    checkY(12);
+    rect(mL, y, pW-mL-mR, 7, LGREEN);
+    setFont(8, 'bold', WHITE);
+    text(title, mL+3, y+5);
+    y += 9;
+  }
+
+  /* ── RIGA CAMPO ── */
+  function drawField(label, value, x, width, rowY) {
+    setFont(7, 'normal', GRAY);
+    text(label, x, rowY);
+    setFont(8, 'bold', BLACK);
+    text(value||'—', x, rowY+4.5);
+  }
+
+  /* ── RIGA A 2 COLONNE ── */
+  function drawRow2(l1,v1,l2,v2) {
+    checkY(12);
+    const w = (pW-mL-mR)/2;
+    drawField(l1, v1, mL, w, y);
+    if(l2) drawField(l2, v2, mL+w, w, y);
+    line(mL, y+7, pW-mR, y+7);
+    y += 10;
+  }
+
+  /* ── RIGA A 4 COLONNE ── */
+  function drawRow4(fields) {
+    checkY(12);
+    const w = (pW-mL-mR)/4;
+    fields.forEach(([l,v],i) => drawField(l, v, mL+i*w, w, y));
+    line(mL, y+7, pW-mR, y+7);
+    y += 10;
+  }
+
+  /* ── BADGE CPC ── */
+  function drawCPC(cpc, x, yy) {
+    const col = cpcColors[cpc] || [100,100,100];
+    rect(x, yy-4, 22, 7, col);
+    setFont(8, 'bold', WHITE);
+    text(`CPC ${cpc}`, x+11, yy+1, {align:'center'});
+  }
+
+  /* ══════════════════════════════════════
+     1. INTESTAZIONE STUDIO
+  ══════════════════════════════════════ */
+  drawHeader();
+
+  /* Box intestazione */
+  rect(mL, y, pW-mL-mR, 22, [245,250,245], LGRAY);
+  setFont(11, 'bold', GREEN);
+  text(G.profile?.studio || 'Studio Agronomico Piccini', mL+4, y+7);
+  setFont(8, 'normal', GRAY);
+  text(G.profile?.indirizzo || 'Via Cavour, 1 — 54033 Carrara (MS)', mL+4, y+13);
+  text(`Tel: ${G.profile?.tel||'3461430211'} · Email: ${G.profile?.email||'info@urbangreensas.it'}`, mL+4, y+18);
+  setFont(7, 'normal', GRAY);
+  text(`Dott. ${G.profile?.nome||'Carlo Piccini'} · ${G.profile?.titolo||'Dottore Agronomo'}`, pW-mR-4, y+7, {align:'right'});
+  text(`${G.profile?.assoc||'SIA'} N.${G.profile?.iscrizione||'400'}`, pW-mR-4, y+13, {align:'right'});
+  text(`Data: ${new Date().toLocaleDateString('it-IT')}`, pW-mR-4, y+18, {align:'right'});
+  y += 26;
+
+  /* ══════════════════════════════════════
+     2. DATI IDENTIFICATIVI
+  ══════════════════════════════════════ */
+  drawSection('DATI IDENTIFICATIVI');
+  drawRow2('Codice rilievo', `#${t.id}`, 'Data rilievo', t.data||'—');
+  drawRow2('Specie', t.specie||'—', 'Cliente', t.cliente||'—');
+  drawRow2('Comune', t.ubicazione||'—', 'Località', t.localita||'—');
+  drawRow2('Indirizzo', t.indirizzo||'—', 'Sito', t.sito||'—');
+  drawRow2('Disposizione', t.disposizione||'—', 'Stazione', t.stazione||'—');
+
+  /* ══════════════════════════════════════
+     3. DATI DIMENSIONALI
+  ══════════════════════════════════════ */
+  drawSection('DATI DIMENSIONALI');
+  const circ = t.dbh ? ((t.dbh/100)*Math.PI).toFixed(2)+'m' : '—';
+  drawRow4([
+    ['Altezza totale (H)', t.h ? t.h+'m' : '—'],
+    ['DBH', t.dbh ? t.dbh+'cm' : '—'],
+    ['Circonferenza', circ],
+    ['Diametro chioma', t.cw ? t.cw+'m' : '—']
+  ]);
+  drawRow4([
+    ['Fattore Danno (FD)', t.fattoreDimensionale ? Math.round(t.fattoreDimensionale) : '—'],
+    ['Stazione', t.stazione||'—'],
+    ['Suolo', t.suolo||'—'],
+    ['Pavimentazione', t.pavimentazione||'—']
+  ]);
+
+  /* ══════════════════════════════════════
+     4. ANALISI VTA — SEZIONI ANATOMICHE
+  ══════════════════════════════════════ */
+  drawSection('ANALISI VTA — SEZIONI ANATOMICHE');
+
+  const sezioni = [
+    { nome:'Radici', forma:'radApp', dif:'radDif', sev:'radSev', per:'radPer', note:'radNote' },
+    { nome:'Colletto', forma:'collForma', dif:'collDif', sev:'collSev', per:'collPer', gjd:'gjdRC', note:'collNote' },
+    { nome:'Fusto', forma:'fustoForma', dif:'fustoDif', sev:'fustoSev', per:'fustoPer', gjd:'gjdFC', note:'fustoNote' },
+    { nome:'Castello', forma:'castForma', dif:'castDif', sev:'castSev', per:'castPer', note:'castNote' },
+    { nome:'Branche e rami', forma:'ramiForma', dif:'ramiDif', sev:'ramiSev', per:'ramiPer', note:'ramiNote' },
+    { nome:'Chioma', forma:'chiPort', dif:'chiDif', sev:'chiSev', per:'chiPer', gjd:'gjdBC', note:'chiNote' },
+  ];
+
+  sezioni.forEach(s => {
+    checkY(22);
+    /* Sottotitolo sezione */
+    rect(mL, y, pW-mL-mR, 6, [235,245,235]);
+    setFont(7.5, 'bold', GREEN);
+    text(s.nome, mL+3, y+4.2);
+    y += 7;
+
+    const forma = Array.isArray(t[s.forma]) ? t[s.forma].join(', ') : (t[s.forma]||'—');
+    const dif   = Array.isArray(t[s.dif])   ? t[s.dif].join(', ')   : (t[s.dif]||'—');
+    drawRow2('Forma/tipologia', forma, 'Difetti', dif);
+
+    const sev  = t[s.sev]||'—';
+    const per  = t[s.per]||'—';
+    const gjd  = s.gjd ? (t[s.gjd]||'—') : null;
+    if(gjd) {
+      drawRow4([['Gravità', sev],['Pericolosità', per],[s.nome==='Colletto'?'Giudizio RC':s.nome==='Fusto'?'Giudizio FC':'Giudizio BC', gjd],['Note', t[s.note]||'—']]);
+    } else {
+      drawRow4([['Gravità', sev],['Pericolosità', per],['Note', t[s.note]||''],['', '']]);
+    }
+  });
+
+  /* ══════════════════════════════════════
+     5. DIAGNOSI E INDICE DI RISCHIO
+  ══════════════════════════════════════ */
+  checkY(40);
+  drawSection('DIAGNOSI E INDICE DI RISCHIO');
+
+  drawRow4([
+    ['Giudizio fisiopatologico', t.giudFisio||'—'],
+    ['Giudizio biomeccanico', t.giudBiomec||'—'],
+    ['Giudizio vegetativo', t.giudVeg||'—'],
+    ['Pericolosità finale', t.pericolosita||'—']
+  ]);
+
+  /* Box IR + CPC */
+  checkY(25);
+  const IR = t.indiceRischio || 0;
+  const cpc = t.cpc || 'A';
+  rect(mL, y, 55, 20, [245,245,245], LGRAY);
+  setFont(7, 'normal', GRAY); text('Indice di Rischio (IR)', mL+3, y+5);
+  setFont(18, 'bold', BLACK); text(Math.round(IR), mL+3, y+16);
+  drawCPC(cpc, mL+60, y+10);
+  setFont(7, 'normal', GRAY); text('Fattore di Contatto', mL+90, y+5);
+  setFont(11, 'bold', BLACK); text(t.fattoreContattoNum||'—', mL+90, y+14);
+  setFont(7, 'normal', GRAY); text('Fattore di Danno (FD)', mL+120, y+5);
+  setFont(11, 'bold', BLACK); text(t.fattoreDimensionale ? Math.round(t.fattoreDimensionale) : '—', mL+120, y+14);
+  y += 24;
+
+  /* Prescrizioni */
+  if(t.prescrizioni) {
+    checkY(15);
+    setFont(7, 'bold', GRAY); text('Prescrizioni', mL, y); y+=4;
+    setFont(8, 'normal', BLACK);
+    const lines = pdf.splitTextToSize(t.prescrizioni, pW-mL-mR);
+    lines.forEach(l => { checkY(5); text(l, mL, y); y+=4.5; });
+    y += 4;
+  }
+
+  /* ══════════════════════════════════════
+     6. FIRMA
+  ══════════════════════════════════════ */
+  checkY(25);
+  y = Math.max(y, pH-50);
+  line(mL, y, pW-mR, y);
+  setFont(7, 'normal', GRAY);
+  text('Il Tecnico Rilevatore', mL, y+5);
+  text(`Dott. ${G.profile?.nome||'Carlo Piccini'} · ${G.profile?.titolo||'Dottore Agronomo'}`, mL, y+10);
+  text(`${G.profile?.assoc||'SIA'} N.${G.profile?.iscrizione||'400'}`, mL, y+15);
+  line(pW-mR-60, y+20, pW-mR, y+20, GRAY, 0.2);
+  setFont(7, 'normal', GRAY); text('Firma', pW-mR-30, y+24, {align:'center'});
+
+  /* ══════════════════════════════════════
+     7. ALLEGATO FOTOGRAFICO
+  ══════════════════════════════════════ */
+  const photos = t.photos?.filter(p=>p?.dataUrl) || [];
+  if(photos.length > 0) {
+    pdf.addPage(); y = mT; drawHeader();
+    drawSection('ALLEGATO FOTOGRAFICO');
+    const cols = 2, imgW = (pW-mL-mR-8)/cols, imgH = imgW*0.75;
+    photos.forEach((ph, i) => {
+      if(i%cols===0 && i>0) y += imgH + 14;
+      checkY(imgH+14);
+      const x = mL + (i%cols)*(imgW+8);
+      try {
+        pdf.addImage(ph.dataUrl, 'JPEG', x, y, imgW, imgH);
+      } catch(e) {
+        rect(x, y, imgW, imgH, [240,240,240]);
+      }
+      setFont(7, 'normal', GRAY);
+      text(ph.tipo||`Foto ${i+1}`, x + imgW/2, y+imgH+4, {align:'center'});
+    });
+  }
+
+  /* Numero pagine */
+  const nPages = pdf.getNumberOfPages();
+  for(let i=1;i<=nPages;i++){
+    pdf.setPage(i);
+    setFont(7,'normal',GRAY);
+    text(`Pagina ${i} di ${nPages}`, pW/2, pH-8, {align:'center'});
+  }
+
+  pdf.save(`ArboVTA-${t.id}-${(t.specie||'rilievo').replace(/\s/g,'_')}.pdf`);
 }
 
 function resetArchivio() {
