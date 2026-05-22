@@ -1,5 +1,5 @@
 /* ArboVTA Service Worker v118 — Offline first */
-const CACHE = 'arbovta-v129';
+const CACHE = 'arbovta-v131';
 
 const PRECACHE = [
   '/',
