@@ -4072,7 +4072,7 @@ async function generatePDF() {
   text(G.profile?.indirizzo || 'Via Cavour, 1 — 54033 Carrara (MS)', mL+4, y+13);
   text(`Tel: ${G.profile?.tel||'3461430211'} · Email: ${G.profile?.email||'info@urbangreensas.it'}`, mL+4, y+18);
   setFont(7, 'normal', GRAY);
-  text(`Dott. ${G.profile?.nome||'Carlo Piccini'} · ${G.profile?.titolo||'Dottore Agronomo'}`, pW-mR-4, y+7, {align:'right'});
+  text(`Prof. ${G.profile?.nome||'Carlo Piccini'} · ${G.profile?.titolo||'Dottore Agronomo'}`, pW-mR-4, y+7, {align:'right'});
   text('Membro della International Society of Arboriculture', pW-mR-4, y+13, {align:'right'});
   text(`Ord. Dott. Agronomi e Forestali Pisa-Lucca-MS N.${G.profile?.iscrizione||'400'}`, pW-mR-4, y+17, {align:'right'});
   text(`Data: ${new Date().toLocaleDateString('it-IT')}`, pW-mR-4, y+21, {align:'right'});
@@ -4092,7 +4092,7 @@ async function generatePDF() {
   drawRow2('Cliente', _clienteNome, 'Sito', t.sito||'—');
   drawRow2('Comune', t.ubicazione||'—', 'Località', t.localita||'—');
   drawRow2('Indirizzo', t.indirizzo||'—', 'Disposizione', t.disposizione||'—');
-  drawRow2('Stazione', t.stazione||'—', '', '');
+
 
   /* ══════════════════════════════════════
      3. DATI DIMENSIONALI
@@ -4127,8 +4127,8 @@ async function generatePDF() {
 
   const sezioni = [
     { nome:'Radici',       forma:'radApp',    dif:'radDif',  gjdLbl:null },
-    { nome:'Colletto',     forma:'collForma', dif:'collDif', gjdLbl:'Giudizio radici-colletto' },
-    { nome:'Fusto',        forma:'fustoForma',dif:'fustoDif',gjdLbl:'Giudizio fusto-castello' },
+    { nome:'Colletto',     forma:'collForma', dif:'collDif', gjdLbl:'Giudizio radici-colletto', gjdLbl2:'Giudizio fusto-castello' },
+    { nome:'Fusto',        forma:'fustoForma',dif:'fustoDif',gjdLbl:null },
     { nome:'Castello',     forma:'castForma', dif:'castDif', gjdLbl:null },
     { nome:'Branche e rami',forma:'ramiForma',dif:'ramiDif', gjdLbl:null },
     { nome:'Chioma',       forma:'chiPort',   dif:'chiDif',  gjdLbl:'Giudizio branche-chioma' },
@@ -4148,11 +4148,16 @@ async function generatePDF() {
 
     const sev = vtaSev(s.nome);
     const per = vtaPer(s.nome);
-    const gjd = s.gjdLbl ? vtaGjd(s.gjdLbl) : null;
-    const note= vtaNote(s.nome);
+    const gjd  = s.gjdLbl  ? vtaGjd(s.gjdLbl)  : null;
+    const gjd2 = s.gjdLbl2 ? vtaGjd(s.gjdLbl2) : null;
+    const note = vtaNote(s.nome);
 
-    if(gjd) {
-      const gjdLabel = s.nome==='Colletto'?'Giudizio RC':s.nome==='Fusto'?'Giudizio FC':'Giudizio BC';
+    if(gjd && gjd2) {
+      /* Colletto: RC + FC */
+      drawRow4([['Gravità',sev],['Pericolosità',per],['Giudizio RC',gjd],['Note',note]]);
+      drawRow4([['Giudizio FC (Fusto-Castello)',gjd2],['',''],['',''],['','']]);
+    } else if(gjd) {
+      const gjdLabel = s.nome==='Chioma'?'Giudizio BC':s.gjdLbl.replace('Giudizio ','Giudizio ');
       drawRow4([['Gravità',sev],['Pericolosità',per],[gjdLabel,gjd],['Note',note]]);
     } else {
       drawRow4([['Gravità',sev],['Pericolosità',per],['Note',note],['','']]);
@@ -4216,7 +4221,7 @@ async function generatePDF() {
   line(mL, y, pW-mR, y);
   setFont(7, 'normal', GRAY);
   text('Il Tecnico Rilevatore', mL, y+5);
-  text(`Dott. ${G.profile?.nome||'Carlo Piccini'} · ${G.profile?.titolo||'Dottore Agronomo'}`, mL, y+10);
+  text(`Prof. ${G.profile?.nome||'Carlo Piccini'} · ${G.profile?.titolo||'Dottore Agronomo'}`, mL, y+10);
   text('Membro della International Society of Arboriculture', mL, y+15);
   text(`Ord. Dott. Agronomi e Forestali Pisa-Lucca-MS N.${G.profile?.iscrizione||'400'}`, mL, y+20);
   /* Timbro professionale */
