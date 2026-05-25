@@ -1,7 +1,7 @@
 {
-  "name": "ArboVTA — Rilievi Fitosanitari",
-  "short_name": "ArboVTA",
-  "description": "Applicazione professionale per rilievi fitosanitari VTA con clinometro digitale, riconoscimento specie AI e gestione archivio.",
+  "name": "ArboRisk — Rilievi Fitosanitari",
+  "short_name": "ArboRisk",
+  "description": "Applicazione professionale per rilievi fitosanitari con clinometro digitale, riconoscimento specie AI e gestione archivio.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

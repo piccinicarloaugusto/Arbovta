@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<!-- ArboVTA v60 - build 20260430 -->
+<!-- ArboRisk v1 - build 20260430 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ArboVTA">
+<meta name="apple-mobile-web-app-title" content="ArboRisk">
 <meta name="theme-color" content="#1a2e1a">
 <meta name="description" content="App professionale per rilievi VTA: riconoscimento specie AI, clinometro digitale, scheda fitosanitaria completa e georeferenziazione.">
 <meta name="mobile-web-app-capable" content="yes">
@@ -29,7 +29,7 @@
 <!-- Apple Splash Screens (iPad) -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-<title>ArboVTA — Rilievi Fitosanitari</title>
+<title>ArboRisk — Rilievi Fitosanitari</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -528,7 +528,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
         <svg viewBox="0 0 24 24"><path d="M12 2C9 6 6 8 6 12h3l-2 4h4V22h2v-6h4l-2-4h3c0-4-3-6-6-10z"/></svg>
       </div>
       <div class="logo-text">
-        <div class="name">ArboVTA</div>
+        <div class="name">ArboRisk</div>
         <div class="ver">v3.0 · clinometro + AI</div>
       </div>
     </div>
@@ -748,7 +748,7 @@ async function loadFromFirebase() {
     G.trees = [...map.values()];
     try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
     render('lista');
-    console.log('ArboVTA FB: caricato', G.trees.length, 'piante');
+    console.log('ArboRisk FB: caricato', G.trees.length, 'piante');
   } catch(e) {
     console.error('loadFromFirebase error:', e);
     if (status) status.textContent = '⚠ Errore: ' + e.message;
@@ -2433,7 +2433,7 @@ async function exportMapImage(format) {
     const dataUrl = canvas.toDataURL(mimeType, 0.92);
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.${format}`;
+    a.download = `ArboRisk-mappa-${new Date().toISOString().slice(0,10)}.${format}`;
     a.click();
     if (status) status.textContent = `✓ Esportato come ${format.toUpperCase()}`;
   } catch(e) {
@@ -2458,7 +2458,7 @@ async function exportMapPDF() {
 
     /* Intestazione */
     pdf.setFontSize(13); pdf.setFont('helvetica', 'bold');
-    pdf.text('ArboVTA — Mappa rilievi fitosanitari VTA', margin, margin + 6);
+    pdf.text('ArboRisk — Mappa rilievi', margin, margin + 6);
     pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
     pdf.text(`Carlo Piccini — Dottore Agronomo | ${new Date().toLocaleDateString('it-IT')}`, margin, margin + 11);
     pdf.setDrawColor(100,180,100); pdf.setLineWidth(0.3);
@@ -2492,7 +2492,7 @@ async function exportMapPDF() {
       pdf.text(`Totale: ${G.trees.length} piante | CPC D: ${nD} | CPC C/D: ${nCD}`, margin, legY + 8);
     }
 
-    pdf.save(`ArboVTA-mappa-${new Date().toISOString().slice(0,10)}.pdf`);
+    pdf.save(`ArboRisk-mappa-${new Date().toISOString().slice(0,10)}.pdf`);
     if (status) status.textContent = '✓ PDF salvato';
   } catch(e) {
     console.error(e);
@@ -2968,7 +2968,7 @@ function exportGeoJSON() {
   if (!georef.length) { showExportFeedback('Nessuna pianta georeferenziata da esportare.', false); return; }
   const geojson = {
     type: 'FeatureCollection',
-    name: 'ArboVTA_rilievi',
+    name: 'ArboRisk_rilievi',
     crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' }},
     features: georef.map(t => ({
       type: 'Feature',
@@ -2981,7 +2981,7 @@ function exportGeoJSON() {
       geometry: { type: 'Point', coordinates: [t.lng, t.lat] }
     }))
   };
-  downloadFile(JSON.stringify(geojson, null, 2), 'arbovta_rilievi.geojson', 'application/geo+json');
+  downloadFile(JSON.stringify(geojson, null, 2), 'arborisk_rilievi.geojson', 'application/geo+json');
   showExportFeedback(`GeoJSON esportato — ${georef.length} piante. Importabile in QGIS, ArcGIS, Google Earth.`, true);
 }
 
@@ -2992,8 +2992,8 @@ function exportKML() {
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
-  <name>ArboVTA — Rilievi fitosanitari</name>
-  <description>Esportato da ArboVTA v3.0</description>
+  <name>ArboRisk — Rilievi fitosanitari</name>
+  <description>Esportato da ArboRisk v1.0</description>
   ${['A','B','C','D'].map(c=>`<Style id="cpc${c}">
     <IconStyle><color>${cpcColors[c]}</color><scale>1.0</scale>
       <Icon><href>http://maps.google.com/mapfiles/kml/paddle/${c==='A'?'grn':'ylw'}-circle.png</href></Icon>
@@ -3014,7 +3014,7 @@ function exportKML() {
   </Placemark>`).join('\n  ')}
 </Document>
 </kml>`;
-  downloadFile(kml, 'arbovta_rilievi.kml', 'application/vnd.google-earth.kml+xml');
+  downloadFile(kml, 'arborisk_rilievi.kml', 'application/vnd.google-earth.kml+xml');
   showExportFeedback(`KML esportato — ${georef.length} piante. Apribile in Google Earth Pro.`, true);
 }
 
@@ -3023,7 +3023,7 @@ function exportCSV() {
   const rows = G.trees.filter(t=>t.lat&&t.lng).map(t =>
     `${t.id},"${t.specie}","${t.sito}",${t.lat},${t.lng},${t.cpc},${t.rischio},${t.h||''},${t.dbh||''},${t.cw||''},${t.cd||''},${t.data||''}`
   );
-  downloadFile([header,...rows].join('\n'), 'arbovta_rilievi.csv', 'text/csv;charset=utf-8;');
+  downloadFile([header,...rows].join('\n'), 'arborisk_rilievi.csv', 'text/csv;charset=utf-8;');
   showExportFeedback(`CSV esportato — ${rows.length} piante. Importabile in Excel, QGIS, ArcGIS.`, true);
 }
 
@@ -3983,7 +3983,7 @@ async function generatePDF() {
   function drawHeader() {
     rect(0, 0, pW, 14, GREEN);
     setFont(10, 'bold', WHITE);
-    text('ArboVTA — Rilievo Fitosanitario VTA', mL, 9);
+    text('ArboRisk — Rilievo Fitosanitario', mL, 9);
     setFont(7, 'normal', [180,220,180]);
     text(`Pianta #${t.id} · ${t.specie||'—'} · ${new Date().toLocaleDateString('it-IT')}`, pW-mR, 9, {align:'right'});
     y = 18;
@@ -4304,7 +4304,7 @@ async function generatePDF() {
     text(`Pagina ${i} di ${nPages}`, pW/2, pH-8, {align:'center'});
   }
 
-  pdf.save(`ArboVTA-${t.id}-${(t.specie||'rilievo').replace(/\s/g,'_')}.pdf`);
+  pdf.save(`ArboRisk-${t.id}-${(t.specie||'rilievo').replace(/\s/g,'_')}.pdf`);
 }
 
 function resetArchivio() {
