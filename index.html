@@ -4234,6 +4234,48 @@ async function generatePDF() {
   setFont(7, 'normal', GRAY); text('Firma', mL+40, y+39, {align:'center'});
 
   /* ══════════════════════════════════════
+     6b. MAPPA SATELLITARE
+  ══════════════════════════════════════ */
+  if(t.lat && t.lng) {
+    pdf.addPage(); y = mT; drawHeader();
+    drawSection('LOCALIZZAZIONE — MAPPA SATELLITARE');
+
+    const mapW = pW - mL - mR;
+    const mapH = 140;
+    const mapZoom = 18;
+    const MAPBOX_TK = 'pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z4YzVoZDA0bjkyc3NhMjZpcWxxem0ifQ.myjQhOd9fEbizGwqGLdoPQ';
+    const pinColor = (cpcColors[t.cpc||'A']||[100,100,100]).map(v=>v.toString(16).padStart(2,'0')).join('');
+    const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/pin-s+${pinColor}(${t.lng},${t.lat})/${t.lng},${t.lat},${mapZoom},0/${Math.round(mapW*3.78)}x${Math.round(mapH*3.78)}@2x?access_token=${MAPBOX_TK}`;
+
+    try {
+      const mapResp = await fetch(mapUrl);
+      if(mapResp.ok) {
+        const blob = await mapResp.blob();
+        const b64 = await new Promise(res => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        pdf.addImage(b64, 'JPEG', mL, y, mapW, mapH);
+      } else {
+        rect(mL, y, mapW, mapH, [240,240,240]);
+        setFont(9, 'normal', GRAY);
+        text('Mappa non disponibile', mL + mapW/2, y + mapH/2, {align:'center'});
+      }
+    } catch(e) {
+      rect(mL, y, mapW, mapH, [240,240,240]);
+      setFont(9, 'normal', GRAY);
+      text('Mappa non disponibile', mL + mapW/2, y + mapH/2, {align:'center'});
+    }
+    y += mapH + 4;
+
+    /* Coordinate GPS */
+    setFont(7, 'normal', GRAY);
+    text(`Coordinate GPS: ${parseFloat(t.lat).toFixed(6)}N, ${parseFloat(t.lng).toFixed(6)}E`, mL, y+4);
+    y += 10;
+  }
+
+  /* ══════════════════════════════════════
      7. ALLEGATO FOTOGRAFICO
   ══════════════════════════════════════ */
   const photos = t.photos?.filter(p=>p?.dataUrl) || [];
