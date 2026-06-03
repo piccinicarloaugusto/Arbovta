@@ -591,7 +591,7 @@ let G_nav = { view:'clienti', clienteId:null, progettoId:null };
 const G = {
   trees: [],
   form: {codice:'',specie:'',cliente:'',ubicazione:'',localita:'',indirizzo:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
-  clino: {angle:0,captured:{},dist:15,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
+  clino: {angle:0,captured:{},dist:15,distDBH:1,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
   ai: {photos:[],activeType:'Radici',currentPhotoType:'Radici',result:null,history:[],cameraStream:null},
   currentView: 'lista'
 };
@@ -1454,18 +1454,58 @@ function renderMisure(){
     </button>
   </div>
 
-  <!-- ── DISTANZA ── -->
+  <!-- ── DISTANZE ── -->
   <div class="card">
-    <div class="sec">Distanza orizzontale dalla pianta</div>
-    <div class="dist-row">
-      <label>Distanza</label>
-      <input type="number" class="dist-in" id="dist-in" value="${cl.dist}"
-        min="1" max="200" step="0.5" oninput="G.clino.dist=parseFloat(this.value)||15;recalcAll()">
-      <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+    <div class="sec">Distanze orizzontali</div>
+
+    <!-- Misuratore distanza tramite clinometro -->
+    <div style="margin-bottom:10px;padding:8px;background:#f0f7f0;border-radius:8px;border:1px solid var(--border-2)">
+      <div style="font-size:11px;font-weight:600;color:var(--green-700);margin-bottom:6px">📐 Misura distanza con clinometro</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
+        Tieni il clinometro a <strong>h = 1.30m</strong> dal suolo, inquadra la base dell'albero e cattura l'angolo
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="cap-btn" style="flex:1" onclick="measureDistClino()">
+          <span class="cap-icon">${cl.captured._distAngle!==undefined?'✓':'◉'}</span>
+          <span>${cl.captured._distAngle!==undefined?'Angolo: '+(cl.captured._distAngle>=0?'+':'')+cl.captured._distAngle.toFixed(1)+'°':'Cattura angolo alla base'}</span>
+        </button>
+        <button onclick="clearDistMeas()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border-2);background:#fff;font-size:12px">✕</button>
+      </div>
+      ${cl.captured._distAngle!==undefined?`<div style="margin-top:6px;font-size:12px;color:var(--green-700)">
+        <b>d = h / tan(α) = 1.30 / tan(${Math.abs(cl.captured._distAngle).toFixed(1)}°) = ${(1.30/Math.tan(Math.abs(cl.captured._distAngle)*Math.PI/180)).toFixed(1)} m</b>
+        <button onclick="applyDistMeas('h')" style="margin-left:8px;padding:4px 8px;border-radius:6px;background:var(--green-600);color:#fff;border:none;font-size:11px">→ H/Chioma</button>
+        <button onclick="applyDistMeas('dbh')" style="margin-left:4px;padding:4px 8px;border-radius:6px;background:var(--green-600);color:#fff;border:none;font-size:11px">→ DBH</button>
+      </div>`:''}
     </div>
-    <div class="dist-presets">
-      ${[5,8,10,12,15,18,20,25,30].map(d=>`<button class="dp" onclick="setDist(${d})">${d}m</button>`).join('')}
+
+    <!-- Distanza per H e chioma -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Altezza / Chioma</div>
+      <div class="dist-row">
+        <label>Distanza dall'albero</label>
+        <input type="number" class="dist-in" id="dist-in" value="${cl.dist}"
+          min="1" max="200" step="0.5" oninput="G.clino.dist=parseFloat(this.value)||15;recalcAll()">
+        <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+      </div>
+      <div class="dist-presets">
+        ${[5,8,10,12,15,18,20,25,30].map(d=>`<button class="dp" onclick="setDist(${d})">${d}m</button>`).join('')}
+      </div>
     </div>
+
+    <!-- Distanza per DBH -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Diametro fusto (DBH)</div>
+      <div class="dist-row">
+        <label>Distanza dal tronco</label>
+        <input type="number" class="dist-in" id="dist-dbh-in" value="${cl.distDBH||1}"
+          min="0.5" max="20" step="0.1" oninput="G.clino.distDBH=parseFloat(this.value)||1;recalcAll()">
+        <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+      </div>
+      <div class="dist-presets">
+        ${[0.5,1,1.5,2,3,5].map(d=>`<button class="dp" onclick="setDistDBH(${d})">${d}m</button>`).join('')}
+      </div>
+    </div>
+
     <div class="formula" id="cl-formula">
       H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>)<br>
       <b>d = ${cl.dist}m</b> |
@@ -1546,6 +1586,8 @@ async function startClinoCamera(firstTarget){
       <div class="cam-fullscreen-label" id="fs-clino-label">${hints[firstTarget]||'Inquadra e cattura'}</div>
     </div>`;
   overlay._pendingTarget = firstTarget;
+  /* Per la misura distanza, cattura un solo angolo */
+  overlay._isDistMeas = (firstTarget === 'dist');
   document.body.appendChild(overlay);
 
   try {
@@ -1566,6 +1608,14 @@ function captureFromOverlay(){
   if(!overlay) return;
   const target = overlay._pendingTarget;
   if(!target) return;
+
+  /* Misura distanza: cattura angolo e chiude */
+  if(overlay._isDistMeas){
+    G.clino.captured._distAngle = G.clino.angle;
+    closeClinoFullscreen();
+    renderClino();
+    return;
+  }
 
   /* Cattura angolo e aggiorna il pulsante */
   captureA(target);
@@ -1740,6 +1790,42 @@ function setDist(d){
   recalcAll();
 }
 
+function setDistDBH(d){
+  G.clino.distDBH=d;
+  const el=document.getElementById('dist-dbh-in');
+  if(el) el.value=d;
+  recalcAll();
+  renderClino();
+}
+
+function measureDistClino(){
+  /* Apre la camera fullscreen per catturare l'angolo alla base */
+  openClinoFullscreen('dist', {'dist':'Punta il mirino sulla <b>base del tronco</b> a 1.30m dal suolo'});
+}
+
+function clearDistMeas(){
+  delete G.clino.captured._distAngle;
+  renderClino();
+}
+
+function applyDistMeas(target){
+  const a = G.clino.captured._distAngle;
+  if(a===undefined) return;
+  const d = parseFloat((1.30/Math.tan(Math.abs(a)*Math.PI/180)).toFixed(1));
+  if(!isFinite(d)||d<=0) return;
+  if(target==='h'){
+    G.clino.dist = d;
+    const el=document.getElementById('dist-in');
+    if(el) el.value=d;
+  } else {
+    G.clino.distDBH = d;
+    const el=document.getElementById('dist-dbh-in');
+    if(el) el.value=d;
+  }
+  recalcAll();
+  renderClino();
+}
+
 function recalcAll(){
   const c=G.clino, d=c.dist;
   const rad=a=>a*Math.PI/180;
@@ -1755,7 +1841,7 @@ function recalcAll(){
   }
   /* Diametro */
   if(c.captured.dbh_l!==undefined && c.captured.dbh_r!==undefined){
-    c.meas.dbh=parseFloat((d*(Math.tan(rad(Math.abs(c.captured.dbh_l)))+Math.tan(rad(Math.abs(c.captured.dbh_r))))*100).toFixed(1));
+    const dDBH=c.distDBH||1; c.meas.dbh=parseFloat((dDBH*(Math.tan(rad(Math.abs(c.captured.dbh_l)))+Math.tan(rad(Math.abs(c.captured.dbh_r))))*100).toFixed(1));
     const dbhEl=document.getElementById('cmv-dbh');if(dbhEl) dbhEl.textContent=c.meas.dbh.toFixed(1);
     const circEl=document.getElementById('cmv-circ');if(circEl) circEl.textContent=(c.meas.dbh*Math.PI).toFixed(1);
   }
