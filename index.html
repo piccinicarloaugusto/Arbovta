@@ -3256,13 +3256,13 @@ function renderImpostazioniView(){
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
       <div style="font-size:36px">📲</div>
       <div>
-        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px">ArboVTA — App nativa</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px">ArboRisk — App nativa</div>
         <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Accesso diretto dalla schermata home, funzionamento offline completo, nessuna barra del browser.</div>
       </div>
     </div>
     <button onclick="installPWA()" id="btn-install-pwa"
       style="width:100%;padding:11px;background:var(--green-600);color:#fff;border:none;border-radius:var(--r-md);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">
-      📥 Installa ArboVTA
+      📥 Installa ArboRisk
     </button>
     <div id="install-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;min-height:16px"></div>
   </div>
@@ -3783,7 +3783,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      console.log('[ArboVTA] Service Worker registrato:', reg.scope);
+      console.log('[ArboRisk] Service Worker registrato:', reg.scope);
 
       /* Controlla aggiornamenti ogni 60 minuti */
       setInterval(() => reg.update(), 60 * 60 * 1000);
@@ -3798,7 +3798,7 @@ if ('serviceWorker' in navigator) {
         });
       });
     } catch (err) {
-      console.warn('[ArboVTA] SW non registrato:', err);
+      console.warn('[ArboRisk] SW non registrato:', err);
     }
   });
 }
@@ -3816,7 +3816,7 @@ window.addEventListener('beforeinstallprompt', e => {
 window.addEventListener('appinstalled', () => {
   hideInstallBanner();
   deferredInstallPrompt = null;
-  console.log('[ArboVTA] App installata');
+  console.log('[ArboRisk] App installata');
 });
 
 /* ── Banner installazione ── */
@@ -3838,7 +3838,7 @@ function showInstallBanner() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="#97C459"><path d="M12 2C9 6 6 8 6 12h3l-2 4h4V22h2v-6h4l-2-4h3c0-4-3-6-6-10z"/></svg>
     </div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:500;color:#e8f0d8">Installa ArboVTA</div>
+      <div style="font-size:13px;font-weight:500;color:#e8f0d8">Installa ArboRisk</div>
       <div style="font-size:11px;color:#639922;margin-top:1px">Accesso rapido, uso offline in campo</div>
     </div>
     <button onclick="installPWA()" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:#3B6D11;color:#e8f0d8;cursor:pointer;font-weight:500;white-space:nowrap">Installa</button>
@@ -3888,7 +3888,7 @@ function showUpdateBanner() {
     font-family:'DM Sans',sans-serif;max-width:480px;margin:0 auto;
   `;
   banner.innerHTML = `
-    <div style="flex:1;font-size:12px;color:#e8f0d8">Aggiornamento ArboVTA disponibile</div>
+    <div style="flex:1;font-size:12px;color:#e8f0d8">Aggiornamento ArboRisk disponibile</div>
     <button onclick="applyUpdate()" style="font-size:11px;padding:5px 12px;border-radius:6px;border:none;background:#3B6D11;color:#e8f0d8;cursor:pointer">Aggiorna ora</button>
     <button onclick="this.parentElement.remove()" style="font-size:16px;background:none;border:none;color:#97C459;cursor:pointer">×</button>
   `;
@@ -4493,7 +4493,7 @@ window.addEventListener('online', () => {
       G.trees.forEach(t => window._fb.saveTree(t));
       const dot = document.getElementById('fb-dot');
       if (dot) { dot.title = 'Sincronizzato con Firebase'; }
-      console.log('[ArboVTA] Sync automatica:', G.trees.length, 'rilievi');
+      console.log('[ArboRisk] Sync automatica:', G.trees.length, 'rilievi');
     }
   }, 2000);
 });
