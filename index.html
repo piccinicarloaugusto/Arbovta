@@ -566,6 +566,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
   <!-- BOTTOM BAR (scheda VTA) -->
   <div class="bottombar" id="bottombar">
     <button class="btn-secondary" style="flex:1;margin:0" onclick="go('lista',navTab(0));resetNav()">Annulla</button>
+    <button id="toggle-scheda-mode" style="flex:1;margin:0;padding:8px;border-radius:10px;border:1.5px solid var(--green-600);background:#fff;color:var(--green-700);font-size:11px;font-weight:600;cursor:pointer"
+      onclick="toggleSchedaMode()">⚡ Speditiva</button>
     <button class="btn-primary" style="flex:2;margin:0" onclick="saveRilievo()">Salva rilievo</button>
   </div>
 
@@ -609,6 +611,7 @@ function go(v,el){
     const isEdit = !!G.form._editingId;
     const saveBtn = document.querySelector('#bottombar .btn-primary');
     if(saveBtn) saveBtn.textContent = isEdit ? `Salva modifiche #${G.form._editingId}` : 'Salva rilievo';
+    updateToggleBtn();
   }
 }
 function resetNav(){ document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',i===0)); }
@@ -1917,50 +1920,26 @@ function transferToScheda(){
 /* ═══════════════════════════════════════
    4. SCHEDA VTA
 ═══════════════════════════════════════ */
-function renderScheda(){
-  /* Se non è stato scelto il tipo, mostra selezione */
-  if(!G.form.schedaMode && !G.form._editingId){
-    document.getElementById('main').innerHTML=`
-    <div style="padding:24px 16px;display:flex;flex-direction:column;gap:16px">
-      <div style="text-align:center;margin-bottom:8px">
-        <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Seleziona tipo di scheda</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Scegli la modalità di rilievo VTA</div>
-      </div>
-      <button onclick="G.form.schedaMode='ordinaria';renderScheda()"
-        style="display:flex;flex-direction:column;gap:8px;padding:20px;background:#fff;border:2px solid var(--green-600);border-radius:14px;text-align:left;cursor:pointer">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:28px">📋</span>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:var(--green-700)">VTA Ordinaria</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Analisi completa per sezioni anatomiche</div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);padding-left:38px">
-          Radici · Colletto · Fusto · Castello · Branche · Chioma · Diagnosi · Prescrizioni
-        </div>
-      </button>
-      <button onclick="G.form.schedaMode='speditiva';renderSchedaSpeditiva()"
-        style="display:flex;flex-direction:column;gap:8px;padding:20px;background:#fff;border:2px solid var(--green-400);border-radius:14px;text-align:left;cursor:pointer">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:28px">⚡</span>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:var(--green-600)">VTA Speditiva</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Scheda semplificata per sopralluoghi rapidi</div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);padding-left:38px">
-          Dati identificativi · Dati dimensionali · Diagnosi · 1 foto
-        </div>
-      </button>
-    </div>`;
-    return;
-  }
-  /* Se è speditiva, usa renderSchedaSpeditiva */
-  if(G.form.schedaMode==='speditiva'){
-    renderSchedaSpeditiva();
-    return;
-  }
+function toggleSchedaMode(){
+  G.form.schedaMode = G.form.schedaMode==='speditiva' ? 'ordinaria' : 'speditiva';
+  updateToggleBtn();
+  render('scheda');
+  setTimeout(restoreVTAui,100);
+}
 
+function updateToggleBtn(){
+  const btn = document.getElementById('toggle-scheda-mode');
+  if(!btn) return;
+  const isSp = G.form.schedaMode==='speditiva';
+  btn.textContent = isSp ? '📋 Ordinaria' : '⚡ Speditiva';
+  btn.style.background = isSp ? '#fffbe6' : '#fff';
+  btn.style.borderColor = isSp ? '#f0c040' : 'var(--green-600)';
+  btn.style.color = isSp ? '#856404' : 'var(--green-700)';
+}
+
+function renderScheda(){
+  /* Se è speditiva, usa renderSchedaSpeditiva */
+  if(G.form.schedaMode==='speditiva') return renderSchedaSpeditiva();
   const f=G.form;
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
@@ -2262,18 +2241,9 @@ function renderSchedaSpeditiva(){
     </div>
   </div>
 
-  <!-- SALVA -->
-  <div style="padding:12px 0 24px;display:flex;gap:10px">
-    <button class="btn-secondary" style="flex:1" onclick="G.form.schedaMode='';renderScheda()">Annulla</button>
-    <button class="btn-primary" style="flex:2" onclick="saveRilievo()">
-      ${f._editingId?`Salva modifiche #${f._editingId}`:'Salva rilievo speditivo'}
-    </button>
-  </div>`;
+  <div style="height:80px"></div>`; /* spazio per bottombar */
 
-  document.getElementById('main').innerHTML=html;
-  restoreGjdState();
-  restorePercState();
-  updateIR();
+  return html;
 }
 
 function takeSpeditivaPhoto(){
