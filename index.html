@@ -2197,10 +2197,34 @@ function renderSchedaSpeditiva(){
     </div>
 
     <!-- Fattore di contatto -->
-    <div class="field" style="margin-top:8px"><label>Fattore di contatto (FC)</label>
-      <div class="fc-row">
-        ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" class="fc-b" onclick="setFC(this,${n})">${n}</button>`).join('')}
+    <div class="field" style="margin-top:8px">
+      <label>Fattore di contatto (FC)</label>
+      <div style="margin:6px 0 4px;padding:8px 10px;background:#f8f9fa;border-radius:8px;border:0.5px solid var(--border)">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;font-size:9px;color:var(--text-muted);text-align:center;margin-bottom:4px">
+          <span>Trascurabile</span><span>Basso</span><span>Moderato</span><span>Elevato</span><span>Estremo</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px" id="fc-btn-grid">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>{
+            const colors=['#DCFCE7','#DCFCE7','#D1FAE5','#D1FAE5','#FEF9C3','#FEF9C3','#FFEDD5','#FFEDD5','#FEE2E2','#FEE2E2'];
+            const tcols=['#166534','#166534','#14532D','#14532D','#713F12','#713F12','#9A3412','#9A3412','#991B1B','#991B1B'];
+            const cur=G.form.fattoreContattoNum;
+            const isOn=cur===n;
+            return `<button type="button" data-fc="${n}"
+              style="padding:10px 0;border-radius:6px;border:2px solid ${isOn?tcols[n-1]:'transparent'};
+              background:${isOn?tcols[n-1]:colors[n-1]};color:${isOn?'#fff':tcols[n-1]};
+              font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s"
+              onclick="setFCNum(${n})">${n}</button>`;
+          }).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:6px;font-size:9px;color:var(--text-muted)">
+          <div style="grid-column:1/3;text-align:left">1-2: Area raramente frequentata</div>
+          <div style="text-align:center">3-4: Frequentazione occasionale</div>
+          <div style="text-align:center">5-6: Parco/area pubblica</div>
+          <div style="text-align:right">7-8: Alta frequentazione</div>
+          <div style="text-align:right">9-10: Continua/critica</div>
+        </div>
       </div>
+      <div id="fc-desc" style="margin-top:4px;font-size:11px;padding:6px 8px;border-radius:6px;background:#f0f7f0;color:var(--green-700);display:${G.form.fattoreContattoNum?'block':'none'}"></div>
     </div>
 
     <!-- IR + CPC -->
@@ -2369,23 +2393,35 @@ function setGjd(btn){
   const lbl=btn.closest('.field')?.querySelector('label')?.textContent||Math.random();
   autosave('gjd_'+lbl, btn.textContent);
 }
-function setFC(btn){
-  const wasOn=btn.classList.contains('on');
-  btn.closest('.peric').querySelectorAll('.per').forEach(b=>{
-    b.classList.remove('on');
-    const n=b.querySelector('.per-num');
-    if(n){b.dataset.cur=b.dataset.v1;n.textContent=b.dataset.v1;}
+function setFCNum(n){
+  G.form.fattoreContattoNum = n;
+  const labels=['','raramente frequentata','raramente frequentata','frequentazione occasionale','frequentazione occasionale',
+    'parco / area pubblica','parco / area pubblica','alta frequentazione o beni di valore','alta frequentazione o beni di valore',
+    'frequentazione continua / percorso obbligato','frequentazione continua / beni critici'];
+  const fcNames=['','TRASCURABILE','TRASCURABILE','BASSO','BASSO','MODERATO','MODERATO','ELEVATO','ELEVATO','ESTREMO','ESTREMO'];
+  autosaveField('fattoreContatto', fcNames[n]);
+  autosaveField('fattoreContattoNum', n);
+  /* Aggiorna bottoni */
+  const colors=['','#DCFCE7','#DCFCE7','#D1FAE5','#D1FAE5','#FEF9C3','#FEF9C3','#FFEDD5','#FFEDD5','#FEE2E2','#FEE2E2'];
+  const tcols=['','#166534','#166534','#14532D','#14532D','#713F12','#713F12','#9A3412','#9A3412','#991B1B','#991B1B'];
+  document.querySelectorAll('[data-fc]').forEach(b=>{
+    const v=parseInt(b.dataset.fc);
+    const isOn=v===n;
+    b.style.background=isOn?tcols[v]:colors[v];
+    b.style.color=isOn?'#fff':tcols[v];
+    b.style.borderColor=isOn?tcols[v]:'transparent';
   });
-  if(wasOn){
-    const cur=parseInt(btn.dataset.cur),v1=parseInt(btn.dataset.v1),v2=parseInt(btn.dataset.v2);
-    const next=cur===v1?v2:v1; btn.dataset.cur=next;
-    const n=btn.querySelector('.per-num'); if(n) n.textContent=next;
-    btn.classList.add('on');
-  } else { btn.classList.add('on'); }
-  const num=parseInt(btn.dataset.cur);
-  autosaveField('fattoreContatto',btn.textContent.split(' ')[0].trim());
-  autosaveField('fattoreContattoNum',num);
+  /* Aggiorna descrizione */
+  const desc=document.getElementById('fc-desc');
+  if(desc){
+    desc.style.display='block';
+    desc.innerHTML=`<strong>FC ${n} — ${fcNames[n]}</strong>: ${labels[n]}`;
+  }
   updateRisk();
+}
+function setFC(btn){
+  /* Compatibilità retroattiva per bottoni .per del FC vecchio */
+  setFCNum(parseInt(btn.dataset?.fc||btn.textContent));
 }
 function setPer(btn){
   const pericEl=btn.closest('.peric');
