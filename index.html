@@ -629,7 +629,7 @@ function newRilievo(){
     if(!sel){alert('Scelta non valida');return;}
     G_nav.clienteId=sel.clId; G_nav.progettoId=sel.prId;
   }
-  G.form={codice:'',specie:G.ai.result?G.ai.result.scientific_name:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:G.clino.meas.h,dbh:G.clino.meas.dbh,cw:G.clino.meas.cw,cd:G.clino.meas.cd,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''};
+  G.form={codice:'',specie:G.ai.result?G.ai.result.scientific_name:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:G.clino.meas.h,dbh:G.clino.meas.dbh,cw:G.clino.meas.cw,cd:G.clino.meas.cd,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:'',schedaMode:''};
   go('scheda',navTab(3));
 }
 
@@ -797,6 +797,7 @@ function openTree(id){
   G.form = {
     codice:         t.id,
     specie:         t.specie || '',
+    schedaMode:     t.schedaMode || 'ordinaria',
     cliente:        t.cliente || '',
     ubicazione:     t.ubicazione || t.sito || '',
     localita:       t.localita || '',
@@ -1917,6 +1918,49 @@ function transferToScheda(){
    4. SCHEDA VTA
 ═══════════════════════════════════════ */
 function renderScheda(){
+  /* Se non è stato scelto il tipo, mostra selezione */
+  if(!G.form.schedaMode && !G.form._editingId){
+    document.getElementById('main').innerHTML=`
+    <div style="padding:24px 16px;display:flex;flex-direction:column;gap:16px">
+      <div style="text-align:center;margin-bottom:8px">
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Seleziona tipo di scheda</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Scegli la modalità di rilievo VTA</div>
+      </div>
+      <button onclick="G.form.schedaMode='ordinaria';renderScheda()"
+        style="display:flex;flex-direction:column;gap:8px;padding:20px;background:#fff;border:2px solid var(--green-600);border-radius:14px;text-align:left;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:28px">📋</span>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--green-700)">VTA Ordinaria</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Analisi completa per sezioni anatomiche</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);padding-left:38px">
+          Radici · Colletto · Fusto · Castello · Branche · Chioma · Diagnosi · Prescrizioni
+        </div>
+      </button>
+      <button onclick="G.form.schedaMode='speditiva';renderSchedaSpeditiva()"
+        style="display:flex;flex-direction:column;gap:8px;padding:20px;background:#fff;border:2px solid var(--green-400);border-radius:14px;text-align:left;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:28px">⚡</span>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--green-600)">VTA Speditiva</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Scheda semplificata per sopralluoghi rapidi</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);padding-left:38px">
+          Dati identificativi · Dati dimensionali · Diagnosi · 1 foto
+        </div>
+      </button>
+    </div>`;
+    return;
+  }
+  /* Se è speditiva, usa renderSchedaSpeditiva */
+  if(G.form.schedaMode==='speditiva'){
+    renderSchedaSpeditiva();
+    return;
+  }
+
   const f=G.form;
   const ms=(arr,g,multi=true)=>`<div class="chips">${arr.map(v=>`<button type="button" class="chip" data-g="${g}" onclick="tms(this,'${g}',${multi})">${v}</button>`).join('')}</div>`;
   const sev=()=>`<div class="sev"><button type="button" class="sev-b sev-l" onclick="setSev(this,'lieve')">Lieve</button><button type="button" class="sev-b sev-m" onclick="setSev(this,'moderato')">Moderato</button><button type="button" class="sev-b sev-e" onclick="setSev(this,'elevato')">Elevato</button></div>`;
@@ -2077,6 +2121,182 @@ function renderScheda(){
     <div class="field" style="margin-top:7px"><label>Prescrizioni</label><textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="autosaveField('prescrizioni',this.value)"></textarea></div>
     <div class="field" style="margin-top:7px"><label>Il rilevatore</label><input type="text" value="Carlo Piccini — Dottore Agronomo" placeholder="Nome, titolo"></div>
   </div>`;
+}
+
+function renderSchedaSpeditiva(){
+  const f=G.form;
+  const gjd=()=>`<div class="gjd">${[['PESSIMO','#FCEBEB','#A32D2D'],['GRAVE','#FAECE7','#993C1D'],['MEDIOCRE','#FAEEDA','#BA7517'],['DISCRETO','#EAF3DE','#3B6D11'],['BUONO','#C0DD97','#27500A']].map(([v,bg,col])=>`<button type="button" class="gj" style="background:${bg};color:${col};border-color:${col}" onclick="setGjd(this)">${v}</button>`).join('')}</div>`;
+  const peric=()=>`<div class="peric">${[['TRASCUR.',1,2,'#EAF3DE','#27500A'],['BASSO',3,4,'#FAEEDA','#633806'],['MODERATO',5,6,'#FAECE7','#4A1B0C'],['ELEVATO',7,8,'#FCEBEB','#501313'],['ESTREMO',9,10,'#F09595','#791F1F']].map(([v,n1,n2,bg,col])=>`<button type="button" class="per" data-v1="${n1}" data-v2="${n2}" data-cur="${n1}" style="background:${bg};color:${col};border-color:${col}" onclick="setPer(this)">${v} <span class="per-num" style="font-size:9px;opacity:0.7;margin-left:2px">${n1}</span></button>`).join('')}</div>`;
+
+  const dimBanner=(f.h||f.dbh||f.cw||f.cd)?`<div class="dim-banner">
+    <div class="dim-banner-title"><span>📐 Da clinometro</span><button class="btn-sm" style="font-size:10px;padding:2px 7px" onclick="go('misure',navTab(2))">Aggiorna</button></div>
+    ${f.h?`<div class="dim-row"><span>Altezza totale</span><strong>${f.h.toFixed(2)} m</strong></div>`:''}
+    ${f.dbh?`<div class="dim-row"><span>Diametro fusto</span><strong>${f.dbh.toFixed(1)} cm</strong></div>`:''}
+    ${f.dbh?`<div class="dim-row"><span>Circonferenza</span><strong>${(f.dbh*Math.PI).toFixed(1)} cm</strong></div>`:''}
+    ${f.cw?`<div class="dim-row"><span>Larghezza chioma</span><strong>${f.cw.toFixed(2)} m</strong></div>`:''}
+  </div>`:`<div style="margin-top:6px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-sm);font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;border:0.5px solid var(--border)">
+    <span>Nessuna misura da clinometro</span>
+    <button class="btn-sm green" onclick="go('misure',navTab(2))">Apri clinometro</button>
+  </div>`;
+
+  const html=`
+  <!-- Badge speditiva -->
+  <div style="margin:8px 12px 0;padding:6px 10px;background:#fffbe6;border:1px solid #f0c040;border-radius:8px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:14px">⚡</span>
+    <span style="font-size:11px;font-weight:600;color:#856404">VTA Speditiva</span>
+    <button onclick="G.form.schedaMode='';renderScheda()" style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid #ccc;background:#fff;color:var(--text-muted)">Cambia tipo</button>
+  </div>
+
+  <!-- DATI IDENTIFICATIVI -->
+  <div class="card">
+    <div class="sec">Dati identificativi</div>
+    <div class="fg">
+      <div class="field"><label>Codice rilievo *</label><input type="text" placeholder="es. 2049" value="${f.codice}" oninput="autosaveField('codice',this.value)"></div>
+      <div class="field"><label>Data rilievo</label><input type="date" value="${f.data||''}" oninput="autosaveField('data',this.value)"></div>
+    </div>
+    <div class="field full"><label>Specie *</label><input type="text" placeholder="Nome scientifico o comune" value="${f.specie||''}" oninput="autosaveField('specie',this.value)"></div>
+    <div class="fg" style="margin-top:7px;width:100%">
+      <div class="field full" style="grid-column:1/-1">
+        <div style="display:flex;gap:8px;width:100%">
+          <div class="field" style="flex:1;min-width:0"><label>Cliente</label><input style="width:100%;box-sizing:border-box" type="text" placeholder="Nome cliente" value="${f.cliente||''}" oninput="autosaveField('cliente',this.value)"></div>
+          <div class="field" style="flex:1;min-width:0"><label>Comune</label><input style="width:100%;box-sizing:border-box" type="text" placeholder="Comune..." value="${f.ubicazione||''}" oninput="autosaveField('ubicazione',this.value)"></div>
+        </div>
+        <div style="display:flex;gap:8px;width:100%;margin-top:7px">
+          <div class="field" style="flex:1;min-width:0"><label>Località</label><input style="width:100%;box-sizing:border-box" type="text" placeholder="Frazione, quartiere..." value="${f.localita||''}" oninput="autosaveField('localita',this.value)"></div>
+          <div class="field" style="flex:1;min-width:0"><label>Indirizzo</label><input style="width:100%;box-sizing:border-box" type="text" placeholder="Via, n° civico..." value="${f.indirizzo||''}" oninput="autosaveField('indirizzo',this.value)"></div>
+        </div>
+        <div style="display:flex;gap:8px;width:100%;margin-top:7px">
+          <div class="field" style="flex:1;min-width:0"><label>Sito</label><select style="width:100%;box-sizing:border-box" onchange="autosaveField('sito',this.value)"><option>Seleziona...</option>${['giardino privato','giardino storico','giardino pubblico','parco privato','parco storico','parco pubblico','parco vacanze','parco RSA','parco albergo','aiuola stradale','parcheggio privato','parcheggio pubblico','cimitero','altro'].map(s=>`<option ${f.sito===s?'selected':''}>${s}</option>`).join('')}</select></div>
+          <div class="field" style="flex:1;min-width:0"><label>Disposizione</label><select style="width:100%;box-sizing:border-box" onchange="autosaveField('disposizione',this.value)"><option>Seleziona...</option>${['singolo','filare','gruppo puro','gruppo misto','boschetto puro','boschetto misto','altro'].map(s=>`<option ${f.disposizione===s?'selected':''}>${s}</option>`).join('')}</select></div>
+        </div>
+      </div>
+    </div>
+    <!-- Georeferenziazione -->
+    <div class="sec" style="margin-top:10px">Georeferenziazione</div>
+    <div class="geo-btn" onclick="acquireGPS()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      <span>Tocca per acquisire posizione GPS</span>
+    </div>
+    <div class="fg" style="margin-top:6px">
+      <div class="field"><label>Latitudine</label><input type="number" step="any" placeholder="es. 44.0452" value="${f.lat||''}" oninput="autosaveField('lat',this.value)"></div>
+      <div class="field"><label>Longitudine</label><input type="number" step="any" placeholder="es. 10.1056" value="${f.lng||''}" oninput="autosaveField('lng',this.value)"></div>
+    </div>
+  </div>
+
+  <!-- DATI DIMENSIONALI -->
+  <div class="card">
+    <div class="sec">Dati dimensionali</div>
+    ${dimBanner}
+    <div class="fg" style="margin-top:8px">
+      <div class="field"><label>Altezza (H) m</label><input type="number" step="0.1" value="${f.h||''}" oninput="autosaveField('h',parseFloat(this.value))"></div>
+      <div class="field"><label>DBH cm</label><input type="number" step="0.1" value="${f.dbh||''}" oninput="autosaveField('dbh',parseFloat(this.value))"></div>
+      <div class="field"><label>Largh. chioma m</label><input type="number" step="0.1" value="${f.cw||''}" oninput="autosaveField('cw',parseFloat(this.value))"></div>
+      <div class="field"><label>Prof. chioma m</label><input type="number" step="0.1" value="${f.cd||''}" oninput="autosaveField('cd',parseFloat(this.value))"></div>
+    </div>
+    <div class="fg" style="margin-top:6px">
+      <div class="field"><label>Stazione</label><select onchange="autosaveField('stazione',this.value)"><option>Seleziona...</option>${['terreno naturale','aiuola','pavimentazione permeabile','pavimentazione impermeabile','pendio','altro'].map(s=>`<option ${f.stazione===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Suolo</label><select onchange="autosaveField('suolo',this.value)"><option>Seleziona...</option>${['soffice','compatto','argilloso','sabbioso','ghiaioso','altro'].map(s=>`<option ${f.suolo===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Pavimentazione</label><select onchange="autosaveField('pavimentazione',this.value)"><option>Seleziona...</option>${['terreno nudo','prato','asfalto','calcestruzzo','autobloccante','ghiaia','altro'].map(s=>`<option ${f.pavimentazione===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+  </div>
+
+  <!-- DIAGNOSI E VALUTAZIONE FINALE -->
+  <div class="card">
+    <div class="sec">Diagnosi e valutazione finale</div>
+
+    <div class="field">
+      <label>Giudizio fisiopatologico</label>
+      <div class="gjd-wrap" data-field="giudFisio">${gjd()}</div>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>Giudizio vegetativo</label>
+      <div class="gjd-wrap" data-field="giudVeg">${gjd()}</div>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>Pericolosità</label>
+      <div class="peric-wrap" data-field="pericolosita">${peric()}</div>
+    </div>
+
+    <!-- Fattore di contatto -->
+    <div class="field" style="margin-top:8px"><label>Fattore di contatto (FC)</label>
+      <div class="fc-row">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" class="fc-b" onclick="setFC(this,${n})">${n}</button>`).join('')}
+      </div>
+    </div>
+
+    <!-- IR + CPC -->
+    <div class="risk-grid" id="risk-grid-sp" style="margin-top:10px">
+      <div class="risk-card"><div class="risk-val" id="ir-v-sp">—</div><div class="risk-lbl">Indice di Rischio</div></div>
+      <div class="risk-card" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div class="risk-val r${(G.form.cpc||'A').replace('/','')}" id="cpc-v">${G.form.cpc||'A'}</div>
+        <select id="cpc-select" onchange="setCPCManual(this.value)"
+          style="font-size:11px;padding:3px 6px;border-radius:6px;border:0.5px solid var(--border);background:var(--surface);color:var(--text-primary);font-family:var(--font-mono);font-weight:600;cursor:pointer">
+          ${['A','B','C','C/D','D'].map(c=>`<option value="${c}" ${(G.form.cpc||'A')===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        <div class="risk-lbl">Classe CPC</div>
+      </div>
+      <div class="risk-card"><div class="risk-val" id="peric-v" style="font-size:14px">—</div><div class="risk-lbl">Pericolosità</div></div>
+      <div class="risk-card"><div class="risk-val" id="fd-v" style="font-size:16px">—</div><div class="risk-lbl">Fattore dimensionale</div></div>
+    </div>
+
+    <div class="field" style="margin-top:8px"><label>Prescrizioni</label>
+      <textarea rows="3" placeholder="Interventi consigliati, tempistiche, priorità..." oninput="autosaveField('prescrizioni',this.value)">${f.prescrizioni||''}</textarea>
+    </div>
+    <div class="field" style="margin-top:7px"><label>Il rilevatore</label>
+      <input type="text" value="Carlo Piccini — Dottore Agronomo" placeholder="Nome, titolo">
+    </div>
+  </div>
+
+  <!-- FOTO (1 sola) -->
+  <div class="card">
+    <div class="sec">Foto rilievo</div>
+    <div id="speditiva-photo-area">
+      ${f.photos&&f.photos[0]?`<div style="position:relative;display:inline-block">
+        <img src="${f.photos[0].dataUrl}" style="width:100%;border-radius:8px;max-height:280px;object-fit:cover">
+        <button onclick="removeSpeditivaPhoto()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer">✕</button>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:center">${f.photos[0].tipo||'Foto rilievo'}</div>
+      </div>`:`<button onclick="takeSpeditivaPhoto()" style="width:100%;padding:24px;border:2px dashed var(--border-2);border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-size:13px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <span style="font-size:28px">📷</span>
+        <span>Scatta o carica una foto</span>
+      </button>`}
+    </div>
+  </div>
+
+  <!-- SALVA -->
+  <div style="padding:12px 0 24px;display:flex;gap:10px">
+    <button class="btn-secondary" style="flex:1" onclick="G.form.schedaMode='';renderScheda()">Annulla</button>
+    <button class="btn-primary" style="flex:2" onclick="saveRilievo()">
+      ${f._editingId?`Salva modifiche #${f._editingId}`:'Salva rilievo speditivo'}
+    </button>
+  </div>`;
+
+  document.getElementById('main').innerHTML=html;
+  restoreGjdState();
+  restorePercState();
+  updateIR();
+}
+
+function takeSpeditivaPhoto(){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='image/*'; input.capture='environment';
+  input.onchange=async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!G.form.photos) G.form.photos=[];
+      G.form.photos[0]={dataUrl:ev.target.result,tipo:'Foto rilievo',ts:Date.now()};
+      autosaveField('photos',G.form.photos);
+      renderSchedaSpeditiva();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function removeSpeditivaPhoto(){
+  if(G.form.photos) G.form.photos=[];
+  autosaveField('photos',[]);
+  renderSchedaSpeditiva();
 }
 
 function renderSezioneAnat(nome,formaHTML,difettiHTML,sevHTML,pericHTML,gjdHTML,gjdLabel){
@@ -2509,6 +2729,175 @@ function updateRisk(){
 /* ── EXPORT MAPPA ── */
 /* ── ESPORTAZIONE MAPPA ── */
 const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z4YzVoZDA0bjkyc3NhMjZpcWxxem0ifQ.myjQhOd9fEbizGwqGLdoPQ';
+
+async function generatePDFSpeditivo(t) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pW = 210, pH = 297, mL = 15, mR = 15, mT = 15;
+  let y = mT;
+
+  const GREEN=[26,51,32], LGREEN=[59,109,17], GRAY=[100,100,100], LGRAY=[220,220,220], BLACK=[30,30,30], WHITE=[255,255,255];
+  const cpcColors={'A':[37,99,235],'B':[22,163,74],'C':[202,138,4],'C/D':[234,88,12],'D':[185,28,28]};
+  const setFont=(sz,style='normal',col=BLACK)=>{pdf.setFontSize(sz);pdf.setFont('helvetica',style);pdf.setTextColor(...col);};
+  const line=(x1,y1,x2,y2,col=LGRAY,w=0.3)=>{pdf.setDrawColor(...col);pdf.setLineWidth(w);pdf.line(x1,y1,x2,y2);};
+  const rect=(x,y,w,h,fill,stroke)=>{if(fill)pdf.setFillColor(...fill);if(stroke)pdf.setDrawColor(...stroke);else pdf.setDrawColor(255,255,255);pdf.roundedRect(x,y,w,h,1,1,fill&&stroke?'FD':fill?'F':'D');};
+  const text=(txt,x,y,opts={})=>pdf.text(String(txt||'—'),x,y,opts);
+  const checkY=(need=10)=>{if(y+need>pH-15){pdf.addPage();y=mT;drawHeader();}};
+  const drawHeader=()=>{
+    rect(0,0,pW,14,GREEN);
+    setFont(10,'bold',WHITE); text('ArboRisk — Rilievo Fitosanitario VTA Speditiva',mL,9);
+    setFont(7,'normal',[180,220,180]); text(`Pianta #${t.id} · ${t.specie||'—'} · ${new Date().toLocaleDateString('it-IT')}`,pW-mR,9,{align:'right'});
+    y=18;
+  };
+  const drawSection=(title)=>{checkY(12);rect(mL,y,pW-mL-mR,7,LGREEN);setFont(8,'bold',WHITE);text(title,mL+3,y+5);y+=9;};
+  const drawRow2=(l1,v1,l2,v2)=>{
+    const w=(pW-mL-mR)/2-2;
+    const lines1=pdf.splitTextToSize(String(v1||'—'),w);
+    const lines2=l2?pdf.splitTextToSize(String(v2||'—'),w):[];
+    const maxLines=Math.max(lines1.length,lines2.length,1);
+    const rowH=4+maxLines*4.5+3;
+    checkY(rowH+2);
+    setFont(7,'normal',GRAY);pdf.text(l1,mL,y);
+    if(l2)pdf.text(l2,mL+w+4,y);
+    setFont(8,'bold',BLACK);
+    lines1.forEach((ln,i)=>pdf.text(ln,mL,y+4+i*4.5));
+    if(l2)lines2.forEach((ln,i)=>pdf.text(ln,mL+w+4,y+4+i*4.5));
+    line(mL,y+rowH,pW-mR,y+rowH);
+    y+=rowH+2;
+  };
+  const drawRow4=(fields)=>{
+    const w=(pW-mL-mR)/4-2;
+    const allLines=fields.map(([l,v])=>pdf.splitTextToSize(String(v||'—'),w));
+    const maxLines=Math.max(...allLines.map(ls=>ls.length),1);
+    const rowH=4+maxLines*4.5+3;
+    checkY(rowH+2);
+    fields.forEach(([l,v],i)=>{setFont(7,'normal',GRAY);pdf.text(l,mL+i*(w+2),y);setFont(8,'bold',BLACK);allLines[i].forEach((ln,j)=>pdf.text(ln,mL+i*(w+2),y+4+j*4.5));});
+    line(mL,y+rowH,pW-mR,y+rowH);
+    y+=rowH+2;
+  };
+
+  /* 1. INTESTAZIONE */
+  drawHeader();
+  rect(mL,y,pW-mL-mR,30,[245,250,245],LGRAY);
+  setFont(11,'bold',GREEN); text('Studio Agronomico Piccini',mL+4,y+7);
+  setFont(8,'normal',GRAY);
+  text('Via Cavour, 1 — 54033 Carrara (MS)',mL+4,y+13);
+  text('Tel: 3461430211 · Email: info@urbangreensas.it',mL+4,y+18);
+  setFont(7,'normal',GRAY);
+  text('Prof. Carlo Piccini · Dottore Agronomo',pW-mR-4,y+7,{align:'right'});
+  text('Membro della International Society of Arboriculture',pW-mR-4,y+13,{align:'right'});
+  text(`Ord. Dott. Agronomi e Forestali Pisa-Lucca-MS N.400`,pW-mR-4,y+18,{align:'right'});
+  text(`Data: ${new Date().toLocaleDateString('it-IT')}`,pW-mR-4,y+23,{align:'right'});
+
+  /* Badge speditiva */
+  pdf.setFillColor(255,251,230); pdf.setDrawColor(240,192,64); pdf.setLineWidth(0.4);
+  pdf.roundedRect(mL+4,y+24,40,5,1,1,'FD');
+  setFont(7,'bold',[133,100,4]); text('⚡ VTA SPEDITIVA',mL+24,y+27.5,{align:'center'});
+  y+=34;
+
+  /* 2. DATI IDENTIFICATIVI */
+  let _progNome='—', _clienteNome='—';
+  G_projects.forEach(cl=>cl.progetti.forEach(pr=>{
+    if(pr.rilievi.includes(String(t.id))){ _progNome=pr.nome; _clienteNome=cl.nome; }
+  }));
+  drawSection('DATI IDENTIFICATIVI');
+  drawRow2('Codice rilievo',`#${t.id}`,'Data rilievo',t.data||'—');
+  drawRow2('Specie',t.specie||'—','Progetto',_progNome);
+  drawRow2('Cliente',_clienteNome,'Sito',t.sito||'—');
+  drawRow2('Comune',t.ubicazione||'—','Località',t.localita||'—');
+  drawRow2('Indirizzo',t.indirizzo||'—','Disposizione',t.disposizione||'—');
+
+  /* 3. DATI DIMENSIONALI */
+  drawSection('DATI DIMENSIONALI');
+  const circ=t.dbh?((t.dbh/100)*Math.PI).toFixed(2)+'m':'—';
+  drawRow4([['Altezza totale (H)',t.h?t.h+'m':'—'],['DBH',t.dbh?t.dbh+'cm':'—'],['Circonferenza',circ],['Diametro chioma',t.cw?t.cw+'m':'—']]);
+  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=parseFloat(t.cw)||0,circ2=(dbh/100)*Math.PI;if(h>0&&circ2>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ2-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return Math.round(fd);}return '—';})();
+  drawRow4([['Fattore Danno (FD)',String(_fdVal)],['Stazione',t.stazione||'—'],['Suolo',t.suolo||'—'],['Pavimentazione',t.pavimentazione||'—']]);
+
+  /* 4. DIAGNOSI */
+  drawSection('DIAGNOSI E VALUTAZIONE FINALE');
+  drawRow4([['Giudizio fisiopatologico',t.giudFisio||'—'],['Giudizio vegetativo',t.giudVeg||'—'],['Pericolosità finale',t.pericolosita||'—'],['','']] );
+
+  /* Box IR + CPC */
+  checkY(25);
+  const IR=t.indiceRischio||0;
+  const cpc=t.cpc||'A';
+  rect(mL,y,55,20,[245,245,245],LGRAY);
+  setFont(7,'normal',GRAY); text('Indice di Rischio (IR)',mL+3,y+5);
+  setFont(18,'bold',BLACK); text(Math.round(IR)||'—',mL+3,y+16);
+  const col=cpcColors[cpc]||[100,100,100];
+  rect(mL+60,y+2,22,7,col);
+  setFont(8,'bold',WHITE); text(`CPC ${cpc}`,mL+71,y+7,{align:'center'});
+  setFont(7,'normal',GRAY); text('Fattore di Contatto',mL+90,y+5);
+  setFont(11,'bold',BLACK); text(String(t.fattoreContattoNum||'—'),mL+90,y+14);
+  setFont(7,'normal',GRAY); text('Fattore di Danno (FD)',mL+120,y+5);
+  setFont(11,'bold',BLACK); text(String(_fdVal),mL+120,y+14);
+  y+=24;
+
+  /* Prescrizioni */
+  if(t.prescrizioni){
+    const prescLines=pdf.splitTextToSize(t.prescrizioni,pW-mL-mR-10);
+    const prescH=6+prescLines.length*4.8+6;
+    checkY(prescH+14);
+    drawSection('PRESCRIZIONI');
+    rect(mL,y,pW-mL-mR,prescH,[255,253,235],[202,138,4]);
+    pdf.setLineWidth(0.5); pdf.setDrawColor(202,138,4); pdf.roundedRect(mL,y,pW-mL-mR,prescH,2,2,'D');
+    setFont(8.5,'normal',[60,40,0]);
+    prescLines.forEach((l,i)=>text(l,mL+5,y+6+i*4.8));
+    y+=prescH+6;
+  }
+
+  /* 5. MAPPA + FIRMA */
+  if(t.lat&&t.lng){
+    const mapW=pW-mL-mR, mapH=90;
+    checkY(mapH+60);
+    drawSection('LOCALIZZAZIONE — MAPPA SATELLITARE');
+    const MAPBOX_TK='pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z4YzVoZDA0bjkyc3NhMjZpcWxxem0ifQ.myjQhOd9fEbizGwqGLdoPQ';
+    const pinColor=(cpcColors[t.cpc||'A']||[100,100,100]).map(v=>v.toString(16).padStart(2,'0')).join('');
+    const mapUrl=`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/pin-s+${pinColor}(${t.lng},${t.lat})/${t.lng},${t.lat},18,0/${Math.round(mapW*3.78)}x${Math.round(mapH*3.78)}@2x?access_token=${MAPBOX_TK}`;
+    try{
+      const mapResp=await fetch(mapUrl);
+      if(mapResp.ok){const blob=await mapResp.blob();const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(blob);});pdf.addImage(b64,'JPEG',mL,y,mapW,mapH);}
+      else{rect(mL,y,mapW,mapH,[240,240,240]);setFont(9,'normal',GRAY);text('Mappa non disponibile',mL+mapW/2,y+mapH/2,{align:'center'});}
+    }catch(e){rect(mL,y,mapW,mapH,[240,240,240]);}
+    y+=mapH+4;
+    setFont(7,'normal',GRAY); text(`Coordinate GPS: ${parseFloat(t.lat).toFixed(6)}N, ${parseFloat(t.lng).toFixed(6)}E`,mL,y+4);
+    y+=10;
+  }
+
+  /* FIRMA */
+  checkY(45); y=Math.max(y,pH-55);
+  line(mL,y,pW-mR,y);
+  setFont(7,'normal',GRAY);
+  text('Il Tecnico Rilevatore',mL,y+5);
+  text('Prof. Carlo Piccini · Dottore Agronomo',mL,y+10);
+  text('Membro della International Society of Arboriculture',mL,y+15);
+  text(`Ord. Dott. Agronomi e Forestali Pisa-Lucca-MS N.400`,mL,y+20);
+  try{
+    const timbroData=await fetch('/timbro_mod.jpg').then(r=>r.blob()).then(b=>new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(b);}));
+    pdf.addImage(timbroData,'JPEG',pW-mR-45,y+2,38,38);
+  }catch(e){}
+  line(mL+5,y+35,mL+75,y+35,GRAY,0.2);
+  setFont(7,'normal',GRAY); text('Firma',mL+40,y+39,{align:'center'});
+
+  /* 6. FOTO */
+  const photos=t.photos?.filter(p=>p?.dataUrl)||[];
+  if(photos.length>0){
+    pdf.addPage(); y=mT; drawHeader();
+    drawSection('ALLEGATO FOTOGRAFICO');
+    const imgW=pW-mL-mR, imgH=imgW*0.75;
+    checkY(imgH+14);
+    try{pdf.addImage(photos[0].dataUrl,'JPEG',mL,y,imgW,imgH);}catch(e){rect(mL,y,imgW,imgH,[240,240,240]);}
+    setFont(7,'normal',GRAY); text(photos[0].tipo||'Foto rilievo',mL+imgW/2,y+imgH+5,{align:'center'});
+  }
+
+  /* Numero pagine */
+  const nPages=pdf.getNumberOfPages();
+  for(let i=1;i<=nPages;i++){pdf.setPage(i);setFont(7,'normal',GRAY);text(`Pagina ${i} di ${nPages}`,pW/2,pH-8,{align:'center'});}
+
+  pdf.save(`ArboRisk-${t.id}-speditiva-${(t.specie||'rilievo').replace(/\s/g,'_')}.pdf`);
+}
 
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -4084,6 +4473,9 @@ async function generatePDF() {
   const treeId = document.getElementById('report-tree-sel')?.value || G.form._editingId;
   const t = G.trees.find(x => String(x.id) === String(treeId)) || G.trees[0];
   if (!t) { alert('Seleziona una pianta prima di generare il report'); return; }
+
+  /* Se rilievo speditivo usa generatePDFSpeditivo */
+  if(t.schedaMode === 'speditiva') { await generatePDFSpeditivo(t); return; }
 
   /* Carica jsPDF */
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
