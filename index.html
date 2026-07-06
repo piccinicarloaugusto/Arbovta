@@ -859,6 +859,9 @@ function openTree(id){
 function saveRilievo(){
   if(!G.form.codice || !G.form.specie){ alert('Inserire almeno Codice rilievo e Specie.'); return; }
 
+  /* Ricalcola IR e CPC prima di salvare */
+  updateRisk();
+
   const data = {
     id:             G.form.codice,
     specie:         G.form.specie,
@@ -2479,7 +2482,11 @@ function setPer(btn){
   else if(secLow.includes('speditiva')||pericEl.dataset.field==='pericolosita'){
     G.form.pericolosita_num=num;
     autosaveField('pericolosita_num',num);
-    autosaveField('pericolosita',btn.textContent.replace(/\d/g,'').trim());
+    /* Salva anche la label testuale della pericolosità */
+    const label = btn.textContent.replace(/\d/g,'').trim();
+    autosaveField('pericolosita', label);
+    /* Aggiorna subito IR e CPC */
+    updateRisk();
   }
   setTimeout(updateRisk,50);
 }
@@ -2658,6 +2665,39 @@ function restoreVTAui(){
   });
 
   /* ── 10. AGGIORNA INDICE DI RISCHIO ── */
+
+  /* ── 10b. SPEDITIVA — ripristina pericolosità e giudizi ── */
+  if(G.form.schedaMode === 'speditiva'){
+    const pNum = G.form.pericolosita_num ? parseInt(G.form.pericolosita_num) : null;
+    if(pNum){
+      document.querySelectorAll('.peric-wrap[data-field="pericolosita"] .per').forEach(b=>{
+        const v1=parseInt(b.dataset.v1), v2=parseInt(b.dataset.v2);
+        const match = pNum>=v1 && pNum<=v2;
+        b.classList.toggle('on', match);
+        b.style.fontWeight = match?'700':'';
+        b.style.boxShadow  = match?'0 0 0 2px currentColor':'';
+        if(match){ b.dataset.cur=pNum; const n=b.querySelector('.per-num'); if(n) n.textContent=pNum; }
+      });
+    }
+    /* Ripristina giudizi speditiva */
+    ['giudFisio','giudVeg'].forEach(key=>{
+      const val = (G.form[key]||'').toUpperCase().trim();
+      if(!val) return;
+      document.querySelectorAll('.gjd-wrap .gj').forEach(b=>{
+        const lbl = b.closest('.field')?.querySelector('label')?.textContent?.toLowerCase()||'';
+        const isRight = (key==='giudFisio' && lbl.includes('fisio')) ||
+                        (key==='giudVeg'   && lbl.includes('veget'));
+        if(isRight && b.textContent.toUpperCase()===val){
+          b.closest('.gjd').querySelectorAll('.gj').forEach(x=>x.classList.remove('on'));
+          b.classList.add('on');
+        }
+      });
+    });
+    /* Ripristina FC numerico nella speditiva */
+    const fcN = G.form.fattoreContattoNum ? parseInt(G.form.fattoreContattoNum) : null;
+    if(fcN) setFCNum(fcN);
+  }
+
   setTimeout(updateRisk, 100);
 }
 function checkPino(v){
