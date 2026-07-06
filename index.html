@@ -801,6 +801,7 @@ function openTree(id){
     codice:         t.id,
     specie:         t.specie || '',
     schedaMode:     t.schedaMode || 'ordinaria',
+    pericolosita_num: t.pericolosita_num || 0,
     cliente:        t.cliente || '',
     ubicazione:     t.ubicazione || t.sito || '',
     localita:       t.localita || '',
@@ -2152,7 +2153,7 @@ function renderSchedaSpeditiva(){
     </div>
     <!-- Georeferenziazione -->
     <div class="sec" style="margin-top:10px">Georeferenziazione</div>
-    <div class="geo-btn" onclick="acquireGPS()">
+    <div class="geo-btn" onclick="requestGPS()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
       <span>Tocca per acquisire posizione GPS</span>
     </div>
@@ -2193,7 +2194,7 @@ function renderSchedaSpeditiva(){
     </div>
     <div class="field" style="margin-top:8px">
       <label>Pericolosità</label>
-      <div class="peric-wrap" data-field="pericolosita">${peric()}</div>
+      <div class="peric-wrap" data-field="pericolosita" data-section="speditiva">${peric()}</div>
     </div>
 
     <!-- Fattore di contatto -->
@@ -2450,6 +2451,11 @@ function setPer(btn){
   if(secLow.includes('radici')||secLow.includes('colletto')) autosave('per_rc_num',num);
   else if(secLow.includes('fusto')||secLow.includes('castello')) autosave('per_fc_num',num);
   else if(secLow.includes('branche')||secLow.includes('chioma')) autosave('per_bc_num',num);
+  else if(secLow.includes('speditiva')||pericEl.dataset.field==='pericolosita'){
+    G.form.pericolosita_num=num;
+    autosaveField('pericolosita_num',num);
+    autosaveField('pericolosita',btn.textContent.replace(/\d/g,'').trim());
+  }
   setTimeout(updateRisk,50);
 }
 
@@ -2672,9 +2678,17 @@ function resetCPCManual() {
 
 function updateRisk(){
   const vta = G.form.vta || {};
-  const J27 = vta['per_rc_num'] || 0;
-  const J37 = vta['per_fc_num'] || 0;
-  const J47 = vta['per_bc_num'] || 0;
+  const isSpeditiva = G.form.schedaMode === 'speditiva';
+  let J27, J37, J47;
+  if(isSpeditiva){
+    /* Nella speditiva usa pericolosita_num come valore unico × 3 */
+    const pNum = G.form.pericolosita_num || 0;
+    J27 = pNum; J37 = 0; J47 = 0;
+  } else {
+    J27 = vta['per_rc_num'] || 0;
+    J37 = vta['per_fc_num'] || 0;
+    J47 = vta['per_bc_num'] || 0;
+  }
   const FC = G.form.fattoreContattoNum || 1;
   let FD = G.form.fattoreDimensionale || 0;
   if (!FD) {
@@ -2692,7 +2706,7 @@ function updateRisk(){
   else if(IR<=600){pericLabel='Elevato';cpc='C/D';}
   else{pericLabel='Estremo';cpc='D';}
 
-  const rv=document.getElementById('risk-v');
+  const rv=document.getElementById('risk-v')||document.getElementById('ir-v-sp');
   const cv=document.getElementById('cpc-v');
   const pv=document.getElementById('peric-v');
   const dv=document.getElementById('fd-v');
