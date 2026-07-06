@@ -862,7 +862,11 @@ function saveRilievo(){
   const data = {
     id:             G.form.codice,
     specie:         G.form.specie,
-    sito:           G.form.ubicazione || G.form.sito || '—',
+    cliente:        G.form.cliente || '',
+    ubicazione:     G.form.ubicazione || '',
+    localita:       G.form.localita || '',
+    indirizzo:      G.form.indirizzo || '',
+    sito:           G.form.sito || '',
     data:           G.form.data || new Date().toISOString().split('T')[0],
     cpc:            G.form.cpc || 'A',
     rischio:        G.form.pericolosita || 'Trascurabile',
@@ -879,15 +883,22 @@ function saveRilievo(){
     sitoCon:        G.form.sitoCon || '',
     posizSoc:       G.form.posizSoc || '',
     conflitti:      G.form.conflitti || '',
-    fattoreContatto:G.form.fattoreContatto || '',
+    fattoreContatto:    G.form.fattoreContatto || '',
+    fattoreContattoNum: G.form.fattoreContattoNum || 0,
+    pericolosita:       G.form.pericolosita || '',
+    pericolosita_num:   G.form.pericolosita_num || 0,
+    indiceRischio:      G.form.indiceRischio || 0,
+    fattoreDanno:       G.form.fattoreDanno || '',
+    fattoreDimensionale:G.form.fattoreDimensionale || 0,
     giudVeg:        G.form.giudVeg || '',
     giudFisio:      G.form.giudFisio || '',
     giudBiomec:     G.form.giudBiomec || '',
-    pericolosita:   G.form.pericolosita || '',
-    fattoreDanno:   G.form.fattoreDanno || '',
     prescrizioni:   G.form.prescrizioni || '',
+    schedaMode:     G.form.schedaMode || 'ordinaria',
     vta:            G.form.vta || {},
-    _editedByUser:  true
+    photos:         G.form.photos || [],
+    _editedByUser:  true,
+    _savedAt:       new Date().toISOString()
   };
 
   if(G.form._editingId) {
@@ -896,6 +907,7 @@ function saveRilievo(){
     if(idx >= 0) {
       G.trees[idx] = { ...G.trees[idx], ...data };
       saveTrees();
+      if(window._fb) window._fb.saveTree(G.trees[idx]); /* ← Firebase anche su modifica */
       go('lista', navTab(0)); resetNav();
       setTimeout(()=>{
         /* Feedback visivo breve */
@@ -4912,11 +4924,19 @@ window.addEventListener('online', () => {
     if (window._fb && G.trees.length > 0) {
       G.trees.forEach(t => window._fb.saveTree(t));
       const dot = document.getElementById('fb-dot');
-      if (dot) { dot.title = 'Sincronizzato con Firebase'; }
+      if (dot) { dot.title = `Sincronizzato: ${G.trees.length} rilievi`; }
       console.log('[ArboRisk] Sync automatica:', G.trees.length, 'rilievi');
     }
   }, 2000);
 });
+
+/* Backup automatico su Firebase all'avvio se online */
+setTimeout(() => {
+  if (window._fb && navigator.onLine && G.trees.length > 0) {
+    G.trees.forEach(t => window._fb.saveTree(t));
+    console.log('[ArboRisk] Backup avvio:', G.trees.length, 'rilievi su Firebase');
+  }
+}, 5000);
 
 window.addEventListener('offline', updateOnlineStatus);
 setTimeout(updateOnlineStatus, 1000);
