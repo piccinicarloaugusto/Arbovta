@@ -750,7 +750,14 @@ async function loadFromFirebase() {
     cloudTrees.forEach(t => map.set(String(t.id), t));
     G.trees = [...map.values()];
     try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+
+    /* Ricostruisci G_projects dai dati recuperati se è vuoto */
+    if (G_projects.length === 0 && G.trees.length > 0) {
+      migrateProjects();
+    }
+
     render('lista');
+    if (status) status.textContent = `✓ Recuperati ${G.trees.length} rilievi`;
     console.log('ArboRisk FB: caricato', G.trees.length, 'piante');
   } catch(e) {
     console.error('loadFromFirebase error:', e);
@@ -4931,7 +4938,18 @@ function renderClienti(){
     <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${G_projects.length} clienti</span>
     <button onclick="newCliente()" style="background:var(--green-600);color:#fff;border:none;padding:7px 14px;border-radius:var(--r-md);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">+ Nuovo cliente</button>
   </div>
-  ${G_projects.length===0?'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:40px">🏢</div><div style="font-size:13px;font-weight:600;margin-top:12px">Nessun cliente</div><div style="font-size:12px;margin-top:6px">Crea il primo cliente per iniziare</div></div>':
+  ${G_projects.length===0?`<div style="text-align:center;padding:40px 16px;color:var(--text-muted)">
+    <div style="font-size:40px">🏢</div>
+    <div style="font-size:13px;font-weight:600;margin-top:12px;color:var(--text-primary)">Nessun cliente</div>
+    <div style="font-size:12px;margin-top:6px">Crea il primo cliente per iniziare</div>
+    <div style="margin-top:16px;padding:12px;background:#f0f7f0;border-radius:10px;border:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--green-700);margin-bottom:8px">Hai rilievi su Firebase? Recuperali qui:</div>
+      <button onclick="loadFromFirebase()" style="background:var(--green-600);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+        ☁ Recupera da Firebase
+      </button>
+      <div id="fb-load-status" style="font-size:11px;margin-top:8px;color:var(--green-600)"></div>
+    </div>
+  </div>`:
   G_projects.map(cl=>`
   <div class="tree-item">
     <div style="flex:1;display:flex;align-items:center;gap:12px" onclick="openCliente('${cl.id}')">
