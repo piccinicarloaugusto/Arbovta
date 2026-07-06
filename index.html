@@ -2454,41 +2454,45 @@ function setFC(btn){
   setFCNum(parseInt(btn.dataset?.fc||btn.textContent));
 }
 function setPer(btn){
-  const pericEl=btn.closest('.peric');
-  const wasOn=btn.classList.contains('on');
+  const pericEl = btn.closest('.peric');
+  const wasOn = btn.classList.contains('on');
   pericEl.querySelectorAll('.per').forEach(b=>{
     b.classList.remove('on');
-    const numEl=b.querySelector('.per-num');
-    if(numEl){b.dataset.cur=b.dataset.v1;numEl.textContent=b.dataset.v1;}
+    const numEl = b.querySelector('.per-num');
+    if(numEl){ b.dataset.cur=b.dataset.v1; numEl.textContent=b.dataset.v1; }
   });
   if(wasOn){
-    const cur=parseInt(btn.dataset.cur),v1=parseInt(btn.dataset.v1),v2=parseInt(btn.dataset.v2);
-    const next=cur===v1?v2:v1;
-    btn.dataset.cur=next;
-    const numEl=btn.querySelector('.per-num');
-    if(numEl) numEl.textContent=next;
+    const cur=parseInt(btn.dataset.cur), v1=parseInt(btn.dataset.v1), v2=parseInt(btn.dataset.v2);
+    const next = cur===v1 ? v2 : v1;
+    btn.dataset.cur = next;
+    const numEl = btn.querySelector('.per-num');
+    if(numEl) numEl.textContent = next;
     btn.classList.add('on');
   } else {
     btn.classList.add('on');
   }
-  const num=parseInt(btn.dataset.cur);
-  const sec=btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||'';
-  autosave('per_'+sec, btn.textContent.split(' ')[0].trim());
-  autosave('per_'+sec+'_num', num);
-  const secLow=sec.toLowerCase();
-  if(secLow.includes('radici')||secLow.includes('colletto')) autosave('per_rc_num',num);
-  else if(secLow.includes('fusto')||secLow.includes('castello')) autosave('per_fc_num',num);
-  else if(secLow.includes('branche')||secLow.includes('chioma')) autosave('per_bc_num',num);
-  else if(secLow.includes('speditiva')||pericEl.dataset.field==='pericolosita'){
-    G.form.pericolosita_num=num;
-    autosaveField('pericolosita_num',num);
-    /* Salva anche la label testuale della pericolosità */
+  const num = parseInt(btn.dataset.cur);
+
+  /* Controlla se è il campo pericolosità della speditiva */
+  const isSpeditivaPeric = pericEl.dataset.field === 'pericolosita';
+
+  if(isSpeditivaPeric){
+    G.form.pericolosita_num = num;
     const label = btn.textContent.replace(/\d/g,'').trim();
+    G.form.pericolosita = label;
+    autosaveField('pericolosita_num', num);
     autosaveField('pericolosita', label);
-    /* Aggiorna subito IR e CPC */
     updateRisk();
+  } else {
+    const sec = btn.closest('.card')?.querySelector('.sec')?.textContent?.trim()||'';
+    autosave('per_'+sec, btn.textContent.split(' ')[0].trim());
+    autosave('per_'+sec+'_num', num);
+    const secLow = sec.toLowerCase();
+    if(secLow.includes('radici')||secLow.includes('colletto'))      autosave('per_rc_num', num);
+    else if(secLow.includes('fusto')||secLow.includes('castello'))  autosave('per_fc_num', num);
+    else if(secLow.includes('branche')||secLow.includes('chioma'))  autosave('per_bc_num', num);
+    setTimeout(updateRisk, 50);
   }
-  setTimeout(updateRisk,50);
 }
 
 
