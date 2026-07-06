@@ -2411,8 +2411,14 @@ function setSev(btn,lv){
 function setGjd(btn){
   btn.closest('.gjd').querySelectorAll('.gj').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const lbl=btn.closest('.field')?.querySelector('label')?.textContent||Math.random();
-  autosave('gjd_'+lbl, btn.textContent);
+  const lbl = btn.closest('.field')?.querySelector('label')?.textContent||'';
+  const val = btn.textContent;
+  /* Speditiva: salva direttamente in G.form */
+  const lblLow = lbl.toLowerCase();
+  if(lblLow.includes('fisiopatologico')){ autosaveField('giudFisio', val); }
+  else if(lblLow.includes('vegetativo')){ autosaveField('giudVeg', val); }
+  else if(lblLow.includes('biomeccanico')){ autosaveField('giudBiomec', val); }
+  else { autosave('gjd_'+lbl, val); } /* ordinaria VTA */
 }
 function setFCNum(n){
   G.form.fattoreContattoNum = n;
@@ -4967,6 +4973,11 @@ function renderClienti(){
       <button onclick="loadFromFirebase()" style="background:var(--green-600);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
         ☁ Recupera da Firebase
       </button>
+      <div style="margin-top:8px">
+        <button onclick="recoverItalgas()" style="background:#1d4ed8;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+          ⚡ Recupera Italgas / Lotto 1
+        </button>
+      </div>
       <div id="fb-load-status" style="font-size:11px;margin-top:8px;color:var(--green-600)"></div>
     </div>
   </div>`:
@@ -5037,7 +5048,13 @@ function renderRilievi(){
   </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding:0 2px">
     <span style="font-size:11px;color:var(--text-muted)">${rils.length} piante</span>
-    <input placeholder="Cerca..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:120px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="importRilieviToProgetto('${G_nav.clienteId}','${G_nav.progettoId}')"
+        style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--green-600);color:#fff;border:none;cursor:pointer;font-weight:600">
+        ☁ Importa da Firebase
+      </button>
+      <input placeholder="Cerca..." style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-primary);width:100px;font-family:var(--font-sans)" oninput="filterTrees(this.value)">
+    </div>
   </div>
   <div id="tree-list">
     ${rils.length===0?'<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">Nessun rilievo in questo progetto</div>':''}
@@ -5120,6 +5137,117 @@ function showMoveRilievo(rId){
 }
 
 /* ── MIGRAZIONE DATI ── */
+/* Recupero automatico rilievi Italgas Lotto 1 */
+async function recoverItalgas(){
+  if(!window._fb){ alert('Firebase non disponibile'); return; }
+
+  /* Carica tutti i rilievi da Firebase */
+  const cloudTrees = await window._fb.loadAll();
+  if(!cloudTrees.length){ alert('Nessun rilievo trovato su Firebase'); return; }
+
+  /* Merge in G.trees */
+  const map = new Map(G.trees.map(t=>[String(t.id),t]));
+  cloudTrees.forEach(t=>map.set(String(t.id),t));
+  G.trees = [...map.values()];
+  saveTrees();
+
+  /* Trova o crea cliente Italgas */
+  let cl = G_projects.find(x=>x.nome.toLowerCase().includes('italgas'));
+  if(!cl){
+    cl = {id:'italgas_'+Date.now(), nome:'Italgas', progetti:[]};
+    G_projects.push(cl);
+  }
+
+  /* Trova o crea progetto Lotto 1 */
+  let pr = cl.progetti.find(x=>x.nome.toLowerCase().includes('lotto 1')||x.nome.toLowerCase().includes('lotto1'));
+  if(!pr){
+    pr = {id:'lotto1_'+Date.now(), nome:'Lotto 1', rilievi:[], data:new Date().toISOString().split('T')[0]};
+    cl.progetti.push(pr);
+  }
+
+  /* Aggiungi i rilievi da 1L1 a 26L1 */
+  const codes = Array.from({length:26},(_,i)=>`${i+1}L1`);
+  let trovati=0, mancanti=[];
+
+  codes.forEach(code=>{
+    const found = G.trees.find(t=>String(t.id)===code);
+    if(found){
+      if(!pr.rilievi.includes(code)) pr.rilievi.push(code);
+      trovati++;
+    } else {
+      mancanti.push(code);
+    }
+  });
+
+  saveProjects();
+  render('lista');
+
+  let msg = `✓ Recuperati ${trovati} rilievi nel progetto "Lotto 1" (Italgas).`;
+  if(mancanti.length) msg += `\n\nNon trovati su Firebase: ${mancanti.join(', ')}`;
+  alert(msg);
+}
+
+/* Importa rilievi da Firebase nel progetto corrente */
+async function importRilieviToProgetto(clId, prId){
+  if(!window._fb){ alert('Firebase non disponibile'); return; }
+  const cl = G_projects.find(x=>x.id===clId);
+  const pr = cl?.progetti.find(x=>x.id===prId);
+  if(!pr){ alert('Progetto non trovato'); return; }
+
+  /* Carica da Firebase */
+  const cloudTrees = await window._fb.loadAll();
+  if(!cloudTrees.length){ alert('Nessun rilievo trovato su Firebase'); return; }
+
+  /* Merge in G.trees */
+  const map = new Map(G.trees.map(t=>[String(t.id),t]));
+  cloudTrees.forEach(t=>map.set(String(t.id),t));
+  G.trees = [...map.values()];
+  saveTrees();
+
+  /* Mostra dialogo selezione */
+  const already = new Set(pr.rilievi.map(String));
+  const available = G.trees.filter(t=>!already.has(String(t.id)));
+
+  if(!available.length){ alert('Tutti i rilievi di Firebase sono già nel progetto'); return; }
+
+  const html = `
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:500px;max-height:80vh;display:flex;flex-direction:column">
+      <div style="padding:16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:15px;font-weight:700">Importa rilievi in "${pr.nome}"</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${available.length} rilievi disponibili su Firebase</div>
+      </div>
+      <div style="overflow-y:auto;padding:8px 16px;flex:1">
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-weight:600;font-size:12px">
+          <input type="checkbox" id="sel-all-imp" onchange="document.querySelectorAll('.imp-cb').forEach(c=>c.checked=this.checked)"> Seleziona tutti
+        </label>
+        ${available.map(t=>`
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+          <input type="checkbox" class="imp-cb" value="${t.id}">
+          <span><strong>#${t.id}</strong> — ${t.specie||'—'} <span style="color:var(--text-muted)">${t.data||''}</span></span>
+        </label>`).join('')}
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer">Annulla</button>
+        <button onclick="confirmImport('${clId}','${prId}')" style="flex:2;padding:10px;border-radius:8px;background:var(--green-600);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer">Importa selezionati</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function confirmImport(clId, prId){
+  const selected = [...document.querySelectorAll('.imp-cb:checked')].map(c=>c.value);
+  if(!selected.length){ alert('Seleziona almeno un rilievo'); return; }
+  const cl = G_projects.find(x=>x.id===clId);
+  const pr = cl?.progetti.find(x=>x.id===prId);
+  if(!pr) return;
+  selected.forEach(id=>{ if(!pr.rilievi.includes(id)) pr.rilievi.push(id); });
+  saveProjects();
+  document.querySelector('div[style*="position:fixed"][style*="z-index:9999"]')?.remove();
+  render('lista');
+}
+
 function migrateProjects(){
   if(G_projects.length>0) return;
   const cTV={id:genId(),nome:'Tommaso Villirillo',progetti:[
