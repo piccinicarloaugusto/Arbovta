@@ -2216,7 +2216,15 @@ function renderSchedaSpeditiva(){
     </div>
     <div class="field" style="margin-top:8px">
       <label>Pericolosità</label>
-      <div class="peric-wrap" data-field="pericolosita" data-section="speditiva">${peric()}</div>
+      <select onchange="autosaveField('pericolosita_num',parseInt(this.selectedOptions[0].dataset.num)||0);autosaveField('pericolosita',this.value);updateRisk();"
+        style="width:100%;box-sizing:border-box">
+        <option value="" data-num="0">Seleziona...</option>
+        <option value="TRASCURABILE" data-num="1" ${f.pericolosita==='TRASCURABILE'?'selected':''}>TRASCURABILE</option>
+        <option value="BASSO" data-num="3" ${f.pericolosita==='BASSO'?'selected':''}>BASSO</option>
+        <option value="MODERATO" data-num="5" ${f.pericolosita==='MODERATO'?'selected':''}>MODERATO</option>
+        <option value="ELEVATO" data-num="7" ${f.pericolosita==='ELEVATO'?'selected':''}>ELEVATO</option>
+        <option value="ESTREMO" data-num="9" ${f.pericolosita==='ESTREMO'?'selected':''}>ESTREMO</option>
+      </select>
     </div>
 
     <!-- Fattore di contatto -->
@@ -2750,8 +2758,7 @@ function updateRisk(){
   const isSpeditiva = G.form.schedaMode === 'speditiva';
   let J27, J37, J47;
   if(isSpeditiva){
-    /* Nella speditiva usa pericolosita_num come valore unico × 3 */
-    const pNum = G.form.pericolosita_num || 0;
+    const pNum = parseInt(G.form.pericolosita_num) || 0;
     J27 = pNum; J37 = 0; J47 = 0;
   } else {
     J27 = vta['per_rc_num'] || 0;
