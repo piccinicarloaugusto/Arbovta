@@ -889,6 +889,7 @@ function saveRilievo(){
     fattoreContatto:    G.form.fattoreContatto || '',
     fattoreContattoNum: G.form.fattoreContattoNum || 0,
     pericolosita:       G.form.pericolosita || '',
+    pericolosita_num:   parseInt(G.form.pericolosita_num) || 0,
     pericolosita_num:   G.form.pericolosita_num || 0,
     indiceRischio:      G.form.indiceRischio || 0,
     fattoreDanno:       G.form.fattoreDanno || '',
@@ -2220,11 +2221,9 @@ function renderSchedaSpeditiva(){
       <select onchange="autosaveField('pericolosita_num',parseInt(this.selectedOptions[0].dataset.num)||0);autosaveField('pericolosita',this.value);updateRisk();"
         style="width:100%;box-sizing:border-box">
         <option value="" data-num="0">Seleziona...</option>
-        <option value="TRASCURABILE" data-num="1" ${f.pericolosita==='TRASCURABILE'?'selected':''}>TRASCURABILE</option>
-        <option value="BASSO" data-num="3" ${f.pericolosita==='BASSO'?'selected':''}>BASSO</option>
-        <option value="MODERATO" data-num="5" ${f.pericolosita==='MODERATO'?'selected':''}>MODERATO</option>
-        <option value="ELEVATO" data-num="7" ${f.pericolosita==='ELEVATO'?'selected':''}>ELEVATO</option>
-        <option value="ESTREMO" data-num="9" ${f.pericolosita==='ESTREMO'?'selected':''}>ESTREMO</option>
+        ${[['TRASCURABILE',1],['BASSO',3],['MODERATO',5],['ELEVATO',7],['ESTREMO',9]].map(([v,n])=>
+          `<option value="${v}" data-num="${n}" ${(f.pericolosita||'').toUpperCase().includes(v.substring(0,4))?'selected':''}>${v}</option>`
+        ).join('')}
       </select>
     </div>
 
@@ -2794,7 +2793,8 @@ function updateRisk(){
   /* Aggiorna display pericolosità finale */
   const perdisplay=document.getElementById('peric-label-display');
   if(perdisplay){ perdisplay.textContent=IR>0?pericLabel:'—'; }
-  autosaveField('pericolosita', IR>0?pericLabel:'');
+  /* Non sovrascrivere la pericolosità speditiva scelta dall'utente */
+  if(!isSpeditiva) autosaveField('pericolosita', IR>0?pericLabel:'');
   const noMeas=!G.form.fattoreDimensionale&&!(parseFloat(G.form.h)||parseFloat(G.form.dbh));
   if(dv){
     dv.textContent=FD.toFixed(3);
