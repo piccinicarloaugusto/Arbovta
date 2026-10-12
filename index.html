@@ -2175,13 +2175,14 @@ function renderSchedaSpeditiva(){
     </div>
     <!-- Georeferenziazione -->
     <div class="sec" style="margin-top:10px">Georeferenziazione</div>
-    <div class="geo-btn" onclick="requestGPS()">
+    <div class="geo-btn" onclick="requestGPS()" id="gps-box">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-      <span>Tocca per acquisire posizione GPS</span>
+      <span id="gps-txt">Tocca per acquisire posizione GPS</span>
+      <div id="gps-coords" style="font-size:10px;color:var(--green-600);font-family:var(--font-mono)"></div>
     </div>
     <div class="fg" style="margin-top:6px">
-      <div class="field"><label>Latitudine</label><input type="number" step="any" placeholder="es. 44.0452" value="${f.lat||''}" oninput="autosaveField('lat',this.value)"></div>
-      <div class="field"><label>Longitudine</label><input type="number" step="any" placeholder="es. 10.1056" value="${f.lng||''}" oninput="autosaveField('lng',this.value)"></div>
+      <div class="field"><label>Latitudine</label><input type="number" step="any" id="lat-in" placeholder="es. 44.0452" value="${f.lat||''}" oninput="autosaveField('lat',this.value)"></div>
+      <div class="field"><label>Longitudine</label><input type="number" step="any" id="lng-in" placeholder="es. 10.1056" value="${f.lng||''}" oninput="autosaveField('lng',this.value)"></div>
     </div>
   </div>
 
@@ -2518,7 +2519,7 @@ function autosave(key, value) {
   }
 }
 function autosaveField(key, value) {
-  G.form[key] = value;
+  G.form[key] = value; /* aggiorna sempre G.form, anche per nuovi rilievi */
   if(!G.form._editingId) return;
   const idx = G.trees.findIndex(x => x.id === G.form._editingId);
   if(idx >= 0) {
