@@ -2908,9 +2908,9 @@ async function generatePDFSpeditivo(t) {
 
   /* Badge speditiva */
   pdf.setFillColor(255,251,230); pdf.setDrawColor(240,192,64); pdf.setLineWidth(0.4);
-  pdf.roundedRect(mL+4,y+24,40,5,1,1,'FD');
-  setFont(7,'bold',[133,100,4]); text('⚡ VTA SPEDITIVA',mL+24,y+27.5,{align:'center'});
-  y+=34;
+  pdf.roundedRect(mL+4,y+25,44,6,1,1,'FD');
+  setFont(7,'bold',[133,100,4]); text('VTA SPEDITIVA',mL+26,y+29.5,{align:'center'});
+  y+=35;
 
   /* 2. DATI IDENTIFICATIVI */
   let _progNome='—', _clienteNome='—';
