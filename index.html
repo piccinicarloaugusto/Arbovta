@@ -483,7 +483,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       /* Salva una singola pianta */
       async saveTree(tree) {
         try {
-          await setDoc(doc(db, 'trees', String(tree.id)), tree);
+          /* Escludi le foto dal salvataggio Firebase (troppo grandi per il limite 1MB) */
+          const treeNoPhotos = {...tree, photos: (tree.photos||[]).map(p=>({
+            tipo: p.tipo||p.type||'', ts: p.ts||0
+            /* dataUrl escluso intenzionalmente */
+          }))};
+          await setDoc(doc(db, 'trees', String(tree.id)), treeNoPhotos);
         } catch(e) { console.warn('FB saveTree:', e); }
       },
 
@@ -497,8 +502,21 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       /* Carica tutte le piante (primo avvio / pull) */
       async loadAll() {
         try {
+          /* Carica rilievi locali per recuperare le foto */
+          let localTrees = [];
+          try { localTrees = JSON.parse(localStorage.getItem('arbovta-trees')||'[]'); } catch(e) {}
+          const localMap = new Map(localTrees.map(t=>[String(t.id), t]));
+
           const snap = await getDocs(collection(db, 'trees'));
-          return snap.docs.map(d => d.data());
+          return snap.docs.map(d => {
+            const fbData = d.data();
+            const local = localMap.get(String(fbData.id));
+            /* Ripristina foto dal localStorage se disponibili */
+            if(local && local.photos && local.photos.some(p=>p.dataUrl)){
+              fbData.photos = local.photos;
+            }
+            return fbData;
+          });
         } catch(e) { console.warn('FB loadAll:', e); return []; }
       },
 
