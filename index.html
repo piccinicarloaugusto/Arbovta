@@ -481,6 +481,20 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
     window._fb = {
 
       /* Salva una singola pianta */
+      async saveProjects(projects) {
+        try {
+          await setDoc(doc(db, 'meta', 'projects'), { data: JSON.stringify(projects), ts: Date.now() });
+        } catch(e) { console.warn('FB saveProjects:', e); }
+      },
+
+      async loadProjects() {
+        try {
+          const snap = await getDoc(doc(db, 'meta', 'projects'));
+          if(snap.exists()) return JSON.parse(snap.data().data || '[]');
+        } catch(e) { console.warn('FB loadProjects:', e); }
+        return null;
+      },
+
       async saveTree(tree) {
         try {
           /* Escludi le foto dal salvataggio Firebase (troppo grandi per il limite 1MB) */
@@ -600,6 +614,8 @@ try { G_projects = JSON.parse(localStorage.getItem('arbovta-projects') || '[]');
 
 function saveProjects(){
   try { localStorage.setItem('arbovta-projects', JSON.stringify(G_projects)); } catch(e) {}
+  /* Salva anche su Firebase */
+  if(window._fb) window._fb.saveProjects(G_projects);
 }
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 let G_nav = { view:'clienti', clienteId:null, progettoId:null };
@@ -650,7 +666,31 @@ function newRilievo(){
     if(!sel){alert('Scelta non valida');return;}
     G_nav.clienteId=sel.clId; G_nav.progettoId=sel.prId;
   }
-  G.form={codice:'',specie:G.ai.result?G.ai.result.scientific_name:'',ubicazione:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:G.clino.meas.h,dbh:G.clino.meas.dbh,cw:G.clino.meas.cw,cd:G.clino.meas.cd,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:'',schedaMode:''};
+  /* Precompila cliente e codice progressivo dal progetto corrente */
+  let preCliente='', preSito='', preDisp='', preUbic='', preLocalita='', preIndirizzo='', preStazione='', preSuolo='', prePavi='', preCodice='';
+  const cl = G_projects.find(x=>x.id===G_nav.clienteId);
+  const pr = cl?.progetti.find(x=>x.id===G_nav.progettoId);
+  if(cl) preCliente = cl.nome;
+  if(pr && pr.rilievi.length>0){
+    /* Prendi dati dall'ultimo rilievo del progetto */
+    const lastId = pr.rilievi[pr.rilievi.length-1];
+    const lastTree = G.trees.find(t=>String(t.id)===String(lastId));
+    if(lastTree){
+      preSito       = lastTree.sito||'';
+      preDisp       = lastTree.disposizione||'';
+      preUbic       = lastTree.ubicazione||'';
+      preLocalita   = lastTree.localita||'';
+      preIndirizzo  = lastTree.indirizzo||'';
+      preStazione   = lastTree.stazione||'';
+      preSuolo      = lastTree.suolo||'';
+      prePavi       = lastTree.pavimentazione||'';
+      /* Codice progressivo: tenta di incrementare il numero nel codice */
+      const lastCode = String(lastTree.id);
+      const match = lastCode.match(/^(\d+)(.*)$/);
+      if(match) preCodice = (parseInt(match[1])+1) + match[2];
+    }
+  }
+  G.form={codice:preCodice,specie:G.ai.result?G.ai.result.scientific_name:'',cliente:preCliente,ubicazione:preUbic,localita:preLocalita,indirizzo:preIndirizzo,sito:preSito,disposizione:preDisp,stazione:preStazione,suolo:preSuolo,pavimentazione:prePavi,sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:G.clino.meas.h,dbh:G.clino.meas.dbh,cw:G.clino.meas.cw,cd:G.clino.meas.cd,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:'',schedaMode:''};
   go('scheda',navTab(3));
 }
 
@@ -769,8 +809,28 @@ async function loadFromFirebase() {
     G.trees = [...map.values()];
     try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
 
-    /* Ricostruisci G_projects dai dati recuperati se è vuoto */
-    if (G_projects.length === 0 && G.trees.length > 0) {
+    /* Carica progetti da Firebase */
+    const fbProjects = await window._fb.loadProjects();
+    if(fbProjects && fbProjects.length > 0){
+      /* Merge: mantieni progetti locali + aggiungi quelli Firebase non presenti */
+      const localIds = new Set(G_projects.map(c=>c.id));
+      fbProjects.forEach(fc=>{
+        if(!localIds.has(fc.id)) G_projects.push(fc);
+        else {
+          /* Merge progetti e rilievi del cliente esistente */
+          const local = G_projects.find(c=>c.id===fc.id);
+          fc.progetti.forEach(fp=>{
+            const lp = local.progetti.find(p=>p.id===fp.id);
+            if(!lp) local.progetti.push(fp);
+            else {
+              /* Aggiungi rilievi mancanti */
+              fp.rilievi.forEach(r=>{ if(!lp.rilievi.includes(r)) lp.rilievi.push(r); });
+            }
+          });
+        }
+      });
+      saveProjects();
+    } else if (G_projects.length === 0 && G.trees.length > 0) {
       migrateProjects();
     }
 
@@ -1761,13 +1821,22 @@ function startSensor(){
 }
 
 function onOrientation(e){
-  let b=e.beta||0, angle=b-90;
-  if(angle>90) angle=180-angle;
-  if(angle<-90) angle=-180-angle;
+  let b=e.beta||0, g=e.gamma||0;
+  /* Rileva orientamento schermo */
+  const orient = (screen.orientation||{}).angle ?? window.orientation ?? 0;
+  let angle;
+  if(Math.abs(orient)===90 || Math.abs(orient)===270){
+    /* Landscape: usa gamma invece di beta, con segno corretto */
+    angle = (orient===90) ? -g : g;
+  } else {
+    /* Portrait: usa beta */
+    angle = b - 90;
+    if(angle>90)  angle = 180-angle;
+    if(angle<-90) angle = -180-angle;
+  }
   G.clino.angle=parseFloat(angle.toFixed(1));
   G.clino.lastAngle=G.clino.angle;
   updateClinoDisplay();
-  /* Aggiorna angolo nell'overlay fullscreen se aperto */
   updateClinoFSAngle(G.clino.angle);
 }
 
@@ -3707,26 +3776,74 @@ function showExportFeedback(msg, ok) {
 function renderReportView(){
   const t = G.trees.find(x => x.id === G.form._editingId) || G.trees[0];
   const photos = (t && t.photos) ? t.photos : [];
-  const treeOptions = G.trees.map(tr=>`<option value="${tr.id}" ${tr.id===G.form._editingId?'selected':''}>#${tr.id} — ${tr.specie}</option>`).join('');
+
+  /* Costruisci lista rilievi raggruppata per cliente/progetto */
+  let treeListHTML = '';
+  const treeIdsInProjects = new Set();
+  G_projects.forEach(cl=>{
+    cl.progetti.forEach(pr=>{
+      const rils = pr.rilievi.map(id=>G.trees.find(tr=>String(tr.id)===String(id))).filter(Boolean);
+      if(!rils.length) return;
+      treeListHTML += `<div style="margin-top:8px">
+        <div style="font-size:10px;font-weight:700;color:var(--green-700);padding:4px 6px;background:var(--surface-2);border-radius:4px;display:flex;justify-content:space-between;align-items:center">
+          <span>${cl.nome} — ${pr.nome}</span>
+          <span style="display:flex;gap:6px">
+            <button onclick="selectAllInProject('${pr.id}',true)" style="font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer">tutti</button>
+            <button onclick="selectAllInProject('${pr.id}',false)" style="font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer">nessuno</button>
+          </span>
+        </div>`;
+      rils.forEach(tr=>{
+        treeIdsInProjects.add(String(tr.id));
+        const checked = String(tr.id)===String(G.form._editingId)?'checked':'';
+        const cpcCol = {'A':'#2563eb','B':'#16a34a','C':'#ca8a04','C/D':'#ea580c','D':'#b91c1c'}[tr.cpc]||'#666';
+        treeListHTML += `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:0.5px solid var(--border);cursor:pointer">
+          <input type="checkbox" class="report-cb" data-id="${tr.id}" data-project="${pr.id}" ${checked}>
+          <span style="flex:1;font-size:12px"><strong>#${tr.id}</strong> — ${tr.specie||'—'}</span>
+          <span style="font-size:10px;font-weight:700;color:${cpcCol}">${tr.cpc||'A'}</span>
+          <span style="font-size:10px;color:var(--text-muted)">${tr.schedaMode==='speditiva'?'⚡':''}</span>
+        </label>`;
+      });
+      treeListHTML += `</div>`;
+    });
+  });
+
+  /* Rilievi non assegnati a nessun progetto */
+  const unassigned = G.trees.filter(tr=>!treeIdsInProjects.has(String(tr.id)));
+  if(unassigned.length){
+    treeListHTML += `<div style="margin-top:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 6px;background:var(--surface-2);border-radius:4px">Non assegnati</div>`;
+    unassigned.forEach(tr=>{
+      treeListHTML += `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:0.5px solid var(--border);cursor:pointer">
+        <input type="checkbox" class="report-cb" data-id="${tr.id}">
+        <span style="flex:1;font-size:12px"><strong>#${tr.id}</strong> — ${tr.specie||'—'}</span>
+        <span style="font-size:10px;color:var(--text-muted)">${tr.schedaMode==='speditiva'?'⚡':''}</span>
+      </label>`;
+    });
+    treeListHTML += `</div>`;
+  }
+
   return `<div class="card">
     <div class="sec">Genera report PDF</div>
-    <div class="field"><label>Pianta</label><select id="report-tree-sel" onchange="updateReportPreview(this.value)"><option value="">Tutte le piante</option>${treeOptions}</select></div>
-    <div class="field" style="margin-top:7px"><label>Tipo di report</label>
-      <div class="chips" style="margin-top:4px">
-        <button class="chip on">Scheda VTA completa</button>
-        <button class="chip">Solo diagnosi</button>
-        <button class="chip">Report censimento</button>
+
+    <!-- Selezione rilievi -->
+    <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:600;color:var(--text-primary)">Seleziona rilievi</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="document.querySelectorAll('.report-cb').forEach(c=>c.checked=true)" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer">Tutti</button>
+        <button onclick="document.querySelectorAll('.report-cb').forEach(c=>c.checked=false)" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer">Nessuno</button>
       </div>
     </div>
-    <div style="margin-top:9px">
-      <div class="toggle-row"><span class="toggle-lbl">Includi mappa di localizzazione</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
-      <div class="toggle-row"><span class="toggle-lbl">Dati clinometro (misurazioni)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
-      <div class="toggle-row"><span class="toggle-lbl">Specie (riconoscimento AI)</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
-      <div class="toggle-row"><span class="toggle-lbl">Intestazione professionale</span><label class="tog"><input type="checkbox" checked><span class="tog-slider"></span></label></div>
-      <div class="toggle-row"><span class="toggle-lbl">Allegato fotografico</span><label class="tog"><input type="checkbox" id="tog-photos" ${photos.length?'checked':''}><span class="tog-slider"></span></label></div>
+    <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px 8px;background:#fff">
+      ${treeListHTML || '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px">Nessun rilievo disponibile</div>'}
     </div>
-    <div style="margin-top:9px;padding:9px;background:var(--surface-2);border-radius:var(--r-sm);font-size:11px;color:var(--text-muted);border:0.5px solid var(--border);line-height:1.6">Il report includerà: dati identificativi, georeferenziazione GPS, misure da clinometro (H, DBH, chioma, snellezza), analisi VTA completa per sezioni anatomiche, diagnosi, prescrizioni, firma rilevatore${photos.length?', allegato fotografico ('+photos.length+' foto)':''}.</div>
-    <button class="btn-primary" style="margin-top:9px" onclick="generatePDF()">Genera / Stampa PDF</button>
+
+    <div id="report-sel-count" style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:right">
+      Selezionato: <strong id="report-sel-n">1</strong> rilievo
+    </div>
+
+    <button class="btn-primary" style="margin-top:9px;width:100%" onclick="generatePDFSelected()">
+      Genera PDF selezionati
+    </button>
   </div>
   ${photos.length ? `
   <div class="card">
@@ -4585,13 +4702,57 @@ function updateReportPreview(treeId) {
   if (el) el.innerHTML = renderReportView();
 }
 
+function selectAllInProject(prId, select){
+  document.querySelectorAll(`.report-cb[data-project="${prId}"]`).forEach(c=>c.checked=select);
+  updateReportSelCount();
+}
+
+function updateReportSelCount(){
+  const n = document.querySelectorAll('.report-cb:checked').length;
+  const el = document.getElementById('report-sel-n');
+  if(el) el.textContent = n;
+}
+
+/* Aggiungi listener al cambio checkbox */
+document.addEventListener('change', e=>{
+  if(e.target.classList.contains('report-cb')) updateReportSelCount();
+});
+
+async function generatePDFSelected(){
+  const selected = [...document.querySelectorAll('.report-cb:checked')].map(c=>c.dataset.id);
+  if(!selected.length){ alert('Seleziona almeno un rilievo'); return; }
+
+  const btn = document.querySelector('[onclick="generatePDFSelected()"]');
+  if(btn){ btn.disabled=true; btn.textContent=`Generazione in corso (0/${selected.length})...`; }
+
+  for(let i=0; i<selected.length; i++){
+    const treeId = selected[i];
+    const t = G.trees.find(x=>String(x.id)===String(treeId));
+    if(!t) continue;
+    if(btn) btn.textContent=`Generazione in corso (${i+1}/${selected.length})...`;
+    if(t.schedaMode==='speditiva'){
+      await generatePDFSpeditivo(t);
+    } else {
+      await generatePDFSingle(t);
+    }
+    /* Piccola pausa tra un PDF e l'altro */
+    if(i < selected.length-1) await new Promise(r=>setTimeout(r,500));
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent='Genera PDF selezionati'; }
+}
+
 async function generatePDF() {
-  const treeId = document.getElementById('report-tree-sel')?.value || G.form._editingId;
+  /* Compatibilità retroattiva */
+  const treeId = G.form._editingId || (G.trees[0]||{}).id;
   const t = G.trees.find(x => String(x.id) === String(treeId)) || G.trees[0];
   if (!t) { alert('Seleziona una pianta prima di generare il report'); return; }
-
-  /* Se rilievo speditivo usa generatePDFSpeditivo */
   if(t.schedaMode === 'speditiva') { await generatePDFSpeditivo(t); return; }
+  await generatePDFSingle(t);
+}
+
+async function generatePDFSingle(t) {
+  if (!t) return;
 
   /* Carica jsPDF */
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -5043,6 +5204,11 @@ function renderClienti(){
       <button onclick="loadFromFirebase()" style="background:var(--green-600);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
         ☁ Recupera da Firebase
       </button>
+      <div style="margin-top:6px">
+        <button onclick="syncAllToFirebase()" style="background:#1d4ed8;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+          ↑ Carica tutto su Firebase
+        </button>
+      </div>
       <div style="margin-top:8px">
         <button onclick="recoverItalgas()" style="background:#1d4ed8;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
           ⚡ Recupera Italgas / Lotto 1
@@ -5207,6 +5373,19 @@ function showMoveRilievo(rId){
 }
 
 /* ── MIGRAZIONE DATI ── */
+/* Forza sincronizzazione di tutti i rilievi locali su Firebase */
+async function syncAllToFirebase(){
+  if(!window._fb){ alert('Firebase non disponibile'); return; }
+  let count=0;
+  for(const t of G.trees){
+    await window._fb.saveTree(t);
+    count++;
+  }
+  /* Salva anche i progetti */
+  await window._fb.saveProjects(G_projects);
+  alert(`✓ Sincronizzati ${count} rilievi e ${G_projects.length} clienti su Firebase`);
+}
+
 /* Recupero automatico rilievi Italgas Lotto 1 */
 async function recoverItalgas(){
   if(!window._fb){ alert('Firebase non disponibile'); return; }
