@@ -2915,6 +2915,40 @@ function updateRisk(){
 /* ── ESPORTAZIONE MAPPA ── */
 const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94MjUwNjY4IiwiYSI6ImNtb3Z4YzVoZDA0bjkyc3NhMjZpcWxxem0ifQ.myjQhOd9fEbizGwqGLdoPQ';
 
+/* Helper: inserisce una foto nel PDF con orientamento e dimensioni corrette */
+async function addPhotoToPDF(pdf, dataUrl, x, y, maxW, maxH) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth  || img.width;
+      let h = img.naturalHeight || img.height;
+      /* Rileva se la foto è verticale (portrait) o orizzontale (landscape) */
+      const isPortrait = h > w;
+      let drawW, drawH;
+      if(isPortrait){
+        /* Foto verticale: scala in base all'altezza massima */
+        drawH = maxH;
+        drawW = drawH * (w/h);
+        if(drawW > maxW){ drawW=maxW; drawH=drawW*(h/w); }
+      } else {
+        /* Foto orizzontale: scala in base alla larghezza massima */
+        drawW = maxW;
+        drawH = drawW * (h/w);
+        if(drawH > maxH){ drawH=maxH; drawW=drawH*(w/h); }
+      }
+      /* Centra nella cella disponibile */
+      const offX = x + (maxW - drawW) / 2;
+      const offY = y + (maxH - drawH) / 2;
+      try { pdf.addImage(dataUrl, 'JPEG', offX, offY, drawW, drawH); }
+      catch(e) { console.warn('addPhotoToPDF error:', e); }
+      resolve({w:drawW, h:drawH});
+    };
+    img.onerror = () => resolve({w:maxW, h:maxH*0.75});
+    img.src = dataUrl;
+  });
+}
+
+
 async function generatePDFSpeditivo(t) {
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   const { jsPDF } = window.jspdf;
@@ -3067,14 +3101,19 @@ async function generatePDFSpeditivo(t) {
   setFont(7,'normal',GRAY); text('Firma',mL+40,y+39,{align:'center'});
 
   /* 6. FOTO */
+  /* 6. ALLEGATO FOTOGRAFICO — pagina sempre presente */
   const photos=t.photos?.filter(p=>p?.dataUrl)||[];
+  pdf.addPage(); y=mT; drawHeader();
+  drawSection('ALLEGATO FOTOGRAFICO');
   if(photos.length>0){
-    pdf.addPage(); y=mT; drawHeader();
-    drawSection('ALLEGATO FOTOGRAFICO');
-    const imgW=pW-mL-mR, imgH=imgW*0.75;
-    checkY(imgH+14);
-    try{pdf.addImage(photos[0].dataUrl,'JPEG',mL,y,imgW,imgH);}catch(e){rect(mL,y,imgW,imgH,[240,240,240]);}
-    setFont(7,'normal',GRAY); text(photos[0].tipo||'Foto rilievo',mL+imgW/2,y+imgH+5,{align:'center'});
+    const maxW=pW-mL-mR, maxH=170;
+    await addPhotoToPDF(pdf, photos[0].dataUrl, mL, y, maxW, maxH);
+    y+=maxH+6;
+    setFont(7,'normal',GRAY); text(photos[0].tipo||'Foto rilievo',pW/2,y,{align:'center'});
+  } else {
+    /* Pagina vuota con spazio per foto da incollare */
+    rect(mL,y,pW-mL-mR,180,[248,248,248],LGRAY);
+    setFont(8,'normal',GRAY); text('Spazio riservato per allegato fotografico',pW/2,y+90,{align:'center'});
   }
 
   /* Numero pagine */
@@ -5090,23 +5129,25 @@ async function generatePDFSingle(t) {
   /* ══════════════════════════════════════
      7. ALLEGATO FOTOGRAFICO
   ══════════════════════════════════════ */
+  /* 7. ALLEGATO FOTOGRAFICO — pagina sempre presente */
   const photos = t.photos?.filter(p=>p?.dataUrl) || [];
-  if(photos.length > 0) {
-    pdf.addPage(); y = mT; drawHeader();
-    drawSection('ALLEGATO FOTOGRAFICO');
-    const cols = 2, imgW = (pW-mL-mR-8)/cols, imgH = imgW*0.75;
-    photos.forEach((ph, i) => {
-      if(i%cols===0 && i>0) y += imgH + 14;
-      checkY(imgH+14);
-      const x = mL + (i%cols)*(imgW+8);
-      try {
-        pdf.addImage(ph.dataUrl, 'JPEG', x, y, imgW, imgH);
-      } catch(e) {
-        rect(x, y, imgW, imgH, [240,240,240]);
-      }
-      setFont(7, 'normal', GRAY);
-      text(ph.tipo||`Foto ${i+1}`, x + imgW/2, y+imgH+4, {align:'center'});
-    });
+  pdf.addPage(); y = mT; drawHeader();
+  drawSection('ALLEGATO FOTOGRAFICO');
+  if(photos.length > 0){
+    const cols = 2;
+    const cellW = (pW-mL-mR-8)/cols;
+    const cellH = 120;
+    for(let i=0; i<photos.length; i++){
+      if(i>0 && i%cols===0){ y += cellH+16; checkY(cellH+16); }
+      const x = mL + (i%cols)*(cellW+8);
+      checkY(cellH+16);
+      await addPhotoToPDF(pdf, photos[i].dataUrl, x, y, cellW, cellH);
+      setFont(7,'normal',GRAY);
+      text(photos[i].tipo||`Foto ${i+1}`, x+cellW/2, y+cellH+5, {align:'center'});
+    }
+  } else {
+    rect(mL,y,pW-mL-mR,180,[248,248,248],LGRAY);
+    setFont(8,'normal',GRAY); text('Spazio riservato per allegato fotografico',pW/2,y+90,{align:'center'});
   }
 
   /* Numero pagine */
