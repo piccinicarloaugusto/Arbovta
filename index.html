@@ -3289,16 +3289,18 @@ function renderMappa(){
   <div class="seg">
     <button class="seg-b active" onclick="setMapView('mappa',this)">Mappa</button>
     <button class="seg-b" onclick="setMapView('report',this)">Report PDF</button>
+    <button class="seg-b" onclick="setMapView('excel',this)">Export Excel</button>
     <button class="seg-b" onclick="setMapView('impostazioni',this)">Impostazioni</button>
   </div>
   <div id="mv-mappa">${renderMappaView()}</div>
   <div id="mv-report" style="display:none">${renderReportView()}</div>
+  <div id="mv-excel" style="display:none">${renderExcelView()}</div>
   <div id="mv-impostazioni" style="display:none">${renderImpostazioniView()}</div>`;
 }
 function setMapView(v,btn){
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['mappa','report','impostazioni'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
+  ['mappa','report','excel','impostazioni'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
   if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,100));
 }
 function renderMappaView(){
@@ -3909,6 +3911,64 @@ function renderReportView(){
     </div>
   </div>`;
 }
+function renderExcelView(){
+  const clientiOptions = G_projects.map(cl=>`<option value="${cl.nome}">${cl.nome}</option>`).join('');
+  const progettiOptions = [...new Set(G_projects.flatMap(cl=>cl.progetti.map(p=>p.nome)))].map(n=>`<option value="${n}">${n}</option>`).join('');
+  return `<div class="card">
+    <div class="sec">Export Excel — Rilievi ArboRisk</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Seleziona i filtri poi scarica il file</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="field"><label>Cliente</label>
+        <select id="xls-cliente" style="width:100%;box-sizing:border-box">
+          <option value="">Tutti</option>${clientiOptions}
+        </select>
+      </div>
+      <div class="field"><label>Progetto</label>
+        <select id="xls-progetto" style="width:100%;box-sizing:border-box">
+          <option value="">Tutti</option>${progettiOptions}
+        </select>
+      </div>
+      <div class="field"><label>Specie</label>
+        <input type="text" id="xls-specie" placeholder="es. Quercus" style="width:100%;box-sizing:border-box">
+      </div>
+      <div class="field"><label>Classe CPC</label>
+        <select id="xls-cpc" style="width:100%;box-sizing:border-box">
+          <option value="">Tutte</option>
+          ${['A','B','C','C/D','D'].map(c=>`<option value="${c}">${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Giudizio vegetativo</label>
+        <select id="xls-giud-veg" style="width:100%;box-sizing:border-box">
+          <option value="">Tutti</option>
+          ${['BUONO','DISCRETO','MEDIOCRE','GRAVE','PESSIMO'].map(v=>`<option value="${v}">${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Giudizio fisiopatologico</label>
+        <select id="xls-giud-fisio" style="width:100%;box-sizing:border-box">
+          <option value="">Tutti</option>
+          ${['BUONO','DISCRETO','MEDIOCRE','GRAVE','PESSIMO'].map(v=>`<option value="${v}">${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Pericolosità</label>
+        <select id="xls-peric" style="width:100%;box-sizing:border-box">
+          <option value="">Tutte</option>
+          ${['TRASCURABILE','BASSO','MODERATO','ELEVATO','ESTREMO'].map(v=>`<option value="${v}">${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Data da</label>
+        <input type="date" id="xls-data-da" style="width:100%;box-sizing:border-box">
+      </div>
+      <div class="field"><label>Data a</label>
+        <input type="date" id="xls-data-a" style="width:100%;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="margin-top:8px;padding:8px;background:var(--surface-2);border-radius:8px;font-size:11px;color:var(--text-muted)">
+      Colonne: Codice · Specie · Cliente · Progetto · Comune · Località · Indirizzo · Sito · Stazione · Pavimentazione · H · DBH · Circ. · Ø Chioma · FD · Giud. Veg. · Giud. Fisio. · Pericolosità · FC · IR · CPC · Prescrizioni
+    </div>
+    <button class="btn-primary" style="margin-top:10px;width:100%" onclick="exportExcel()">📊 Scarica Excel</button>
+  </div>`;
+}
+
 function renderImpostazioniView(){
   return `
   <!-- Card installazione app -->
@@ -5414,6 +5474,143 @@ function showMoveRilievo(rId){
 }
 
 /* ── MIGRAZIONE DATI ── */
+/* ── EXPORT EXCEL ── */
+async function exportExcel(){
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+  const XLSX = window.XLSX;
+
+  /* Leggi filtri */
+  const fCliente  = document.getElementById('xls-cliente')?.value||'';
+  const fProgetto = document.getElementById('xls-progetto')?.value||'';
+  const fDataDa   = document.getElementById('xls-data-da')?.value||'';
+  const fDataA    = document.getElementById('xls-data-a')?.value||'';
+  const fSpecie   = document.getElementById('xls-specie')?.value.toLowerCase()||'';
+  const fCPC      = document.getElementById('xls-cpc')?.value||'';
+  const fGiudVeg  = document.getElementById('xls-giud-veg')?.value||'';
+  const fGiudFisio= document.getElementById('xls-giud-fisio')?.value||'';
+  const fPeric    = document.getElementById('xls-peric')?.value||'';
+
+  /* Costruisci mappa rilievo→cliente/progetto */
+  const rilievoMap = {};
+  G_projects.forEach(cl=>{
+    cl.progetti.forEach(pr=>{
+      pr.rilievi.forEach(id=>{
+        rilievoMap[String(id)] = {cliente:cl.nome, progetto:pr.nome};
+      });
+    });
+  });
+
+  /* Filtra rilievi */
+  let rows = G.trees.filter(t=>{
+    const cp = rilievoMap[String(t.id)]||{cliente:'',progetto:''};
+    if(fCliente  && !cp.cliente.toLowerCase().includes(fCliente.toLowerCase()))  return false;
+    if(fProgetto && !cp.progetto.toLowerCase().includes(fProgetto.toLowerCase())) return false;
+    if(fSpecie   && !(t.specie||'').toLowerCase().includes(fSpecie))              return false;
+    if(fCPC      && (t.cpc||'')!==fCPC)                                           return false;
+    if(fGiudVeg  && (t.giudVeg||'').toUpperCase()!==fGiudVeg)                    return false;
+    if(fGiudFisio&& (t.giudFisio||'').toUpperCase()!==fGiudFisio)                return false;
+    if(fPeric    && !(t.pericolosita||'').toUpperCase().includes(fPeric))         return false;
+    if(fDataDa   && (t.data||'') < fDataDa)                                      return false;
+    if(fDataA    && (t.data||'') > fDataA)                                        return false;
+    return true;
+  });
+
+  if(!rows.length){ alert('Nessun rilievo corrisponde ai filtri selezionati'); return; }
+
+  /* Intestazione */
+  const header = [
+    'Codice','Data','Specie','Cliente','Progetto',
+    'Comune','Località','Indirizzo','Sito','Stazione',
+    'Pavimentazione','Suolo','Disposizione',
+    'H (m)','DBH (cm)','Circonf. (m)','Ø Chioma (m)','FD',
+    'Giud. Vegetativo','Giud. Fisiopatologico','Giud. Biomeccanico',
+    'Pericolosità','FC','Indice di Rischio','Classe CPC',
+    'Tipo scheda','Prescrizioni'
+  ];
+
+  /* Righe dati */
+  const data = rows.map(t=>{
+    const cp = rilievoMap[String(t.id)]||{cliente:'',progetto:''};
+    const circ = t.dbh ? ((parseFloat(t.dbh)/100)*Math.PI).toFixed(2) : '';
+    const h = parseFloat(t.h)||0, dbh = parseFloat(t.dbh)||0, cw = parseFloat(t.cw)||0;
+    const circM = (dbh/100)*Math.PI;
+    let fd = '';
+    if(h>0 && circM>0 && cw>0){
+      fd = Math.round((10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circM-100)))+10/(1+Math.exp(-0.7*(cw-6))))/3);
+    }
+    return [
+      t.id, t.data||'', t.specie||'',
+      cp.cliente, cp.progetto,
+      t.ubicazione||'', t.localita||'', t.indirizzo||'',
+      t.sito||'', t.stazione||'', t.pavimentazione||'',
+      t.suolo||'', t.disposizione||'',
+      t.h||'', t.dbh||'', circ, t.cw||'', fd,
+      t.giudVeg||'', t.giudFisio||'', t.giudBiomec||'',
+      t.pericolosita||'', t.fattoreContattoNum||'',
+      t.indiceRischio||'', t.cpc||'',
+      t.schedaMode==='speditiva'?'Speditiva':'Ordinaria',
+      t.prescrizioni||''
+    ];
+  });
+
+  /* Crea workbook */
+  const wb = XLSX.utils.book_new();
+
+  /* Foglio dati */
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+  /* Larghezze colonne */
+  ws['!cols'] = [
+    {wch:8},{wch:12},{wch:22},{wch:20},{wch:20},
+    {wch:16},{wch:16},{wch:20},{wch:16},{wch:14},
+    {wch:16},{wch:12},{wch:14},
+    {wch:8},{wch:8},{wch:10},{wch:10},{wch:6},
+    {wch:14},{wch:18},{wch:16},
+    {wch:14},{wch:6},{wch:14},{wch:10},
+    {wch:12},{wch:40}
+  ];
+
+  /* Stile intestazione (sfondo verde) */
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let c=range.s.c; c<=range.e.c; c++){
+    const cell = ws[XLSX.utils.encode_cell({r:0,c})];
+    if(cell) cell.s = {
+      font:{bold:true, color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'1A3320'}},
+      alignment:{horizontal:'center'}
+    };
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Rilievi');
+
+  /* Foglio riepilogo */
+  const cpcCount = {};
+  rows.forEach(t=>{ const c=t.cpc||'A'; cpcCount[c]=(cpcCount[c]||0)+1; });
+  const summary = [
+    ['RIEPILOGO STATISTICO ArboRisk'],
+    [''],
+    ['Totale rilievi', rows.length],
+    ['Data export', new Date().toLocaleDateString('it-IT')],
+    [''],
+    ['Distribuzione per classe CPC'],
+    ['Classe','N. rilievi','%'],
+    ...['A','B','C','C/D','D'].map(c=>[c, cpcCount[c]||0, rows.length?Math.round((cpcCount[c]||0)/rows.length*100)+'%':'0%']),
+    [''],
+    ['Distribuzione per giudizio vegetativo'],
+    ['Giudizio','N. rilievi'],
+    ...['BUONO','DISCRETO','MEDIOCRE','GRAVE','PESSIMO'].map(g=>[
+      g, rows.filter(t=>(t.giudVeg||'').toUpperCase()===g).length
+    ])
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(summary);
+  ws2['!cols'] = [{wch:30},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Riepilogo');
+
+  /* Scarica */
+  const filename = `ArboRisk_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
 /* Forza sincronizzazione di tutti i rilievi locali su Firebase */
 async function syncAllToFirebase(){
   if(!window._fb){ alert('Firebase non disponibile'); return; }
