@@ -532,9 +532,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
             const fbData = d.data();
             const local = localMap.get(String(fbData.id));
             /* Ripristina foto dal localStorage se disponibili */
-            if(local && local.photos && local.photos.some(p=>p.dataUrl)){
-              fbData.photos = local.photos;
-            }
+            if(local && local.photos && local.photos.some(p=>p.dataUrl)){ fbData.photos = local.photos; } /* le altre sono in IndexedDB (mergeCloudTrees le conserva) */
             return fbData;
           });
         } catch(e) { console.warn('FB loadAll:', e); return []; }
@@ -810,10 +808,8 @@ async function loadFromFirebase() {
       return;
     }
     /* Merge e salva */
-    const map = new Map(G.trees.map(t => [String(t.id), t]));
-    cloudTrees.forEach(t => map.set(String(t.id), t));
-    G.trees = [...map.values()];
-    try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+    mergeCloudTrees(cloudTrees);
+    lsSaveTrees();
 
     /* Carica progetti da Firebase */
     const fbProjects = await window._fb.loadProjects();
@@ -878,6 +874,7 @@ function deleteTree(id){
   if(!t) return;
   if(!confirm(`Eliminare il rilievo #${t.id} — ${t.specie}?\nQuesta operazione non è reversibile.`)) return;
   G.trees = G.trees.filter(x => x.id !== id);
+  delete _photoSig[String(id)]; photoDBop('readwrite',st=>st.delete(String(id))).catch(()=>{});
   saveTrees();
   /* Elimina anche da Firebase */
   if (window._fb) window._fb.deleteTree(id);
@@ -2402,14 +2399,11 @@ function takeSpeditivaPhoto(){
   input.type='file'; input.accept='image/*'; input.capture='environment';
   input.onchange=async e=>{
     const file=e.target.files[0]; if(!file) return;
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      if(!G.form.photos) G.form.photos=[];
-      G.form.photos[0]={dataUrl:ev.target.result,tipo:'Foto rilievo',ts:Date.now()};
-      autosaveField('photos',G.form.photos);
-      renderSchedaSpeditiva();
-    };
-    reader.readAsDataURL(file);
+    const dataUrl=await compressPhoto(file);
+    if(!G.form.photos) G.form.photos=[];
+    G.form.photos[0]={dataUrl,tipo:'Foto rilievo',ts:Date.now()};
+    autosaveField('photos',G.form.photos);
+    renderSchedaSpeditiva();
   };
   input.click();
 }
@@ -2608,7 +2602,7 @@ function autosave(key, value) {
   if(idx >= 0) {
     if(!G.trees[idx].vta) G.trees[idx].vta = {};
     G.trees[idx].vta[key] = value;
-    try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+    lsSaveTrees();
     if(window._fb) window._fb.saveTree(G.trees[idx]);
   }
 }
@@ -2618,7 +2612,7 @@ function autosaveField(key, value) {
   const idx = G.trees.findIndex(x => x.id === G.form._editingId);
   if(idx >= 0) {
     G.trees[idx][key] = value;
-    try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+    lsSaveTrees();
     if(window._fb) window._fb.saveTree(G.trees[idx]);
   }
 }
@@ -4597,6 +4591,8 @@ function showGinveFeedback(msg, ok) {
 ═══════════════════════════════════════ */
 loadTrees();   /* Prima carica i dati salvati */
 render('lista'); /* Poi renderizza con i dati */
+try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+setTimeout(hydratePhotos,0);   /* dopo che tutte le definizioni sono caricate */
 
 /* ═══════════════════════════════════════
    PWA — Service Worker + Install
@@ -4733,16 +4729,97 @@ if (startAction) {
 }
 
 /* ── Persistenza dati — localStorage + Firebase ── */
+/* ── FOTO in IndexedDB (il localStorage ha limite ~5 MB e falliva in silenzio) ── */
+var _photoSig = {};
+var _photoDBp = null;
+function photoDB(){
+  if(_photoDBp) return _photoDBp;
+  _photoDBp = new Promise((res,rej)=>{
+    try{
+      const rq = indexedDB.open('arborisk-photos',1);
+      rq.onupgradeneeded = ()=>rq.result.createObjectStore('photos');
+      rq.onsuccess = ()=>res(rq.result);
+      rq.onerror = ()=>rej(rq.error);
+    }catch(e){ rej(e); }
+  });
+  return _photoDBp;
+}
+function photoDBop(mode, fn){
+  return photoDB().then(db=>new Promise((res,rej)=>{
+    const tx = db.transaction('photos',mode);
+    const r = fn(tx.objectStore('photos'));
+    tx.oncomplete = ()=>res(r && r.result);
+    tx.onerror = tx.onabort = ()=>rej(tx.error);
+  }));
+}
+function photoSig(arr){ return (arr||[]).map(p=>(p.dataUrl||'').length+':'+(p.type||p.tipo||'')).join('|'); }
+function hasPhotoData(arr){ return (arr||[]).some(p=>p&&p.dataUrl); }
+function stripPhotos(t){
+  if(!t || !t.photos) return t;
+  return {...t, photos: t.photos.map(p=>{ const q={...p}; delete q.dataUrl; q.idb=1; return q; })};
+}
+/* Scrive su localStorage l'archivio SENZA immagini; le immagini vanno in IndexedDB */
+function lsSaveTrees(){
+  let ok=true;
+  try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees.map(stripPhotos))); }
+  catch(e){ ok=false; console.error('localStorage pieno:', e); }
+  syncPhotosToDB();
+  return ok;
+}
+function syncPhotosToDB(){
+  G.trees.forEach(t=>{
+    const id=String(t.id), arr=t.photos||[];
+    if(hasPhotoData(arr)){
+      const sig=photoSig(arr);
+      if(_photoSig[id]===sig) return;
+      _photoSig[id]=sig;
+      const copy=JSON.parse(JSON.stringify(arr));
+      photoDBop('readwrite',st=>st.put(copy,id)).catch(e=>{ delete _photoSig[id]; console.error('IDB put',e); });
+    } else if(arr.length===0 && _photoSig[id]){
+      delete _photoSig[id];
+      photoDBop('readwrite',st=>st.delete(id)).catch(()=>{});
+    }
+  });
+}
+/* Ricarica le immagini dall'IndexedDB nei rilievi (all'avvio) */
+async function hydratePhotos(){
+  try{
+    for(const t of G.trees){
+      if(hasPhotoData(t.photos)) continue;      /* già complete (dati vecchi: saranno migrate) */
+      if(!t.photos || !t.photos.length) continue;
+      const arr = await photoDBop('readonly',st=>st.get(String(t.id)));
+      if(arr && arr.length){ t.photos=arr; _photoSig[String(t.id)]=photoSig(arr); }
+    }
+    syncPhotosToDB();   /* migra nel DB le foto vecchie ancora nel localStorage */
+    lsSaveTrees();      /* poi alleggerisce il localStorage */
+    if(G.form && G.form._editingId){
+      const t=G.trees.find(x=>x.id===G.form._editingId);
+      if(t && hasPhotoData(t.photos) && !hasPhotoData(G.form.photos)){
+        G.form.photos=JSON.parse(JSON.stringify(t.photos));
+        if(typeof refreshSchedaPhotoGrid==='function') refreshSchedaPhotoGrid();
+      }
+    }
+  }catch(e){ console.error('hydratePhotos', e); }
+}
+/* Unisce i rilievi da cloud (senza immagini) conservando le foto locali */
+function mergeCloudTrees(cloudTrees){
+  const map = new Map(G.trees.map(t=>[String(t.id),t]));
+  cloudTrees.forEach(t=>{
+    const loc=map.get(String(t.id));
+    if(loc && hasPhotoData(loc.photos) && !hasPhotoData(t.photos)) t.photos=loc.photos;
+    map.set(String(t.id),t);
+  });
+  G.trees=[...map.values()];
+}
 function saveTrees() {
-  try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+  lsSaveTrees();
   /* Salva ogni pianta modificata anche su Firebase */
   if (window._fb) {
     G.trees.forEach(t => window._fb.saveTree(t));
   }
 }
 function saveTree(tree) {
-  /* Salva una singola pianta (più efficiente di saveTrees per autosave) */
-  try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+  lsSaveTrees();
   if (window._fb) window._fb.saveTree(tree);
 }
 function loadTrees() {
@@ -4808,13 +4885,13 @@ function savePhotosToRilievo() {
     G.trees[idx].photos.push({ dataUrl: p.dataUrl, type: p.type || G.ai.currentPhotoType || 'Pianta intera', date: new Date().toISOString() });
   });
   G.form.photos = G.trees[idx].photos;
-  try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees)); } catch(e) {}
+  lsSaveTrees();
   if (window._fb) window._fb.saveTree(G.trees[idx]);
   if (status) { status.textContent = `✓ ${G.ai.photos.length} foto salvate nel rilievo #${G.form._editingId}`; status.style.color = 'var(--green-600)'; }
   console.log('Foto salvate nel rilievo', G.form._editingId);
 }
 
-function compressPhoto(file, maxPx=800, quality=0.72) {
+function compressPhoto(file, maxPx=1280, quality=0.75) {
   return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -5327,6 +5404,7 @@ async function generatePDFSingle(t) {
 function resetArchivio() {
   if (!confirm('Cancellare tutto l\'archivio? Questa operazione non è reversibile.')) return;
   G.trees = [];
+  _photoSig = {}; photoDBop('readwrite',st=>st.clear()).catch(()=>{});
   try { localStorage.removeItem('arbovta-trees'); } catch(e) {}
   render('lista');
   go('impostazioni' in G ? 'lista' : 'lista', document.querySelectorAll('.nav-tab')[0]);
@@ -5736,9 +5814,7 @@ async function recoverItalgas(){
   if(!cloudTrees.length){ alert('Nessun rilievo trovato su Firebase'); return; }
 
   /* Merge in G.trees */
-  const map = new Map(G.trees.map(t=>[String(t.id),t]));
-  cloudTrees.forEach(t=>map.set(String(t.id),t));
-  G.trees = [...map.values()];
+  mergeCloudTrees(cloudTrees);
   saveTrees();
 
   /* Trova o crea cliente Italgas */
@@ -5789,9 +5865,7 @@ async function importRilieviToProgetto(clId, prId){
   if(!cloudTrees.length){ alert('Nessun rilievo trovato su Firebase'); return; }
 
   /* Merge in G.trees */
-  const map = new Map(G.trees.map(t=>[String(t.id),t]));
-  cloudTrees.forEach(t=>map.set(String(t.id),t));
-  G.trees = [...map.values()];
+  mergeCloudTrees(cloudTrees);
   saveTrees();
 
   /* Mostra dialogo selezione */
