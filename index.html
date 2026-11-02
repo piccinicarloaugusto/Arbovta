@@ -468,7 +468,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot }
+    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot, query, where }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
     const firebaseConfig = {
@@ -505,11 +505,38 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
         try {
           /* Escludi le foto dal salvataggio Firebase (troppo grandi per il limite 1MB) */
           const treeNoPhotos = {...tree, photos: (tree.photos||[]).map(p=>({
-            tipo: p.tipo||p.type||'', ts: p.ts||0
-            /* dataUrl escluso intenzionalmente */
+            tipo: p.tipo||p.type||'', type: p.type||p.tipo||'', ts: p.ts||0,
+            date: p.date||'', pid: p.pid||''
+            /* dataUrl escluso: le immagini stanno nella collezione 'photos' */
           }))};
           await setDoc(doc(db, 'trees', String(tree.id)), treeNoPhotos);
         } catch(e) { console.warn('FB saveTree:', e); }
+      },
+
+      /* ── FOTO: una per documento nella collezione 'photos' (immagini compresse < 1 MB) ── */
+      async savePhoto(treeId, p) {
+        try {
+          await setDoc(doc(db, 'photos', treeId + '__' + p.pid), {
+            treeId: treeId, pid: p.pid, type: p.type||p.tipo||'', date: p.date||'', ts: p.ts||0,
+            dataUrl: p.dataUrl
+          });
+          return true;
+        } catch(e) { console.warn('FB savePhoto:', e); return false; }
+      },
+      async loadPhotos(treeId) {
+        try {
+          const snap = await getDocs(query(collection(db, 'photos'), where('treeId', '==', treeId)));
+          return snap.docs.map(d => d.data());
+        } catch(e) { console.warn('FB loadPhotos:', e); return null; }
+      },
+      async listPhotoIds(treeId) {
+        try {
+          const snap = await getDocs(query(collection(db, 'photos'), where('treeId', '==', treeId)));
+          return snap.docs.map(d => d.data().pid);
+        } catch(e) { return null; }
+      },
+      async deletePhoto(treeId, pid) {
+        try { await deleteDoc(doc(db, 'photos', treeId + '__' + pid)); } catch(e) {}
       },
 
       /* Elimina una pianta */
@@ -620,6 +647,7 @@ function saveProjects(){
   try { localStorage.setItem('arbovta-projects', JSON.stringify(G_projects)); } catch(e) {}
   /* Salva anche su Firebase */
   if(window._fb) window._fb.saveProjects(G_projects);
+  if(typeof mirrorProjects==='function') mirrorProjects();
 }
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 let G_nav = { view:'clienti', clienteId:null, progettoId:null };
@@ -874,7 +902,10 @@ function deleteTree(id){
   if(!t) return;
   if(!confirm(`Eliminare il rilievo #${t.id} — ${t.specie}?\nQuesta operazione non è reversibile.`)) return;
   G.trees = G.trees.filter(x => x.id !== id);
-  delete _photoSig[String(id)]; photoDBop('readwrite',st=>st.delete(String(id))).catch(()=>{});
+  /* cestino locale: il rilievo (e le sue foto, che restano in IndexedDB) si possono recuperare dalle Impostazioni */
+  delete _mirrorSig[String(id)];
+  photoDBop('readwrite',st=>st.put({tree:stripPhotos(t),ts:Date.now()},String(id)),'trash').catch(()=>{});
+  photoDBop('readwrite',st=>st.delete(String(id)),'trees').catch(()=>{});
   saveTrees();
   /* Elimina anche da Firebase */
   if (window._fb) window._fb.deleteTree(id);
@@ -925,6 +956,18 @@ function openTree(id){
     _cpcManual:     t._cpcManual || false,
     photos:         t.photos ? JSON.parse(JSON.stringify(t.photos)) : [],
   };
+
+
+  /* Foto non in memoria (altro dispositivo / dati ripuliti): recupero da IndexedDB o Firebase */
+  if(t.photos && t.photos.length && !hasPhotoData(t.photos)){
+    ensureTreePhotos(t).then(()=>{
+      if(G.form && G.form._editingId===t.id && hasPhotoData(t.photos) && !hasPhotoData(G.form.photos)){
+        G.form.photos=JSON.parse(JSON.stringify(t.photos));
+        if(typeof refreshSchedaPhotoGrid==='function') refreshSchedaPhotoGrid();
+        if(G.form.schedaMode==='speditiva' && typeof renderSchedaSpeditiva==='function') renderSchedaSpeditiva();
+      }
+    });
+  }
 
   /* Porta le misure del clinometro in sincronia se presenti */
   if(t.h || t.dbh) {
@@ -3104,6 +3147,7 @@ async function generatePDFSpeditivo(t) {
 
   /* 6. FOTO */
   /* 6. ALLEGATO FOTOGRAFICO — pagina sempre presente */
+  await ensureTreePhotos(t);
   const photos=t.photos?.filter(p=>p?.dataUrl)||[];
   pdf.addPage(); y=mT; drawHeader();
   drawSection('ALLEGATO FOTOGRAFICO');
@@ -4067,6 +4111,7 @@ function renderExcelView(){
 }
 
 function renderImpostazioniView(){
+  setTimeout(()=>{ if(typeof refreshLocalDBStatus==='function') refreshLocalDBStatus(); },250);
   return `
   <!-- Card installazione app -->
   <div class="card" id="install-card" style="display:none">
@@ -4143,6 +4188,22 @@ function renderImpostazioniView(){
     </div>
     <div id="fb-sync-status" style="font-size:11px;color:var(--text-muted);margin-bottom:8px"></div>
     <button class="btn-secondary" onclick="forceSyncToFirebase()">☁ Sincronizza con Firebase</button>
+    <button class="btn-secondary" style="margin-top:7px" onclick="pushAllToCloud(document.getElementById('fb-sync-status'))">☁ Ricarica tutto su Firebase (rilievi + foto + progetti)</button>
+  </div>
+  <div class="card">
+    <div class="sec">Database locale (recupero dati)</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.6">
+      Questo dispositivo conserva una copia completa di rilievi, foto e progetti, indipendente da Firebase, più copie automatiche ogni 12 ore e un cestino per i rilievi eliminati.
+    </div>
+    <div id="ldb-status" style="font-size:12px;margin-bottom:8px;line-height:1.6">Lettura...</div>
+    <button class="btn-secondary" onclick="restoreMissingFromLocal()">↩ Recupera rilievi mancanti dal database locale</button>
+    <div style="font-size:11px;font-weight:600;margin:12px 0 4px">Copie automatiche</div>
+    <div id="ldb-snaps"></div>
+    <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn-secondary" onclick="downloadFullBackup()">⬇ Scarica backup completo</button>
+      <label class="btn-secondary" style="cursor:pointer">⬆ Importa backup<input type="file" accept=".json,application/json" style="display:none" onchange="importFullBackup(event)"></label>
+    </div>
+    <div id="ldb-msg" style="font-size:11px;margin-top:8px"></div>
   </div>
   <div class="card">
     <div class="sec">Gestione dati</div>
@@ -4736,23 +4797,28 @@ function photoDB(){
   if(_photoDBp) return _photoDBp;
   _photoDBp = new Promise((res,rej)=>{
     try{
-      const rq = indexedDB.open('arborisk-photos',1);
-      rq.onupgradeneeded = ()=>rq.result.createObjectStore('photos');
+      const rq = indexedDB.open('arborisk-photos',2);
+      rq.onupgradeneeded = ()=>{
+        ['photos','trees','projects','snapshots','trash'].forEach(n=>{
+          if(!rq.result.objectStoreNames.contains(n)) rq.result.createObjectStore(n);
+        });
+      };
       rq.onsuccess = ()=>res(rq.result);
       rq.onerror = ()=>rej(rq.error);
     }catch(e){ rej(e); }
   });
   return _photoDBp;
 }
-function photoDBop(mode, fn){
+function photoDBop(mode, fn, store){
+  store = store || 'photos';
   return photoDB().then(db=>new Promise((res,rej)=>{
-    const tx = db.transaction('photos',mode);
-    const r = fn(tx.objectStore('photos'));
+    const tx = db.transaction(store,mode);
+    const r = fn(tx.objectStore(store));
     tx.oncomplete = ()=>res(r && r.result);
     tx.onerror = tx.onabort = ()=>rej(tx.error);
   }));
 }
-function photoSig(arr){ return (arr||[]).map(p=>(p.dataUrl||'').length+':'+(p.type||p.tipo||'')).join('|'); }
+function photoSig(arr){ return (arr||[]).map(p=>(p.dataUrl||'').length+':'+(p.type||p.tipo||'')+':'+(p.cloud?1:0)+':'+(p.pid||'')).join('|'); }
 function hasPhotoData(arr){ return (arr||[]).some(p=>p&&p.dataUrl); }
 function stripPhotos(t){
   if(!t || !t.photos) return t;
@@ -4770,16 +4836,207 @@ function syncPhotosToDB(){
   G.trees.forEach(t=>{
     const id=String(t.id), arr=t.photos||[];
     if(hasPhotoData(arr)){
+      arr.forEach(p=>{ if(p && p.dataUrl && !p.pid) p.pid=genId(); });
       const sig=photoSig(arr);
       if(_photoSig[id]===sig) return;
+      const prevCloudOnly = _photoSig[id] && _photoSig[id].replace(/:1:/g,':0:')===sig.replace(/:1:/g,':0:');
       _photoSig[id]=sig;
       const copy=JSON.parse(JSON.stringify(arr));
       photoDBop('readwrite',st=>st.put(copy,id)).catch(e=>{ delete _photoSig[id]; console.error('IDB put',e); });
+      if(!prevCloudOnly) queueCloudPhotos(t);
     } else if(arr.length===0 && _photoSig[id]){
       delete _photoSig[id];
       photoDBop('readwrite',st=>st.delete(id)).catch(()=>{});
+      queueCloudPhotos(t);
     }
   });
+  scheduleMirror();
+}
+
+/* ── FOTO su Firebase (collezione 'photos') ── */
+var _cloudQ = {};
+function queueCloudPhotos(t){
+  if(!window._fb || !window._fb.savePhoto) return;
+  const id=String(t.id);
+  clearTimeout(_cloudQ[id]);
+  _cloudQ[id]=setTimeout(()=>{ uploadTreePhotos(t); }, 2500);
+}
+async function uploadTreePhotos(t, force){
+  if(!window._fb || !window._fb.savePhoto || (typeof navigator!=='undefined' && navigator.onLine===false)) return false;
+  const id=String(t.id), arr=t.photos||[];
+  let changed=false, ok=true;
+  for(const p of arr){
+    if(!p || !p.dataUrl) continue;
+    if(!p.pid) p.pid=genId();
+    if(p.cloud && !force) continue;
+    const r = await window._fb.savePhoto(id,p);
+    if(r){ p.cloud=1; changed=true; } else ok=false;
+  }
+  /* rimuove dal cloud le foto cancellate (solo se il rilievo è completo in locale) */
+  if(ok && arr.every(p=>p && p.dataUrl) && window._fb.listPhotoIds){
+    const ids = await window._fb.listPhotoIds(id);
+    if(ids){ const keep=new Set(arr.map(p=>p.pid));
+      for(const x of ids) if(!keep.has(x)) await window._fb.deletePhoto(id,x); }
+  }
+  if(changed){ syncPhotosToDB(); if(window._fb.saveTree) window._fb.saveTree(t); }
+  return ok;
+}
+async function fetchCloudPhotos(t){
+  if(!window._fb || !window._fb.loadPhotos || navigator.onLine===false) return false;
+  const arr = await window._fb.loadPhotos(String(t.id));
+  if(!arr || !arr.length) return false;
+  arr.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || (a.ts||0)-(b.ts||0));
+  t.photos = arr.map(d=>({pid:d.pid,type:d.type,tipo:d.type,date:d.date,ts:d.ts,dataUrl:d.dataUrl,cloud:1}));
+  syncPhotosToDB();
+  return true;
+}
+/* Garantisce che le immagini del rilievo siano in memoria: IndexedDB, poi Firebase */
+async function ensureTreePhotos(t){
+  try{
+    if(!t || hasPhotoData(t.photos)) return;
+    if(t.photos && t.photos.length){
+      const arr = await photoDBop('readonly',st=>st.get(String(t.id)));
+      if(arr && arr.length){ t.photos=arr; _photoSig[String(t.id)]=photoSig(arr); return; }
+      await fetchCloudPhotos(t);
+    } else if(!t.photos || !t.photos.length){
+      /* nessun metadato locale: prova comunque il cloud solo se il rilievo non ha foto note */
+    }
+  }catch(e){ console.error('ensureTreePhotos',e); }
+}
+async function pushAllToCloud(statusEl){
+  if(!window._fb){ if(statusEl) statusEl.textContent='⚠ Firebase non disponibile'; return; }
+  let i=0; const n=G.trees.length;
+  for(const t of G.trees){
+    await ensureTreePhotos(t);
+    await window._fb.saveTree(t);
+    await uploadTreePhotos(t,true);
+    i++; if(statusEl) statusEl.textContent=`⏳ ${i}/${n} rilievi inviati a Firebase (con foto)...`;
+  }
+  await window._fb.saveProjects(G_projects);
+  if(statusEl){ statusEl.textContent=`✓ ${n} rilievi, foto e progetti ricaricati su Firebase.`; statusEl.style.color='var(--green-600)'; }
+}
+
+/* ── DATABASE LOCALE di recupero (specchio completo + snapshot + cestino) ── */
+var _mirrorSig = {}, _mirrorT = null;
+function scheduleMirror(){ clearTimeout(_mirrorT); _mirrorT=setTimeout(mirrorNow,1500); }
+async function mirrorNow(){
+  try{
+    const db=await photoDB();
+    await new Promise((res,rej)=>{
+      const tx=db.transaction('trees','readwrite'), st=tx.objectStore('trees');
+      G.trees.forEach(t=>{
+        const j=JSON.stringify(stripPhotos(t)), id=String(t.id);
+        if(_mirrorSig[id]!==j){ _mirrorSig[id]=j; st.put(JSON.parse(j),id); }
+      });
+      tx.oncomplete=res; tx.onerror=tx.onabort=()=>rej(tx.error);
+    });
+    await maybeSnapshot();
+  }catch(e){ console.error('mirror',e); }
+}
+function mirrorProjects(){
+  try{ const copy=JSON.parse(JSON.stringify(G_projects));
+    if(copy && copy.length) photoDBop('readwrite',st=>st.put(copy,'current')).catch(()=>{}); }catch(e){}
+}
+async function snapshotNow(force){
+  const db=await photoDB();
+  const keys=await new Promise(r=>{ const rq=db.transaction('snapshots').objectStore('snapshots').getAllKeys(); rq.onsuccess=()=>r(rq.result||[]); rq.onerror=()=>r([]); });
+  const snaps=await Promise.all(keys.map(k=>new Promise(r=>{ const rq=db.transaction('snapshots').objectStore('snapshots').get(k); rq.onsuccess=()=>r(rq.result); rq.onerror=()=>r(null); })));
+  const last=Math.max(0,...keys.map(Number));
+  const maxCount=Math.max(0,...snaps.filter(Boolean).map(s=>s.count||0));
+  if(!force){
+    if(!G.trees.length || Date.now()-last<12*3600*1000) return false;
+    if(G.trees.length < 0.5*maxCount) return false;   /* non sovrascrive buone copie con uno stato impoverito */
+  }
+  const ts=Date.now();
+  const snap={ts,count:G.trees.length,trees:G.trees.map(stripPhotos),projects:JSON.parse(JSON.stringify(G_projects||[]))};
+  await photoDBop('readwrite',st=>st.put(snap,ts),'snapshots');
+  const all=keys.concat([ts]).map(Number).sort((a,b)=>a-b);
+  while(all.length>10){ const old=all.shift(); await photoDBop('readwrite',st=>st.delete(old),'snapshots'); }
+  return true;
+}
+function maybeSnapshot(){ return snapshotNow(false); }
+async function localDBStatus(){
+  const db=await photoDB();
+  const getAll=(store)=>new Promise(r=>{ const rq=db.transaction(store).objectStore(store).getAll(); rq.onsuccess=()=>r(rq.result||[]); rq.onerror=()=>r([]); });
+  const getKeys=(store)=>new Promise(r=>{ const rq=db.transaction(store).objectStore(store).getAllKeys(); rq.onsuccess=()=>r(rq.result||[]); rq.onerror=()=>r([]); });
+  const mirror=await getAll('trees');
+  const have=new Set(G.trees.map(t=>String(t.id)));
+  const missing=mirror.filter(t=>!have.has(String(t.id)));
+  const snaps=(await getAll('snapshots')).sort((a,b)=>b.ts-a.ts);
+  const trash=await getAll('trash');
+  const photoKeys=await getKeys('photos');
+  return {mirror:mirror.length,missing,snaps,trash,photoTrees:photoKeys.length};
+}
+async function refreshLocalDBStatus(){
+  const el=document.getElementById('ldb-status'); if(!el) return;
+  try{
+    const st=await localDBStatus();
+    const fmt=ts=>new Date(ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    el.innerHTML=`Nel database locale: <b>${st.mirror}</b> rilievi, foto di <b>${st.photoTrees}</b> rilievi.<br>
+      Mancanti nell'archivio attuale: <b style="color:${st.missing.length?'var(--red)':'inherit'}">${st.missing.length}</b>${st.trash.length?` — nel cestino: <b>${st.trash.length}</b>`:''}.`;
+    const sl=document.getElementById('ldb-snaps');
+    if(sl) sl.innerHTML = st.snaps.length ? st.snaps.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px"><span>${fmt(s.ts)} — ${s.count} rilievi</span><button class="btn-secondary" style="padding:3px 9px;font-size:11px" onclick="restoreSnapshot(${s.ts})">Ripristina</button></div>`).join('') : '<div style="font-size:11px;color:var(--text-muted)">Nessuna copia automatica ancora (si crea ogni 12 ore).</div>';
+  }catch(e){ el.textContent='Database locale non disponibile: '+e.message; }
+}
+function ldbMsg(m,ok){ const el=document.getElementById('ldb-msg'); if(el){ el.textContent=m; el.style.color=ok?'var(--green-600)':'var(--red)'; } }
+async function restoreMissingFromLocal(){
+  try{
+    const st=await localDBStatus();
+    const rows=st.missing.concat(st.trash.map(x=>x.tree));
+    const have=new Set(G.trees.map(t=>String(t.id)));
+    let n=0;
+    for(const t of rows){ if(have.has(String(t.id))) continue; G.trees.push(t); have.add(String(t.id)); n++; }
+    for(const t of G.trees) if(t.photos && t.photos.length && !hasPhotoData(t.photos)) await ensureTreePhotos(t);
+    /* progetti: se l'elenco attuale è vuoto, riprende quello salvato */
+    let proj=0;
+    if(!G_projects || !G_projects.length){
+      const saved=await photoDBop('readonly',s=>s.get('current'),'projects');
+      if(saved && saved.length){ G_projects.splice(0,G_projects.length,...saved); proj=saved.length; saveProjects(); }
+    }
+    saveTrees();
+    ldbMsg(n||proj ? `✓ Recuperati ${n} rilievi${proj?` e ${proj} clienti/progetti`:''} dal database locale.` : 'Nessun rilievo mancante: l\'archivio è già completo.', true);
+    refreshLocalDBStatus();
+  }catch(e){ ldbMsg('Errore: '+e.message,false); }
+}
+async function restoreSnapshot(ts){
+  try{
+    if(!confirm('Ripristinare la copia del '+new Date(ts).toLocaleString('it-IT')+'?\nI rilievi della copia sostituiscono quelli con lo stesso codice; i rilievi più recenti restano. Prima viene salvata una copia dello stato attuale.')) return;
+    await snapshotNow(true);
+    const snap=await photoDBop('readonly',s=>s.get(ts),'snapshots');
+    if(!snap) throw new Error('copia non trovata');
+    const map=new Map(G.trees.map(t=>[String(t.id),t]));
+    snap.trees.forEach(t=>{ const loc=map.get(String(t.id)); if(loc && hasPhotoData(loc.photos)) t.photos=loc.photos; map.set(String(t.id),t); });
+    G.trees=[...map.values()];
+    for(const t of G.trees) if(t.photos && t.photos.length && !hasPhotoData(t.photos)) await ensureTreePhotos(t);
+    if(snap.projects && snap.projects.length && (!G_projects || !G_projects.length)){ G_projects.splice(0,G_projects.length,...snap.projects); saveProjects(); }
+    saveTrees();
+    ldbMsg(`✓ Ripristinati ${snap.trees.length} rilievi dalla copia.`, true);
+    refreshLocalDBStatus();
+  }catch(e){ ldbMsg('Errore: '+e.message,false); }
+}
+async function downloadFullBackup(){
+  try{
+    ldbMsg('Preparazione backup...',true);
+    for(const t of G.trees) if(t.photos && t.photos.length && !hasPhotoData(t.photos)) await ensureTreePhotos(t);
+    const data={app:'ArboRisk',version:1,exported:new Date().toISOString(),trees:G.trees,projects:G_projects};
+    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='ArboRisk-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    ldbMsg(`✓ Backup scaricato (${G.trees.length} rilievi con foto).`, true);
+  }catch(e){ ldbMsg('Errore: '+e.message,false); }
+}
+function importFullBackup(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const d=JSON.parse(r.result);
+    if(!d.trees) throw new Error('file non valido');
+    mergeCloudTrees(d.trees);
+    if(d.projects && d.projects.length && (!G_projects||!G_projects.length)){ G_projects.splice(0,G_projects.length,...d.projects); saveProjects(); }
+    saveTrees(); ldbMsg(`✓ Importati ${d.trees.length} rilievi dal backup.`, true); refreshLocalDBStatus();
+  }catch(e){ ldbMsg('Errore: '+e.message,false); } };
+  r.readAsText(f); ev.target.value='';
 }
 /* Ricarica le immagini dall'IndexedDB nei rilievi (all'avvio) */
 async function hydratePhotos(){
@@ -5370,6 +5627,7 @@ async function generatePDFSingle(t) {
      7. ALLEGATO FOTOGRAFICO
   ══════════════════════════════════════ */
   /* 7. ALLEGATO FOTOGRAFICO — pagina sempre presente */
+  await ensureTreePhotos(t);
   const photos = t.photos?.filter(p=>p?.dataUrl) || [];
   pdf.addPage(); y = mT; drawHeader();
   drawSection('ALLEGATO FOTOGRAFICO');
@@ -5404,7 +5662,7 @@ async function generatePDFSingle(t) {
 function resetArchivio() {
   if (!confirm('Cancellare tutto l\'archivio? Questa operazione non è reversibile.')) return;
   G.trees = [];
-  _photoSig = {}; photoDBop('readwrite',st=>st.clear()).catch(()=>{});
+  /* le copie nel database locale (specchio, foto, copie automatiche) restano: si recuperano dalle Impostazioni */
   try { localStorage.removeItem('arbovta-trees'); } catch(e) {}
   render('lista');
   go('impostazioni' in G ? 'lista' : 'lista', document.querySelectorAll('.nav-tab')[0]);
