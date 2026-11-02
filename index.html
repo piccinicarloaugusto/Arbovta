@@ -403,6 +403,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
 @keyframes pulse-gps{0%{transform:scale(1);opacity:0.6}70%{transform:scale(2.5);opacity:0}100%{transform:scale(2.5);opacity:0}}
 
 /* ── GPS ── */
+.geo-fix-btn{width:100%;margin-top:7px;padding:10px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-2);font-size:13px;font-weight:500;cursor:pointer;color:inherit}
+#gpsfix-ov{position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column}
+#gpsfix-top{padding:8px 12px;background:rgba(0,0,0,.85);color:#fff;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+#gpsfix-map{flex:1}
+#gpsfix-bot{padding:10px 12px;background:rgba(0,0,0,.85);display:flex;gap:8px}
+#gpsfix-bot button{flex:1;padding:12px;border:0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .gps-box{background:var(--surface-2);border-radius:var(--r-md);min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:0.5px dashed var(--border);transition:all 0.15s}
 .gps-box:hover{background:#fff;border-color:var(--border-2)}
 .gps-acquired{background:var(--green-100);border-color:var(--green-400);border-style:solid}
@@ -2111,6 +2117,7 @@ function renderScheda(){
       <div id="gps-txt" style="font-size:12px;color:var(--text-muted)">Tocca per acquisire posizione GPS</div>
       <div id="gps-coords" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)"></div>
     </div>
+    <button type="button" class="geo-fix-btn" onclick="openGpsFix()">📍 Correggi posizione sulla mappa</button>
     <div style="display:flex;gap:7px;margin-top:7px">
       <div class="field" style="flex:1"><label>Latitudine</label><input type="text" id="lat-in" placeholder="44.0793" value="${f.lat}" oninput="G.form.lat=this.value"></div>
       <div class="field" style="flex:1"><label>Longitudine</label><input type="text" id="lng-in" placeholder="10.0986" value="${f.lng}" oninput="G.form.lng=this.value"></div>
@@ -2268,6 +2275,7 @@ function renderSchedaSpeditiva(){
       <span id="gps-txt">Tocca per acquisire posizione GPS</span>
       <div id="gps-coords" style="font-size:10px;color:var(--green-600);font-family:var(--font-mono)"></div>
     </div>
+    <button type="button" class="geo-fix-btn" onclick="openGpsFix()">📍 Correggi posizione sulla mappa</button>
     <div class="fg" style="margin-top:6px">
       <div class="field"><label>Latitudine</label><input type="number" step="any" id="lat-in" placeholder="es. 44.0452" value="${f.lat||''}" oninput="autosaveField('lat',this.value)"></div>
       <div class="field"><label>Longitudine</label><input type="number" step="any" id="lng-in" placeholder="es. 10.1056" value="${f.lng||''}" oninput="autosaveField('lng',this.value)"></div>
@@ -3259,19 +3267,114 @@ async function exportMapPDF() {
 
 function requestGPS(){
   const gt=document.getElementById('gps-txt');
+  const gc=document.getElementById('gps-coords');
+  const gb=document.getElementById('gps-box');
+  if(!navigator.geolocation){ if(gt) gt.textContent='GPS non supportato — inserisci manualmente'; return; }
+
+  /* Ferma eventuale acquisizione precedente */
+  if(window._gpsWatch!=null){ navigator.geolocation.clearWatch(window._gpsWatch); window._gpsWatch=null; }
+  if(window._gpsTimer){ clearTimeout(window._gpsTimer); window._gpsTimer=null; }
+
+  const MAX_MS=25000;   /* tempo massimo di ascolto */
+  const TARGET_M=5;     /* si ferma prima se raggiunge questa precisione (m) */
+  let best=null, done=false;
+
+  const show=(p,final)=>{
+    const acc=Math.round(p.coords.accuracy);
+    G.form.lat=p.coords.latitude.toFixed(6);
+    G.form.lng=p.coords.longitude.toFixed(6);
+    const li=document.getElementById('lat-in'), lni=document.getElementById('lng-in');
+    if(li) li.value=G.form.lat; if(lni) lni.value=G.form.lng;
+    if(gc) gc.textContent=`${G.form.lat}, ${G.form.lng}  (±${acc} m)`;
+    if(gt){
+      if(!final) gt.textContent=`Acquisizione GPS... precisione ±${acc} m`;
+      else gt.textContent = acc>15
+        ? `Posizione acquisita (±${acc} m) — precisione scarsa, ripeti all'aperto`
+        : `Posizione acquisita — precisione ±${acc} m`;
+    }
+    if(final && gb) gb.classList.add('gps-acquired');
+  };
+
+  const finish=()=>{
+    if(done) return; done=true;
+    if(window._gpsWatch!=null){ navigator.geolocation.clearWatch(window._gpsWatch); window._gpsWatch=null; }
+    if(window._gpsTimer){ clearTimeout(window._gpsTimer); window._gpsTimer=null; }
+    if(best) show(best,true);
+    else if(gt) gt.textContent='GPS non disponibile — inserisci manualmente';
+  };
+
   if(gt) gt.textContent='Acquisizione GPS...';
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(p=>{
-      G.form.lat=p.coords.latitude.toFixed(6); G.form.lng=p.coords.longitude.toFixed(6);
-      const li=document.getElementById('lat-in'),lni=document.getElementById('lng-in');
-      if(li) li.value=G.form.lat; if(lni) lni.value=G.form.lng;
-      if(gt) gt.textContent='Posizione acquisita';
-      const gc=document.getElementById('gps-coords');
-      if(gc) gc.textContent=`${G.form.lat}, ${G.form.lng}`;
-      const gb=document.getElementById('gps-box');
-      if(gb){gb.classList.add('gps-acquired');}
-    },()=>{if(gt) gt.textContent='GPS non disponibile — inserisci manualmente';});
-  }
+  window._gpsWatch=navigator.geolocation.watchPosition(p=>{
+    if(done) return;
+    if(!best || p.coords.accuracy<best.coords.accuracy) best=p;
+    show(best,false);
+    if(best.coords.accuracy<=TARGET_M) finish();
+  },err=>{
+    if(done) return;
+    if(!best){
+      done=true;
+      if(window._gpsWatch!=null){ navigator.geolocation.clearWatch(window._gpsWatch); window._gpsWatch=null; }
+      if(window._gpsTimer){ clearTimeout(window._gpsTimer); window._gpsTimer=null; }
+      if(gt) gt.textContent = err.code===1
+        ? 'Permesso posizione negato — abilitalo nelle impostazioni del sito'
+        : 'GPS non disponibile — inserisci manualmente';
+    }
+  },{enableHighAccuracy:true, maximumAge:0, timeout:MAX_MS});
+  window._gpsTimer=setTimeout(finish, MAX_MS);
+}
+
+/* ── Correzione manuale posizione GPS: tocca la mappa satellitare ── */
+let _gfMap=null,_gfMarker=null,_gfPos=null;
+function openGpsFix(){
+  ensureLeaflet(()=>{
+    const la=parseFloat(G.form.lat), lo=parseFloat(G.form.lng);
+    const has=isFinite(la)&&isFinite(lo)&&(la||lo);
+    const start=has?[la,lo]:[43.9,10.2];
+    _gfPos=has?{lat:la,lng:lo}:null;
+    const ov=document.createElement('div'); ov.id='gpsfix-ov';
+    ov.innerHTML='<div id="gpsfix-top"><span id="gpsfix-msg">Tocca la mappa sul punto esatto dell\'albero (o trascina il pin)</span><span id="gpsfix-gps" style="cursor:pointer;text-decoration:underline">Mia posizione</span></div><div id="gpsfix-map"></div><div id="gpsfix-bot"><button style="background:#ddd" onclick="closeGpsFix()">Annulla</button><button style="background:#2e7d32;color:#fff" onclick="confirmGpsFix()">Conferma posizione</button></div>';
+    document.body.appendChild(ov);
+    _gfMap=L.map('gpsfix-map',{zoomControl:true}).setView(start,has?20:12);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:21,maxNativeZoom:19}).addTo(_gfMap);
+    const place=ll=>{
+      _gfPos={lat:ll.lat,lng:ll.lng};
+      if(_gfMarker) _gfMarker.setLatLng(ll);
+      else{ _gfMarker=L.marker(ll,{draggable:true}).addTo(_gfMap);
+        _gfMarker.on('dragend',()=>place(_gfMarker.getLatLng())); }
+      const m=document.getElementById('gpsfix-msg');
+      if(m) m.textContent=ll.lat.toFixed(6)+', '+ll.lng.toFixed(6);
+    };
+    if(has) place(L.latLng(la,lo));
+    _gfMap.on('click',e=>place(e.latlng));
+    document.getElementById('gpsfix-gps').onclick=()=>{
+      if(!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(p=>{
+        const ll=L.latLng(p.coords.latitude,p.coords.longitude);
+        _gfMap.setView(ll,20); place(ll);
+      },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    };
+    setTimeout(()=>_gfMap&&_gfMap.invalidateSize(),150);
+  });
+}
+function closeGpsFix(){
+  if(_gfMap){ _gfMap.remove(); _gfMap=null; }
+  _gfMarker=null;
+  const ov=document.getElementById('gpsfix-ov'); if(ov) ov.remove();
+}
+function applyGpsFix(lat,lng){
+  const la=Number(lat).toFixed(6), lo=Number(lng).toFixed(6);
+  autosaveField('lat',la); autosaveField('lng',lo);
+  const li=document.getElementById('lat-in'), lni=document.getElementById('lng-in');
+  if(li) li.value=la; if(lni) lni.value=lo;
+  const gc=document.getElementById('gps-coords'), gt=document.getElementById('gps-txt'), gb=document.getElementById('gps-box');
+  if(gc) gc.textContent=la+', '+lo+'  (corretta manualmente)';
+  if(gt) gt.textContent='Posizione corretta sulla mappa';
+  if(gb) gb.classList.add('gps-acquired');
+}
+function confirmGpsFix(){
+  if(!_gfPos){ const m=document.getElementById('gpsfix-msg'); if(m) m.textContent='Tocca prima un punto sulla mappa'; return; }
+  applyGpsFix(_gfPos.lat,_gfPos.lng);
+  closeGpsFix();
 }
 function useAISpecieInForm(){
   if(!G.ai.result) return;
