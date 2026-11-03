@@ -659,7 +659,7 @@ let G_nav = { view:'clienti', clienteId:null, progettoId:null };
 const G = {
   trees: [],
   form: {codice:'',specie:'',cliente:'',ubicazione:'',localita:'',indirizzo:'',sito:'',disposizione:'',stazione:'',suolo:'',pavimentazione:'',sitoCon:'',posizSoc:'',conflitti:'',fattoreContatto:'',h:null,dbh:null,cw:null,cd:null,isPino:false,giudVeg:'',pericolosita:'',cpc:'A',prescrizioni:'',lat:'',lng:''},
-  clino: {angle:0,captured:{},dist:15,distDBH:1,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
+  clino: {angle:0,az:null,captured:{},capAz:{},distInfo:{},q:{},dist:15,distCd:null,distDBH:1,phoneH:1.3,meas:{h:null,dbh:null,cw:null,cd:null},sensorActive:false,param:'height'},
   ai: {photos:[],activeType:'Radici',currentPhotoType:'Radici',result:null,history:[],cameraStream:null},
   currentView: 'lista'
 };
@@ -1562,110 +1562,109 @@ function renderMisure(){
   <div class="card" id="cpanel-height" style="${cl.param==='height'?'':'display:none'}">
     <div class="sec">Misurazione altezza</div>
     <div class="step-hint" id="height-hint">
-      <b>Passo 1</b> — Punta il mirino sulla <b>base del tronco</b> e cattura
+      <b>Passo 1</b> — Punta il mirino sulla <b>base del tronco</b> e cattura, poi sull'<b>apice</b>
     </div>
-    <button class="cap-btn ${cl.captured.base!==undefined?'cap-done':'cap-ready'}"
-      onclick="captureA('base')">
+    <button class="cap-btn ${cl.captured.base!==undefined?'cap-done':'cap-ready'}" onclick="captureA('base')">
       <span class="cap-icon">${cl.captured.base!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.base!==undefined?'Base: '+fa(cl.captured.base):'Cattura — Base tronco'}</span>
     </button>
-    <button class="cap-btn ${cl.captured.top!==undefined?'cap-done':cl.captured.base!==undefined?'cap-ready':'cap-locked'}"
-      onclick="captureA('top')">
+    <button class="cap-btn ${cl.captured.top!==undefined?'cap-done':cl.captured.base!==undefined?'cap-ready':'cap-locked'}" onclick="captureA('top')">
       <span class="cap-icon">${cl.captured.top!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.top!==undefined?'Cima: '+fa(cl.captured.top):'Cattura — Apice cima'}</span>
     </button>
+    ${clDistBtn('dist')}
   </div>
 
   <!-- ── PANNELLO CHIOMA ── -->
   <div class="card" id="cpanel-crown" style="${cl.param==='crown'?'':'display:none'}">
-    <div class="sec">Larghezza chioma</div>
-    <div class="step-hint">Punta il mirino sul <b>bordo sinistro</b> della chioma, poi sul <b>bordo destro</b></div>
-    <button class="cap-btn ${cl.captured.cw_l!==undefined?'cap-done':'cap-ready'}"
-      onclick="captureA('cw_l')">
+    <div class="sec">Chioma — larghezza</div>
+    <div class="step-hint">Punta il mirino sul <b>bordo sinistro</b> della chioma, poi <b>ruota</b> il telefono sul bordo destro (la rotazione orizzontale dà la larghezza)</div>
+    <button class="cap-btn ${cl.captured.cw_l!==undefined?'cap-done':'cap-ready'}" onclick="captureA('cw_l')">
       <span class="cap-icon">${cl.captured.cw_l!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.cw_l!==undefined?'Bordo sx: '+fa(cl.captured.cw_l):'Cattura — Bordo sinistro'}</span>
     </button>
-    <button class="cap-btn ${cl.captured.cw_r!==undefined?'cap-done':cl.captured.cw_l!==undefined?'cap-ready':'cap-locked'}"
-      onclick="captureA('cw_r')">
+    <button class="cap-btn ${cl.captured.cw_r!==undefined?'cap-done':cl.captured.cw_l!==undefined?'cap-ready':'cap-locked'}" onclick="captureA('cw_r')">
       <span class="cap-icon">${cl.captured.cw_r!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.cw_r!==undefined?'Bordo dx: '+fa(cl.captured.cw_r):'Cattura — Bordo destro'}</span>
     </button>
+    ${clDistBtn('dist')}
+    <div class="sec" style="margin-top:14px">Chioma — profondità</div>
+    <div class="step-hint">Spostati di circa <b>90°</b> attorno all'albero e ripeti: bordo sinistro, poi destro. Misura la distanza da qui se è diversa.</div>
+    <button class="cap-btn ${cl.captured.cd_l!==undefined?'cap-done':'cap-ready'}" onclick="captureA('cd_l')">
+      <span class="cap-icon">${cl.captured.cd_l!==undefined?'✓':'◉'}</span>
+      <span>${cl.captured.cd_l!==undefined?'Bordo sx: '+fa(cl.captured.cd_l):'Cattura — Bordo sinistro'}</span>
+    </button>
+    <button class="cap-btn ${cl.captured.cd_r!==undefined?'cap-done':cl.captured.cd_l!==undefined?'cap-ready':'cap-locked'}" onclick="captureA('cd_r')">
+      <span class="cap-icon">${cl.captured.cd_r!==undefined?'✓':'◉'}</span>
+      <span>${cl.captured.cd_r!==undefined?'Bordo dx: '+fa(cl.captured.cd_r):'Cattura — Bordo destro'}</span>
+    </button>
+    ${clDistBtn('distCd')}
   </div>
 
   <!-- ── PANNELLO DIAMETRO ── -->
   <div class="card" id="cpanel-dbh" style="${cl.param==='dbh'?'':'display:none'}">
-    <div class="sec">Diametro tronco (DBH a 1.30m)</div>
-    <div class="step-hint">Punta il mirino sul <b>bordo sinistro</b> del tronco, poi sul <b>bordo destro</b></div>
-    <button class="cap-btn ${cl.captured.dbh_l!==undefined?'cap-done':'cap-ready'}"
-      onclick="captureA('dbh_l')">
+    <div class="sec">Diametro tronco (DBH a 1.30 m)</div>
+    <div class="step-hint">Mettiti a <b>2–5 m</b> dal tronco. Punta il mirino sul <b>bordo sinistro</b> a 1,30 m di altezza, poi <b>ruota</b> sul bordo destro. Più sei vicino, più il dato è preciso.</div>
+    <button class="cap-btn ${cl.captured.dbh_l!==undefined?'cap-done':'cap-ready'}" onclick="captureA('dbh_l')">
       <span class="cap-icon">${cl.captured.dbh_l!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.dbh_l!==undefined?'Bordo sx: '+fa(cl.captured.dbh_l):'Cattura — Bordo sinistro'}</span>
     </button>
-    <button class="cap-btn ${cl.captured.dbh_r!==undefined?'cap-done':cl.captured.dbh_l!==undefined?'cap-ready':'cap-locked'}"
-      onclick="captureA('dbh_r')">
+    <button class="cap-btn ${cl.captured.dbh_r!==undefined?'cap-done':cl.captured.dbh_l!==undefined?'cap-ready':'cap-locked'}" onclick="captureA('dbh_r')">
       <span class="cap-icon">${cl.captured.dbh_r!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.dbh_r!==undefined?'Bordo dx: '+fa(cl.captured.dbh_r):'Cattura — Bordo destro'}</span>
     </button>
+    ${clDistBtn('distDBH')}
   </div>
 
   <!-- ── DISTANZE ── -->
   <div class="card">
     <div class="sec">Distanze orizzontali</div>
-
-    <!-- Misuratore distanza tramite clinometro -->
-    <div style="margin-bottom:10px;padding:8px;background:#f0f7f0;border-radius:8px;border:1px solid var(--border-2)">
-      <div style="font-size:11px;font-weight:600;color:var(--green-700);margin-bottom:6px">📐 Misura distanza con clinometro</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
-        Tieni il clinometro a <strong>h = 1.30m</strong> dal suolo, inquadra la base dell'albero e cattura l'angolo
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="cap-btn" style="flex:1" onclick="measureDistClino()">
-          <span class="cap-icon">${cl.captured._distAngle!==undefined?'✓':'◉'}</span>
-          <span>${cl.captured._distAngle!==undefined?'Angolo: '+(cl.captured._distAngle>=0?'+':'')+cl.captured._distAngle.toFixed(1)+'°':'Cattura angolo alla base'}</span>
-        </button>
-        <button onclick="clearDistMeas()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border-2);background:#fff;font-size:12px">✕</button>
-      </div>
-      ${cl.captured._distAngle!==undefined?`<div style="margin-top:6px;font-size:12px;color:var(--green-700)">
-        <b>d = h / tan(α) = 1.30 / tan(${Math.abs(cl.captured._distAngle).toFixed(1)}°) = ${(1.30/Math.tan(Math.abs(cl.captured._distAngle)*Math.PI/180)).toFixed(1)} m</b>
-        <button onclick="applyDistMeas('h')" style="margin-left:8px;padding:4px 8px;border-radius:6px;background:var(--green-600);color:#fff;border:none;font-size:11px">→ H/Chioma</button>
-        <button onclick="applyDistMeas('dbh')" style="margin-left:4px;padding:4px 8px;border-radius:6px;background:var(--green-600);color:#fff;border:none;font-size:11px">→ DBH</button>
-      </div>`:''}
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.5">
+      Con <b>📐 Misura</b> la distanza si calcola dall'angolo verso la base del tronco (d = h ÷ tan α) e viene scritta qui da sola. Puoi anche correggerla a mano.
+    </div>
+    <div class="dist-row" style="margin-bottom:8px">
+      <label>Altezza telefono dal suolo</label>
+      <input type="number" class="dist-in" id="phone-h-in" value="${(cl.phoneH||1.3)}" min="0.5" max="2.5" step="0.05"
+        oninput="G.clino.phoneH=parseFloat(this.value)||1.3">
+      <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
     </div>
 
-    <!-- Distanza per H e chioma -->
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Altezza / Chioma</div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Altezza / Chioma larghezza</div>
       <div class="dist-row">
         <label>Distanza dall'albero</label>
-        <input type="number" class="dist-in" id="dist-in" value="${cl.dist}"
-          min="1" max="200" step="0.5" oninput="G.clino.dist=parseFloat(this.value)||15;recalcAll()">
+        <input type="number" class="dist-in" id="dist-in" value="${cl.dist}" min="1" max="200" step="0.1" oninput="setDistManual('dist',this.value)">
         <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+        <button class="btn-sm green" onclick="measureDist('dist')">📐</button>
       </div>
-      <div class="dist-presets">
-        ${[5,8,10,12,15,18,20,25,30].map(d=>`<button class="dp" onclick="setDist(${d})">${d}m</button>`).join('')}
-      </div>
+      <div id="dq-dist" style="font-size:11px;margin-top:3px">${clDistQual('dist')}</div>
     </div>
 
-    <!-- Distanza per DBH -->
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Chioma profondità (se diversa)</div>
+      <div class="dist-row">
+        <label>Distanza dall'albero</label>
+        <input type="number" class="dist-in" id="dist-cd-in" value="${cl.distCd||''}" placeholder="${cl.dist}" min="1" max="200" step="0.1" oninput="setDistManual('distCd',this.value)">
+        <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+        <button class="btn-sm green" onclick="measureDist('distCd')">📐</button>
+      </div>
+      <div id="dq-distCd" style="font-size:11px;margin-top:3px">${clDistQual('distCd')}</div>
+    </div>
+
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Diametro fusto (DBH)</div>
       <div class="dist-row">
         <label>Distanza dal tronco</label>
-        <input type="number" class="dist-in" id="dist-dbh-in" value="${cl.distDBH||1}"
-          min="0.5" max="20" step="0.1" oninput="G.clino.distDBH=parseFloat(this.value)||1;recalcAll()">
+        <input type="number" class="dist-in" id="dist-dbh-in" value="${cl.distDBH||1}" min="0.5" max="30" step="0.1" oninput="setDistManual('distDBH',this.value)">
         <span style="font-size:13px;color:var(--text-muted);font-weight:500">m</span>
+        <button class="btn-sm green" onclick="measureDist('distDBH')">📐</button>
       </div>
-      <div class="dist-presets">
-        ${[0.5,1,1.5,2,3,5].map(d=>`<button class="dp" onclick="setDistDBH(${d})">${d}m</button>`).join('')}
-      </div>
+      <div id="dq-distDBH" style="font-size:11px;margin-top:3px">${clDistQual('distDBH')}</div>
     </div>
 
     <div class="formula" id="cl-formula">
-      H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>)<br>
-      <b>d = ${cl.dist}m</b> |
-      α_cima = ${fa(cl.captured.top)}° |
-      α_base = ${fa(cl.captured.base)}°<br>
-      <b>H = ${cl.meas.h?cl.meas.h.toFixed(2)+' m':'—'}</b>
+      H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>) &nbsp;| d = ${cl.dist} m<br>
+      α_cima = ${fa(cl.captured.top)}° · α_base = ${fa(cl.captured.base)}° → <b>H = ${cl.meas.h?cl.meas.h.toFixed(2)+' m':'—'}</b>
     </div>
   </div>
 
@@ -1673,12 +1672,17 @@ function renderMisure(){
   <div class="card">
     <div class="sec">Risultati clinometro</div>
     <div class="mets">
-      <div class="met ${cl.meas.h  ?'live':''}"><div class="met-v" id="cmv-h">${cl.meas.h  ?cl.meas.h.toFixed(2):'—'}</div><div class="met-l">Altezza totale (m)</div></div>
-      <div class="met ${cl.meas.dbh?'live':''}"><div class="met-v" id="cmv-dbh">${cl.meas.dbh?cl.meas.dbh.toFixed(1):'—'}</div><div class="met-l">Diametro fusto (cm)</div></div>
-      <div class="met ${cl.meas.cw ?'live':''}"><div class="met-v" id="cmv-cw">${cl.meas.cw ?cl.meas.cw.toFixed(2):'—'}</div><div class="met-l">Larghezza chioma (m)</div></div>
+      <div class="met ${cl.meas.h  ?'live':''}"><div class="met-v" id="cmv-h">${cl.meas.h  ?cl.meas.h.toFixed(2):'—'}</div><div class="met-l">Altezza totale (m)</div><div id="q-h" style="font-size:10px;margin-top:2px">${clQualStored('h','m',2)}</div></div>
+      <div class="met ${cl.meas.dbh?'live':''}"><div class="met-v" id="cmv-dbh">${cl.meas.dbh?cl.meas.dbh.toFixed(1):'—'}</div><div class="met-l">Diametro fusto (cm)</div><div id="q-dbh" style="font-size:10px;margin-top:2px">${clQualStored('dbh','cm',1)}</div></div>
+      <div class="met ${cl.meas.cw ?'live':''}"><div class="met-v" id="cmv-cw">${cl.meas.cw ?cl.meas.cw.toFixed(2):'—'}</div><div class="met-l">Larghezza chioma (m)</div><div id="q-cw" style="font-size:10px;margin-top:2px">${clQualStored('cw','m',2)}</div></div>
+      <div class="met ${cl.meas.cd ?'live':''}"><div class="met-v" id="cmv-cd">${cl.meas.cd ?cl.meas.cd.toFixed(2):'—'}</div><div class="met-l">Profondità chioma (m)</div><div id="q-cd" style="font-size:10px;margin-top:2px">${clQualStored('cd','m',2)}</div></div>
       <div class="met" style="background:var(--surface-2)">
         <div class="met-v" id="cmv-circ" style="font-size:16px">${cl.meas.dbh?(cl.meas.dbh*Math.PI).toFixed(1):'—'}</div>
         <div class="met-l">Circonferenza (cm)</div>
+      </div>
+      <div class="met" style="background:var(--surface-2)">
+        <div class="met-v" id="cmv-ca" style="font-size:16px">${(cl.meas.cw&&cl.meas.cd)?((cl.meas.cw+cl.meas.cd)/2).toFixed(2):'—'}</div>
+        <div class="met-l">Chioma media L/P (m)</div>
       </div>
     </div>
     <div style="margin-top:8px;font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;padding:4px 0">
@@ -1687,6 +1691,7 @@ function renderMisure(){
         ${cl.meas.h&&cl.meas.dbh?((cl.meas.h*100)/cl.meas.dbh).toFixed(1):'—'}
       </span>
     </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:4px;line-height:1.5">L'incertezza è una stima basata su ±${CL_ERR_DEG}° per ogni cattura: serve a capire se conviene ripetere la misura da più vicino o da un'altra posizione.</div>
     ${hasAny?`
     <div class="transfer-box" style="margin-top:10px">
       <div class="tb-title">✓ Pronto per la scheda VTA</div>
@@ -1694,6 +1699,7 @@ function renderMisure(){
       ${cl.meas.dbh?`<div class="transfer-item"><span>Diametro fusto</span><strong>${cl.meas.dbh.toFixed(1)} cm</strong></div>`:''}
       ${cl.meas.dbh?`<div class="transfer-item"><span>Circonferenza</span><strong>${(cl.meas.dbh*Math.PI).toFixed(1)} cm</strong></div>`:''}
       ${cl.meas.cw ?`<div class="transfer-item"><span>Larghezza chioma</span><strong>${cl.meas.cw.toFixed(2)} m</strong></div>`:''}
+      ${cl.meas.cd ?`<div class="transfer-item"><span>Profondità chioma</span><strong>${cl.meas.cd.toFixed(2)} m</strong></div>`:''}
     </div>
     <button class="btn-primary" style="background:var(--green-700);margin-top:8px"
       onclick="transferToScheda()">Trasferisci a scheda VTA</button>`:''}
@@ -1701,49 +1707,190 @@ function renderMisure(){
   </div>`;
 }
 
-/* ── Camera clinometro — identica a startCamera() del tab Specie ── */
-async function startClinoCamera(firstTarget){
-  /* Attiva sensore */
-  if('DeviceOrientationEvent' in window){
-    if(typeof DeviceOrientationEvent.requestPermission==='function'){
-      try{const s=await DeviceOrientationEvent.requestPermission();if(s==='granted')startSensor();}
-      catch(e){}
-    } else { startSensor(); }
-  }
+/* Riquadro distanza dentro i pannelli + testi di qualità */
+function clDistQual(target){
+  const c=G.clino, i=c.distInfo&&c.distInfo[target];
+  if(i) return `misurata: α = ${i.angle}° (h ${i.h0} m) → ${clQualHTML(i.err,i.d,'m',1)}`;
+  if(target==='distCd' && !c.distCd) return '<span style="color:var(--text-muted)">uguale alla distanza della larghezza</span>';
+  if(target==='distDBH' && !c.distInfo.distDBH && c.distDBH===1) return '<span style="color:#b45309">valore predefinito — misuralo con 📐</span>';
+  if(target==='dist' && !c.distInfo.dist && c.dist===15) return '<span style="color:#b45309">valore predefinito — misuralo con 📐</span>';
+  return '<span style="color:#b45309">inserita a mano</span>';
+}
+function clDistBtn(target){
+  const c=G.clino, v = target==='distCd' ? (c.distCd||c.dist) : c[target];
+  const lbl = {dist:'Distanza dall\'albero', distCd:'Distanza (profondità)', distDBH:'Distanza dal tronco'}[target];
+  return `<div style="margin-top:8px;padding:8px 10px;background:#f0f7f0;border:1px solid var(--border-2);border-radius:8px;font-size:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span>${lbl}: <b>${v} m</b></span>
+      <button class="btn-sm green" onclick="measureDist('${target}')">📐 Misura</button>
+    </div>
+    <div style="margin-top:3px;font-size:11px">${clDistQual(target)}</div>
+  </div>`;
+}
+function clQualStored(k,unit,dec){
+  const q=G.clino.q&&G.clino.q[k];
+  return q ? clQualHTML(q.abs,q.val,unit,dec) : '';
+}
 
+/* ═══════════════════════════════════════════════════════════
+   CLINOMETRO v2
+   - Direzione di puntamento dell'ASSE DELLA FOTOCAMERA (elevazione + azimut)
+     calcolata dalla matrice di rotazione: indipendente da come si tiene il telefono
+     (verticale / orizzontale). L'altezza usa l'elevazione; larghezza chioma,
+     profondità chioma e diametro usano la differenza di AZIMUT tra i due bordi.
+   - Distanza dall'albero misurata con l'angolo verso la base (h telefono / tan α).
+   - Per ogni misura una stima dell'incertezza (bontà del dato).
+   ═══════════════════════════════════════════════════════════ */
+const CL_ERR_DEG = 0.6;   /* incertezza tipica di una singola cattura (°) */
+const clRad = a => a*Math.PI/180;
+function clAngDiff(a,b){ let d=Math.abs(a-b)%360; return d>180?360-d:d; }
+function calcHeight(d,top,base){ return d*(Math.tan(clRad(top))-Math.tan(clRad(base))); }
+function calcWidth(d,delta){ return 2*d*Math.tan(clRad(delta)/2); }
+function calcDiam(dSurf,delta){ const s=Math.sin(clRad(delta)/2); return s>=0.999 ? null : 2*dSurf*s/(1-s); }  /* m — cilindro, d = distanza dalla superficie */
+function calcDist(h0,el){ return h0/Math.tan(clRad(Math.abs(el))); }
+function errHeight(d,top,base){ const e=clRad(CL_ERR_DEG); return Math.hypot(d*e/Math.pow(Math.cos(clRad(top)),2), d*e/Math.pow(Math.cos(clRad(base)),2)); }
+function errWidth(d,delta){ const e=CL_ERR_DEG*Math.SQRT2; return Math.abs(calcWidth(d,delta+e)-calcWidth(d,Math.max(0.01,delta-e)))/2; }
+function errDiam(d,delta){ const e=CL_ERR_DEG*Math.SQRT2; const a=calcDiam(d,delta+e), b=calcDiam(d,Math.max(0.01,delta-e)); return (a===null||b===null)?Infinity:Math.abs(a-b)/2; }
+function errDist(h0,el){ const a=Math.abs(el), e=CL_ERR_DEG; return Math.abs(calcDist(h0,Math.max(0.3,a-e))-calcDist(h0,a+e))/2; }
+function clinoQuality(rel){
+  if(!isFinite(rel)) return {t:'Inaffidabile',c:'#b91c1c'};
+  if(rel<=0.05) return {t:'Ottima',c:'#15803d'};
+  if(rel<=0.10) return {t:'Buona',c:'#4d7c0f'};
+  if(rel<=0.20) return {t:'Scarsa',c:'#b45309'};
+  return {t:'Inaffidabile',c:'#b91c1c'};
+}
+function clQualHTML(abs,val,unit,dec){
+  const rel = val>0 ? abs/val : Infinity, q=clinoQuality(rel);
+  const a = isFinite(abs) ? '±'+abs.toFixed(dec)+' '+unit+' ('+Math.min(999,Math.round(rel*100))+'%) · ' : '';
+  return `<span style="color:${q.c};font-weight:600">${a}${q.t}</span>`;
+}
+
+/* ── Orientamento: direzione dell'asse della fotocamera ── */
+function orientToDir(alpha,beta,gamma){
+  const r=Math.PI/180, a=(alpha||0)*r, b=(beta||0)*r, g=(gamma||0)*r;
+  return {
+    x: -Math.sin(g)*Math.cos(a) - Math.sin(b)*Math.cos(g)*Math.sin(a),
+    y: -Math.sin(g)*Math.sin(a) + Math.sin(b)*Math.cos(g)*Math.cos(a),
+    z: -Math.cos(b)*Math.cos(g)
+  };
+}
+function startSensor(){
+  if(G.clino.sensorActive) return;
+  G.clino.sensorActive=true;
+  window.addEventListener('deviceorientation',onOrientation,true);
+  const dot=document.getElementById('sensor-dot');
+  const lbl=document.getElementById('sensor-lbl');
+  if(dot){dot.style.color='#6ee87a';dot.style.animation='pulse-sensor 2s infinite';}
+  if(lbl){lbl.textContent='sensore attivo';lbl.style.color='#6ee87a';}
+}
+async function ensureSensor(){
+  if(!('DeviceOrientationEvent' in window)) return false;
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
+    try{ const s=await DeviceOrientationEvent.requestPermission(); if(s!=='granted') return false; }catch(e){ return false; }
+  }
+  startSensor();
+  return true;
+}
+function onOrientation(e){
+  if((e.beta===null||e.beta===undefined) && (e.gamma===null||e.gamma===undefined)) return;
+  const v=orientToDir(e.alpha,e.beta,e.gamma);
+  const el=Math.asin(Math.max(-1,Math.min(1,v.z)))*180/Math.PI;
+  const hn=Math.hypot(v.x,v.y);
+  const hasAz=(e.alpha!==null && e.alpha!==undefined) && hn>0.05;
+  const c=G.clino;
+  c.angle=parseFloat(el.toFixed(1)); c.lastAngle=c.angle;
+  c.az = hasAz ? (Math.atan2(v.x,v.y)*180/Math.PI+360)%360 : null;
+  const now=Date.now(), buf=c._buf||(c._buf=[]);
+  buf.push({t:now, el:el, hx:hasAz?v.x/hn:null, hy:hasAz?v.y/hn:null});
+  while(buf.length && now-buf[0].t>800) buf.shift();
+  updateClinoDisplay();
+  updateClinoFSAngle(c.angle);
+}
+/* Media delle ultime letture (~0,3 s): riduce il tremolio della mano */
+function readClino(){
+  const c=G.clino, now=Date.now();
+  const buf=(c._buf||[]).filter(s=>now-s.t<=300);
+  if(!buf.length) return {el:c.angle||0, az:(c.az===undefined?null:c.az), n:0};
+  const el=buf.reduce((a,s)=>a+s.el,0)/buf.length;
+  const h=buf.filter(s=>s.hx!==null);
+  let az=null;
+  if(h.length){ const sx=h.reduce((a,s)=>a+s.hx,0), sy=h.reduce((a,s)=>a+s.hy,0); az=(Math.atan2(sx,sy)*180/Math.PI+360)%360; }
+  return {el:parseFloat(el.toFixed(2)), az:az, n:buf.length};
+}
+function updateClinoDisplay(){
+  const a=G.clino.angle;
+  const ae=document.getElementById('cl-angle');
+  const tf=document.getElementById('cl-tilt');
+  if(ae) ae.textContent=(a>=0?'+':'')+a.toFixed(1);
+  if(tf){tf.style.width=Math.abs(a/90*50)+'%';tf.style.marginLeft=(a>=0?50:50+a/90*50)+'%';}
+}
+function updateClinoFSAngle(angle){
+  const el=document.getElementById('fs-clino-angle');
+  if(el) el.textContent = (angle>=0?'+':'')+angle.toFixed(1)+'°';
+  updateOverlayInfo();
+}
+function clPairs(){ return {cw:['cw_l','cw_r'], cd:['cd_l','cd_r'], dbh:['dbh_l','dbh_r']}; }
+function updateOverlayInfo(){
+  const ov=document.getElementById('cam-fs-overlay'), el=document.getElementById('fs-clino-info');
+  if(!ov||!el) return;
+  const c=G.clino, r=readClino(), t=ov._pendingTarget;
+  let html='';
+  if(ov._distTarget){
+    const h0=c.phoneH||1.3;
+    if(r.el<-3){
+      const d=calcDist(h0,r.el), e=errDist(h0,r.el);
+      html=`distanza = <b>${d.toFixed(1)} m</b> &nbsp;${clQualHTML(e,d,'m',1)}`;
+    } else html='Inclina verso il basso: inquadra la <b>base del tronco</b>';
+  } else if(t==='cw_r'||t==='cd_r'||t==='dbh_r'){
+    const a1=c.capAz[t.replace('_r','_l')];
+    if(a1!=null && r.az!=null){
+      const dl=clAngDiff(r.az,a1);
+      let txt='';
+      if(t==='dbh_r'){ const dd=c.distDBH||1, m=calcDiam(dd,dl); txt = m!==null ? ` ≈ <b>${(m*100).toFixed(1)} cm</b>` : ''; }
+      else { const dd=(t==='cd_r'?(c.distCd||c.dist):c.dist)||15; txt=` ≈ <b>${calcWidth(dd,dl).toFixed(2)} m</b>`; }
+      html=`rotazione Δ = <b>${dl.toFixed(1)}°</b>${txt}`;
+    } else html = r.az===null ? '⚠ direzione non disponibile su questo dispositivo' : '';
+  } else if(t==='cw_l'||t==='cd_l'||t==='dbh_l'){
+    html = r.az===null ? '⚠ direzione non disponibile su questo dispositivo' : `direzione ${Math.round(r.az)}°`;
+  }
+  el.innerHTML=html;
+}
+
+/* ── Camera a schermo intero ── */
+async function startClinoCamera(firstTarget, distTarget){
+  await ensureSensor();
+  const h0=G.clino.phoneH||1.3;
   const hints = {
     base: 'Punta il mirino sulla <b>base del tronco</b> e premi cattura',
-    cw_l: 'Punta il mirino sul <b>bordo sinistro</b> della chioma e premi cattura',
-    dbh_l: 'Punta il mirino sul <b>bordo sinistro</b> del tronco e premi cattura'
+    cw_l: 'Larghezza: punta il mirino sul <b>bordo sinistro</b> della chioma',
+    cd_l: 'Profondità: dal lato (a 90°) punta il mirino sul <b>bordo sinistro</b> della chioma',
+    dbh_l: 'Punta il mirino sul <b>bordo sinistro</b> del tronco a 1,30 m',
+    dist: 'Punta la <b>base del tronco</b> tenendo il telefono a '+h0.toFixed(2)+' m dal suolo'
   };
-
   const overlay = document.createElement('div');
   overlay.id = 'cam-fs-overlay';
   overlay.className = 'cam-fullscreen';
   overlay.innerHTML = `
     <video id="cam-fs-video" autoplay playsinline muted style="flex:1;width:100%;height:100%;object-fit:cover"></video>
-    <!-- Linea orizzontale -->
     <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(100,255,100,0.8);pointer-events:none"></div>
-    <!-- Linea verticale -->
     <div style="position:absolute;left:50%;top:0;bottom:0;width:2px;background:rgba(100,255,100,0.8);transform:translateX(-50%);pointer-events:none"></div>
-    <!-- Cerchio con croce interna -->
     <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border:2px solid rgba(100,255,100,0.8);border-radius:50%;pointer-events:none">
-      <!-- croce orizzontale interna -->
       <div style="position:absolute;top:50%;left:20%;right:20%;height:1.5px;background:rgba(100,255,100,0.9);transform:translateY(-50%)"></div>
-      <!-- croce verticale interna -->
       <div style="position:absolute;left:50%;top:20%;bottom:20%;width:1.5px;background:rgba(100,255,100,0.9);transform:translateX(-50%)"></div>
     </div>
-    <div id="fs-clino-angle" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#6eff6e;font-size:28px;font-weight:700;font-family:monospace;padding:8px 20px;border-radius:12px">0.0°</div>
+    <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;max-width:92vw">
+      <div id="fs-clino-angle" style="display:inline-block;background:rgba(0,0,0,0.6);color:#6eff6e;font-size:28px;font-weight:700;font-family:monospace;padding:6px 18px;border-radius:10px">+0.0°</div>
+      <div id="fs-clino-info" style="margin-top:6px;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;padding:5px 12px;border-radius:8px;min-height:22px"></div>
+    </div>
     <div class="cam-fullscreen-bar">
       <button class="cam-fullscreen-close" onclick="closeClinoFullscreen()">✕</button>
       <button class="cam-fullscreen-snap" onclick="captureFromOverlay()" style="background:#6eff6e"></button>
       <div class="cam-fullscreen-label" id="fs-clino-label">${hints[firstTarget]||'Inquadra e cattura'}</div>
     </div>`;
   overlay._pendingTarget = firstTarget;
-  /* Per la misura distanza, cattura un solo angolo */
-  overlay._isDistMeas = (firstTarget === 'dist');
+  overlay._distTarget = (firstTarget==='dist') ? (distTarget||'dist') : null;
   document.body.appendChild(overlay);
-
+  updateOverlayInfo();
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false
@@ -1752,100 +1899,57 @@ async function startClinoCamera(firstTarget){
     const v = document.getElementById('cam-fs-video');
     if(v){ v.srcObject=stream; v.play(); }
   } catch(e){
-    overlay.remove();
-    alert('Fotocamera non disponibile — usa il sensore di inclinazione.');
+    /* senza fotocamera il sensore funziona comunque: si lavora a mirino "cieco" */
+    const lbl=document.getElementById('fs-clino-label');
+    if(lbl) lbl.innerHTML='Fotocamera non disponibile — usa il telefono come livella e premi cattura';
   }
 }
+function measureDist(target){ startClinoCamera('dist', target||'dist'); }
 
 function captureFromOverlay(){
   const overlay = document.getElementById('cam-fs-overlay');
   if(!overlay) return;
-  const target = overlay._pendingTarget;
-  if(!target) return;
-
-  /* Misura distanza: cattura angolo e chiude */
-  if(overlay._isDistMeas){
-    G.clino.captured._distAngle = G.clino.angle;
+  const c=G.clino;
+  /* Misura della distanza: d = h / tan(α), scritta direttamente nel campo */
+  if(overlay._distTarget){
+    const r=readClino(), h0=c.phoneH||1.3;
+    if(r.el>-3){
+      const lbl=document.getElementById('fs-clino-label');
+      if(lbl) lbl.innerHTML='⚠ Inclina di più verso la base del tronco (almeno −3°)';
+      return;
+    }
+    const tg=overlay._distTarget;
+    const d=parseFloat(calcDist(h0,r.el).toFixed(1));
+    c[tg]=d;
+    c.distInfo[tg]={angle:parseFloat(r.el.toFixed(1)), d:d, err:errDist(h0,r.el), h0:h0};
     closeClinoFullscreen();
+    recalcAll();
     renderClino();
     return;
   }
-
-  /* Cattura angolo e aggiorna il pulsante */
+  const target = overlay._pendingTarget;
+  if(!target) return;
   captureA(target);
-
-  /* Imposta prossimo target */
-  const nextMap = {base:'top', cw_l:'cw_r', dbh_l:'dbh_r'};
-  const next = nextMap[target];
-  if(next){
-    overlay._pendingTarget = next;
-  } else {
-    overlay._pendingTarget = null;
-  }
+  const nextMap = {base:'top', cw_l:'cw_r', cd_l:'cd_r', dbh_l:'dbh_r'};
+  overlay._pendingTarget = nextMap[target] || null;
+  updateOverlayInfo();
 }
-
 function closeClinoFullscreen(){
   const overlay=document.getElementById('cam-fs-overlay');
   if(overlay) overlay.remove();
   if(G.clino._stream){G.clino._stream.getTracks().forEach(t=>t.stop());G.clino._stream=null;}
 }
-
-function updateClinoFSAngle(angle){
-  const el=document.getElementById('fs-clino-angle');
-  if(el) el.textContent = (angle>=0?'+':'')+angle.toFixed(1)+'°';
-}
-
-function captureClinoAngle(){
-  const label=document.getElementById('fs-clino-label');
-  /* Delega alla logica esistente del clinometro */
-  const angleEl=document.getElementById('clino-angle')||document.getElementById('fs-clino-angle');
-  const angle=G.clino.lastAngle||0;
-  const captured=G.clino.captured||{};
-  if(!captured.alpha){
-    captured.alpha=angle;
-    G.clino.captured=captured;
-    if(label) label.textContent='✓ Base catturata — inquadra la cima';
-  } else if(!captured.beta){
-    captured.beta=angle;
-    G.clino.captured=captured;
-    if(label) label.textContent='✓ Cima catturata — chiudi';
-    setTimeout(()=>{ closeClinoFullscreen(); render('misure'); },800);
-  }
+/* Ridisegna il tab Misure (le funzioni di cattura lo richiamano) */
+function renderClino(){
+  if(document.getElementById('cpanel-height')) render('misure');
 }
 
 function resetClino(){
-  G.clino.captured={};
-  G.clino.meas={h:null,dbh:null,cw:null,cd:null};
-  /* Aggiorna UI senza chiudere/riaprire camera */
-  /* Reset risultati */
-  ['cmv-h','cmv-dbh','cmv-circ','cmv-cw','cmv-cd'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.textContent='—';
-  });
-  /* Reset pulsanti cattura */
-  ['base','cw_l','dbh_l'].forEach(id=>{
-    const btn=document.querySelector('[onclick="captureA(\''+id+'\')"]');
-    if(btn){
-      btn.classList.remove('cap-done','cap-locked');
-      btn.classList.add('cap-ready');
-      const icon=btn.querySelector('.cap-icon'); if(icon) icon.textContent='◉';
-      const lbl=btn.querySelector('span:last-child');
-      if(lbl) lbl.textContent=id==='base'?'Cattura — Base tronco':id==='cw_l'?'Cattura — Bordo sinistro':'Cattura — Bordo sinistro';
-    }
-  });
-  ['top','cw_r','dbh_r'].forEach(id=>{
-    const btn=document.querySelector('[onclick="captureA(\''+id+'\')"]');
-    if(btn){
-      btn.classList.remove('cap-done','cap-ready');
-      btn.classList.add('cap-locked');
-      const icon=btn.querySelector('.cap-icon'); if(icon) icon.textContent='◉';
-      const lbl=btn.querySelector('span:last-child');
-      if(lbl) lbl.textContent=id==='top'?'Cattura — Apice cima':id==='cw_r'?'Cattura — Bordo destro':'Cattura — Bordo destro';
-    }
-  });
-  /* Reset hint */
-  const hint=document.getElementById('height-hint');
-  if(hint) hint.innerHTML='<b>Passo 1</b> — Punta il mirino sulla <b>base del tronco</b> e cattura';
-  const fbox=document.getElementById('cl-formula'); if(fbox) fbox.textContent='';
+  const c=G.clino;
+  c.captured={}; c.capAz={}; c.distInfo={};
+  c.meas={h:null,dbh:null,cw:null,cd:null};
+  c.q={};
+  renderClino();
 }
 
 function setCParam(p,btn){
@@ -1858,210 +1962,95 @@ function setCParam(p,btn){
   });
 }
 
-function startSensor(){
-  if(G.clino.sensorActive) return;
-  G.clino.sensorActive=true;
-  window.addEventListener('deviceorientation',onOrientation,true);
-  const dot=document.getElementById('sensor-dot');
-  const lbl=document.getElementById('sensor-lbl');
-  if(dot){dot.style.color='#6ee87a';dot.style.animation='pulse-sensor 2s infinite';}
-  if(lbl){lbl.textContent='sensore attivo';lbl.style.color='#6ee87a';}
-}
-
-function onOrientation(e){
-  let b=e.beta||0, g=e.gamma||0;
-  /* Rileva orientamento schermo */
-  const orient = (screen.orientation||{}).angle ?? window.orientation ?? 0;
-  let angle;
-  if(Math.abs(orient)===90 || Math.abs(orient)===270){
-    /* Landscape: usa gamma invece di beta, con segno corretto */
-    angle = (orient===90) ? -g : g;
-  } else {
-    /* Portrait: usa beta */
-    angle = b - 90;
-    if(angle>90)  angle = 180-angle;
-    if(angle<-90) angle = -180-angle;
-  }
-  G.clino.angle=parseFloat(angle.toFixed(1));
-  G.clino.lastAngle=G.clino.angle;
-  updateClinoDisplay();
-  updateClinoFSAngle(G.clino.angle);
-}
-
-function updateClinoDisplay(){
-  const a=G.clino.angle;
-  const ae=document.getElementById('cl-angle');
-  const tf=document.getElementById('cl-tilt');
-  if(ae) ae.textContent=(a>=0?'+':'')+a.toFixed(1);
-  if(tf){tf.style.width=Math.abs(a/90*50)+'%';tf.style.marginLeft=(a>=0?50:50+a/90*50)+'%';}
-}
-
 function captureA(target){
-  /* Primo tap del gruppo → apri camera se non è già aperta */
-  const firstOfGroup = {base:true, cw_l:true, dbh_l:true};
-  const lastOfGroup  = {top:true,  cw_r:true,  dbh_r:true};
-  const labelNext    = {base:'Punta il mirino sull\'<b>apice della cima</b> e cattura',
-                        cw_l:'Punta il mirino sul <b>bordo destro</b> e cattura',
-                        dbh_l:'Punta il mirino sul <b>bordo destro</b> del tronco e cattura'};
-
+  const firstOfGroup = {base:true, cw_l:true, cd_l:true, dbh_l:true};
+  const lastOfGroup  = {top:true, cw_r:true, cd_r:true, dbh_r:true};
+  const labelNext = {
+    base:'Ora punta il mirino sull\'<b>apice della cima</b> e cattura',
+    cw_l:'Ruota il telefono sul <b>bordo destro</b> della chioma e cattura',
+    cd_l:'Ruota il telefono sul <b>bordo destro</b> della chioma e cattura',
+    dbh_l:'Ruota il telefono sul <b>bordo destro</b> del tronco e cattura'};
   if(firstOfGroup[target] && !document.getElementById('cam-fs-overlay')){
     startClinoCamera(target);
-    return; /* La cattura avverrà dentro startClinoCamera */
+    return;
   }
-
-  /* Cattura angolo corrente */
-  const a = G.clino.lastAngle || G.clino.angle || 0;
-  G.clino.captured[target] = a;
+  const r=readClino(), c=G.clino;
+  c.captured[target]=parseFloat(r.el.toFixed(1));
+  c.capAz[target]=r.az;
   recalcAll();
-
-  const fa = v => v!==undefined?(v>=0?'+':'')+v.toFixed(1)+'°':'—°';
-  const labels = {top:'Cima', base:'Base tronco', cw_l:'Bordo sx', cw_r:'Bordo dx', dbh_l:'Bordo sx', dbh_r:'Bordo dx'};
-
-  /* Aggiorna pulsante corrente */
-  const btn = document.querySelector(`[onclick="captureA('${target}')"]`);
-  if(btn){
-    btn.classList.remove('cap-ready','cap-locked'); btn.classList.add('cap-done');
-    btn.querySelector('.cap-icon').textContent = '✓';
-    btn.querySelector('span:last-child').textContent = `${labels[target]||target}: ${fa(a)}`;
-  }
-
-  /* Sblocca pulsante successivo o chiudi camera */
-  const nextMap = {base:'top', cw_l:'cw_r', dbh_l:'dbh_r'};
-  if(nextMap[target]){
-    const nextBtn = document.querySelector(`[onclick="captureA('${nextMap[target]}')"]`);
-    if(nextBtn){nextBtn.classList.remove('cap-locked'); nextBtn.classList.add('cap-ready');}
-    /* Aggiorna label nell overlay */
-    const lbl = document.getElementById('fs-clino-label');
-    if(lbl) lbl.innerHTML = labelNext[target]||'Cattura';
-  }
-
+  const nxt = {base:'top', cw_l:'cw_r', cd_l:'cd_r', dbh_l:'dbh_r'}[target];
+  const lbl = document.getElementById('fs-clino-label');
+  if(lbl && nxt) lbl.innerHTML = labelNext[target];
   if(lastOfGroup[target]){
-    /* Ultima misura del gruppo → chiudi camera */
-    setTimeout(()=>{ closeClinoFullscreen(); }, 600);
-  }
-
-  /* Hint altezza */
-  if(target==='base'){
-    const hint=document.getElementById('height-hint');
-    if(hint) hint.innerHTML='<b>Passo 2</b> — Punta il mirino sull\'<b>apice della cima</b> e cattura';
-  }
-}
-
-function setDist(d){
-  G.clino.dist=d;
-  const el=document.getElementById('dist-in');if(el) el.value=d;
-  recalcAll();
-}
-
-function setDistDBH(d){
-  G.clino.distDBH=d;
-  const el=document.getElementById('dist-dbh-in');
-  if(el) el.value=d;
-  recalcAll();
-  renderClino();
-}
-
-function measureDistClino(){
-  /* Apre la camera fullscreen per misurare la distanza orizzontale */
-  const overlay = document.createElement('div');
-  overlay.id = 'cam-fs-overlay';
-  overlay.className = 'cam-fullscreen';
-  overlay.innerHTML = `
-    <video id="cam-fs-video" autoplay playsinline muted style="flex:1;width:100%;height:100%;object-fit:cover"></video>
-    <!-- Linea orizzontale -->
-    <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(100,255,100,0.8);pointer-events:none"></div>
-    <!-- Linea verticale -->
-    <div style="position:absolute;left:50%;top:0;bottom:0;width:2px;background:rgba(100,255,100,0.8);transform:translateX(-50%);pointer-events:none"></div>
-    <!-- Cerchio con croce -->
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border:2px solid rgba(100,255,100,0.8);border-radius:50%;pointer-events:none">
-      <div style="position:absolute;top:50%;left:20%;right:20%;height:1.5px;background:rgba(100,255,100,0.9);transform:translateY(-50%)"></div>
-      <div style="position:absolute;left:50%;top:20%;bottom:20%;width:1.5px;background:rgba(100,255,100,0.9);transform:translateX(-50%)"></div>
-    </div>
-    <div id="fs-clino-angle" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#6eff6e;font-size:28px;font-weight:700;font-family:monospace;padding:8px 20px;border-radius:12px">0.0°</div>
-    <div class="cam-fullscreen-bar">
-      <button class="cam-fullscreen-close" onclick="closeClinoFullscreen()">✕</button>
-      <button class="cam-fullscreen-snap" onclick="captureDistAngle()" style="background:#6eff6e"></button>
-      <div class="cam-fullscreen-label">Punta alla <b>base del tronco</b> tenendo il clinometro a 1.30m dal suolo</div>
-    </div>`;
-  document.body.appendChild(overlay);
-  navigator.mediaDevices.getUserMedia({
-    video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false
-  }).then(stream => {
-    G.clino._stream = stream;
-    const v = document.getElementById('cam-fs-video');
-    if(v){ v.srcObject=stream; v.play(); }
-    /* Aggiorna angolo in tempo reale */
-    overlay._angleInterval = setInterval(()=>{
-      const el=document.getElementById('fs-clino-angle');
-      if(el) el.textContent=(G.clino.angle>=0?'+':'')+G.clino.angle.toFixed(1)+'°';
-    },100);
-  }).catch(err=>{
-    closeClinoFullscreen();
-    alert('Fotocamera non disponibile: '+err.message);
-  });
-}
-
-function captureDistAngle(){
-  const a = G.clino.angle;
-  G.clino.captured._distAngle = a;
-  closeClinoFullscreen();
-  renderClino();
-}
-
-function clearDistMeas(){
-  delete G.clino.captured._distAngle;
-  renderClino();
-}
-
-function applyDistMeas(target){
-  const a = G.clino.captured._distAngle;
-  if(a===undefined) return;
-  const d = parseFloat((1.30/Math.tan(Math.abs(a)*Math.PI/180)).toFixed(1));
-  if(!isFinite(d)||d<=0) return;
-  if(target==='h'){
-    G.clino.dist = d;
-    const el=document.getElementById('dist-in');
-    if(el) el.value=d;
+    if(lbl) lbl.innerHTML='✓ Misura completata';
+    setTimeout(()=>{ closeClinoFullscreen(); renderClino(); }, 700);
   } else {
-    G.clino.distDBH = d;
-    const el=document.getElementById('dist-dbh-in');
-    if(el) el.value=d;
+    renderClino();
   }
+}
+
+function setDist(d){ setDistFor('dist',d); }
+function setDistDBH(d){ setDistFor('distDBH',d); }
+function setDistFor(target,d){
+  G.clino[target]=d; delete G.clino.distInfo[target];
+  const ids={dist:'dist-in',distCd:'dist-cd-in',distDBH:'dist-dbh-in'};
+  const el=document.getElementById(ids[target]); if(el) el.value=d;
+  recalcAll(); renderClino();
+}
+function setDistManual(target,val){
+  const v=parseFloat(val);
+  if(v>0){ G.clino[target]=v; } else if(target==='distCd'){ G.clino.distCd=null; }
+  delete G.clino.distInfo[target];
+  const q=document.getElementById('dq-'+target); if(q) q.innerHTML='<span style="color:#b45309">inserita a mano</span>';
   recalcAll();
-  renderClino();
 }
 
 function recalcAll(){
-  const c=G.clino, d=c.dist||15;
-  /* Legge distDBH dal campo se visibile, altrimenti dallo stato */
-  const elDBH=document.getElementById('dist-dbh-in');
-  if(elDBH) c.distDBH=parseFloat(elDBH.value)||c.distDBH||1;
-  const dDBH=c.distDBH||1;
-  const rad=a=>a*Math.PI/180;
+  const c=G.clino;
+  const d=c.dist||15, dP=c.distCd||d, dD=c.distDBH||1;
+  c.q = c.q || {};
+  const set=(id,txt)=>{ const el=document.getElementById(id); if(el) el.innerHTML=txt; };
   /* Altezza */
   if(c.captured.top!==undefined && c.captured.base!==undefined){
-    c.meas.h=parseFloat((d*(Math.tan(rad(c.captured.top))-Math.tan(rad(c.captured.base)))).toFixed(2));
-    const el=document.getElementById('cmv-h');if(el) el.textContent=c.meas.h.toFixed(2);
+    c.meas.h=parseFloat(calcHeight(d,c.captured.top,c.captured.base).toFixed(2));
+    const e=errHeight(d,c.captured.top,c.captured.base);
+    c.q.h={abs:e,val:c.meas.h};
+    set('cmv-h',c.meas.h.toFixed(2)); set('q-h',clQualHTML(e,c.meas.h,'m',2));
   }
-  /* Larghezza chioma */
-  if(c.captured.cw_l!==undefined && c.captured.cw_r!==undefined){
-    c.meas.cw=parseFloat((d*(Math.tan(rad(Math.abs(c.captured.cw_l)))+Math.tan(rad(Math.abs(c.captured.cw_r))))).toFixed(2));
-    const el=document.getElementById('cmv-cw');if(el) el.textContent=c.meas.cw.toFixed(2);
-  }
-  /* Diametro — usa dDBH (distanza dal tronco, default 1m) */
+  /* Larghezza e profondità della chioma: differenza di azimut tra i due bordi */
+  [['cw','cw_l','cw_r',d],['cd','cd_l','cd_r',dP]].forEach(([k,l,r,dd])=>{
+    if(c.captured[l]===undefined || c.captured[r]===undefined) return;
+    const a1=c.capAz[l], a2=c.capAz[r];
+    if(a1==null||a2==null){ set('q-'+k,'<span style="color:#b91c1c">direzione non disponibile</span>'); return; }
+    const dl=clAngDiff(a1,a2);
+    c.meas[k]=parseFloat(calcWidth(dd,dl).toFixed(2));
+    const e=errWidth(dd,dl);
+    c.q[k]={abs:e,val:c.meas[k],delta:dl};
+    set('cmv-'+k,c.meas[k].toFixed(2)); set('q-'+k,clQualHTML(e,c.meas[k],'m',2)+` <span style="color:var(--text-muted)">Δ${dl.toFixed(1)}°</span>`);
+  });
+  /* Diametro: cilindro visto da distanza dD (dalla superficie del tronco) */
   if(c.captured.dbh_l!==undefined && c.captured.dbh_r!==undefined){
-    c.meas.dbh=parseFloat((dDBH*(Math.tan(rad(Math.abs(c.captured.dbh_l)))+Math.tan(rad(Math.abs(c.captured.dbh_r))))*100).toFixed(1));
-    const dbhEl=document.getElementById('cmv-dbh');if(dbhEl) dbhEl.textContent=c.meas.dbh.toFixed(1);
-    const circEl=document.getElementById('cmv-circ');if(circEl) circEl.textContent=(c.meas.dbh*Math.PI).toFixed(1);
+    const a1=c.capAz.dbh_l, a2=c.capAz.dbh_r;
+    if(a1==null||a2==null){ set('q-dbh','<span style="color:#b91c1c">direzione non disponibile</span>'); }
+    else {
+      const dl=clAngDiff(a1,a2), m=calcDiam(dD,dl);
+      if(m!==null){
+        c.meas.dbh=parseFloat((m*100).toFixed(1));
+        const e=errDiam(dD,dl)*100;
+        c.q.dbh={abs:e,val:c.meas.dbh,delta:dl};
+        set('cmv-dbh',c.meas.dbh.toFixed(1)); set('cmv-circ',(c.meas.dbh*Math.PI).toFixed(1));
+        set('q-dbh',clQualHTML(e,c.meas.dbh,'cm',1)+` <span style="color:var(--text-muted)">Δ${dl.toFixed(1)}°</span>`+(e/c.meas.dbh>0.2?'<br><span style="color:#b45309">Avvicinati al tronco (2–5 m) per un dato migliore</span>':''));
+      }
+    }
   }
-  /* Formula box */
+  if(c.meas.cw&&c.meas.cd) set('cmv-ca',((c.meas.cw+c.meas.cd)/2).toFixed(2));
   const fbox=document.getElementById('cl-formula');
   if(fbox){
     const fa=a=>a!==undefined?(a>=0?'+':'')+a.toFixed(1):'—';
-    fbox.innerHTML=`H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>)<br>
-      <b>d = ${d}m</b> | α_cima = ${fa(c.captured.top)}° | α_base = ${fa(c.captured.base)}°<br>
-      <b>H = ${c.meas.h?c.meas.h.toFixed(2)+' m':'—'}</b><br>
-      DBH = dDBH × (tan α<sub>sx</sub> + tan α<sub>dx</sub>) × 100 | <b>dDBH = ${dDBH}m</b>`;
+    fbox.innerHTML=`H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>) &nbsp;| d = ${d} m<br>
+      α_cima = ${fa(c.captured.top)}° · α_base = ${fa(c.captured.base)}° → <b>H = ${c.meas.h?c.meas.h.toFixed(2)+' m':'—'}</b><br>
+      Chioma = 2·d·tan(Δ/2) &nbsp;| Δ = rotazione orizzontale tra i due bordi<br>
+      Diametro = 2·r, r = d·sin(Δ/2)/(1−sin(Δ/2)) &nbsp;| d tronco = ${dD} m`;
   }
 }
 
