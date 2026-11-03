@@ -3004,10 +3004,12 @@ async function addPhotoToPDF(pdf, dataUrl, x, y, maxW, maxH) {
 }
 
 
-async function generatePDFSpeditivo(t) {
+async function generatePDFSpeditivo(t, opts) {
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  /* opts.pdf: documento condiviso per l'unione di più rilievi in un unico file */
+  const pdf = (opts && opts.pdf) ? opts.pdf : new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  if(opts && opts.pdf && !opts.first) pdf.addPage();
   const pW = 210, pH = 297, mL = 15, mR = 15, mT = 15;
   let y = mT;
 
@@ -3085,9 +3087,14 @@ async function generatePDFSpeditivo(t) {
   /* 3. DATI DIMENSIONALI */
   drawSection('DATI DIMENSIONALI');
   const circ=t.dbh?((t.dbh/100)*Math.PI).toFixed(2)+'m':'—';
-  drawRow4([['Altezza totale (H)',t.h?t.h+'m':'—'],['DBH',t.dbh?t.dbh+'cm':'—'],['Circonferenza',circ],['Diametro chioma',t.cw?t.cw+'m':'—']]);
+  drawRow4([['Altezza totale (H)',t.h?t.h+'m':'—'],['DBH',t.dbh?t.dbh+'cm':'—'],['Circonferenza',circ],['Snellezza H/D', (t.h&&t.dbh)?((t.h*100)/t.dbh).toFixed(1):'—']]);
   const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ2=(dbh/100)*Math.PI;if(h>0&&circ2>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ2-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return Math.round(fd);}return '—';})();
-  drawRow4([['Fattore Danno (FD)',String(_fdVal)],['Stazione',t.stazione||'—'],['Suolo',t.suolo||'—'],['Pavimentazione',t.pavimentazione||'—']]);
+  drawRow4([['Fattore Danno (FD)',String(_fdVal)],['Chioma larghezza',t.cw?t.cw+'m':'—'],['Chioma profondità',t.cd?t.cd+'m':'—'],['Chioma media L/P',(t.cw||t.cd)?crownAvg(t.cw,t.cd).toFixed(2)+'m':'—']]);
+  /* DATI DIMORA */
+  drawSection('DATI DIMORA');
+  drawRow4([['Stazione',t.stazione||'—'],['Pavimentazione',t.pavimentazione||'—'],['Suolo',t.suolo||'—'],['Sito radicazione',t.sitoCon||'—']]);
+  drawRow4([['Posizione sociale',t.posizSoc||'—'],['Conflitti',t.conflitti||'—'],['Età ontogenetica',t.eta?String(t.eta):'—'],['Fattore di contatto',(t.fattoreContattoNum||(t.vta&&t.vta.fattoreContattoNum))?((t.fattoreContatto?String(t.fattoreContatto).toLowerCase()+' · ':'')+(t.fattoreContattoNum||t.vta.fattoreContattoNum)):'—']]);
+
 
   /* 4. DIAGNOSI */
   drawSection('DIAGNOSI E VALUTAZIONE FINALE');
@@ -3171,6 +3178,8 @@ async function generatePDFSpeditivo(t) {
     rect(mL,y,pW-mL-mR,180,[248,248,248],LGRAY);
     setFont(8,'normal',GRAY); text('Spazio riservato per allegato fotografico',pW/2,y+90,{align:'center'});
   }
+
+  if(opts && opts.pdf) return;   /* file unico: numerazione e salvataggio a fine lotto */
 
   /* Numero pagine */
   const nPages=pdf.getNumberOfPages();
@@ -5269,23 +5278,68 @@ async function generatePDFSelected(){
   if(!selected.length){ alert('Seleziona almeno un rilievo'); return; }
 
   const btn = document.querySelector('[onclick="generatePDFSelected()"]');
-  if(btn){ btn.disabled=true; btn.textContent=`Generazione in corso (0/${selected.length})...`; }
+  const setBtn = txt => { if(btn){ btn.disabled=true; btn.textContent=txt; } };
+  const trees = selected.map(id=>G.trees.find(x=>String(x.id)===String(id))).filter(Boolean);
+  if(!trees.length) return;
 
-  for(let i=0; i<selected.length; i++){
-    const treeId = selected[i];
-    const t = G.trees.find(x=>String(x.id)===String(treeId));
-    if(!t) continue;
-    if(btn) btn.textContent=`Generazione in corso (${i+1}/${selected.length})...`;
-    if(t.schedaMode==='speditiva'){
-      await generatePDFSpeditivo(t);
-    } else {
-      await generatePDFSingle(t);
-    }
-    /* Piccola pausa tra un PDF e l'altro */
-    if(i < selected.length-1) await new Promise(r=>setTimeout(r,500));
+  /* Un solo rilievo: file singolo come prima */
+  if(trees.length===1){
+    setBtn('Generazione in corso...');
+    try{ const t=trees[0]; if(t.schedaMode==='speditiva') await generatePDFSpeditivo(t); else await generatePDFSingle(t); }
+    finally{ if(btn){ btn.disabled=false; btn.textContent='Genera PDF selezionati'; } }
+    return;
   }
 
-  if(btn){ btn.disabled=false; btn.textContent='Genera PDF selezionati'; }
+  /* Più rilievi: UN SOLO file PDF (oltre 80 rilievi si divide in più file per non saturare la memoria) */
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const { jsPDF } = window.jspdf;
+  const CHUNK = 80;
+  const parts = Math.ceil(trees.length/CHUNK);
+  const base = reportBatchName(trees);
+  const stamp = new Date().toISOString().slice(0,10);
+  let done = 0;
+  try{
+    for(let p=0; p<parts; p++){
+      const slice = trees.slice(p*CHUNK, (p+1)*CHUNK);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      for(let i=0; i<slice.length; i++){
+        const t = slice[i];
+        setBtn(`Generazione in corso (${done+1}/${trees.length})...`);
+        const opts = { pdf, first: i===0 };
+        if(t.schedaMode==='speditiva') await generatePDFSpeditivo(t, opts);
+        else await generatePDFSingle(t, opts);
+        done++;
+        await new Promise(r=>setTimeout(r,0));   /* lascia respirare l'interfaccia */
+      }
+      /* numerazione continua su tutto il file */
+      const n = pdf.getNumberOfPages();
+      for(let k=1;k<=n;k++){
+        pdf.setPage(k); pdf.setFont('helvetica','normal'); pdf.setFontSize(7); pdf.setTextColor(100,100,100);
+        pdf.text(`Pagina ${k} di ${n}`, 105, 289, {align:'center'});
+      }
+      const suffix = parts>1 ? `-parte${p+1}di${parts}` : '';
+      pdf.save(`ArboRisk-${base}-${slice.length}rilievi-${stamp}${suffix}.pdf`);
+      if(p<parts-1) await new Promise(r=>setTimeout(r,800));
+    }
+  } catch(e){
+    console.error('PDF multiplo', e);
+    alert('Errore nella generazione del PDF: '+e.message);
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='Genera PDF selezionati'; }
+  }
+}
+
+/* Nome del file unico: cliente-progetto se tutti i rilievi appartengono allo stesso progetto */
+function reportBatchName(trees){
+  const ids = new Set(trees.map(t=>String(t.id)));
+  const clean = x => String(x||'').trim().replace(/[^\wÀ-ÿ]+/g,'_').replace(/^_+|_+$/g,'');
+  for(const cl of (G_projects||[])){
+    for(const pr of (cl.progetti||[])){
+      const set = new Set((pr.rilievi||[]).map(String));
+      if([...ids].every(id=>set.has(id))) return clean(cl.nome)+(pr.nome?'-'+clean(pr.nome):'');
+    }
+  }
+  return 'Report';
 }
 
 async function generatePDF() {
@@ -5297,14 +5351,15 @@ async function generatePDF() {
   await generatePDFSingle(t);
 }
 
-async function generatePDFSingle(t) {
+async function generatePDFSingle(t, opts) {
   if (!t) return;
 
   /* Carica jsPDF */
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   const { jsPDF } = window.jspdf;
 
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pdf = (opts && opts.pdf) ? opts.pdf : new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  if(opts && opts.pdf && !opts.first) pdf.addPage();
   const pW = 210, pH = 297;
   const mL = 15, mR = 15, mT = 15;
   let y = mT;
@@ -5462,14 +5517,19 @@ async function generatePDFSingle(t) {
     ['Altezza totale (H)', t.h ? t.h+'m' : '—'],
     ['DBH', t.dbh ? t.dbh+'cm' : '—'],
     ['Circonferenza', circ],
-    ['Diametro chioma', t.cw ? t.cw+'m' : '—']
+    ['Snellezza H/D', (t.h&&t.dbh)?((t.h*100)/t.dbh).toFixed(1):'—']
   ]);
   drawRow4([
     ['Fattore Danno (FD)', (()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return Math.round(fd);}return t.fattoreDimensionale?Math.round(t.fattoreDimensionale):'—';})()],
-    ['Stazione', t.stazione||'—'],
-    ['Suolo', t.suolo||'—'],
-    ['Pavimentazione', t.pavimentazione||'—']
+    ['Chioma larghezza',t.cw?t.cw+'m':'—'],
+    ['Chioma profondità',t.cd?t.cd+'m':'—'],
+    ['Chioma media L/P',(t.cw||t.cd)?crownAvg(t.cw,t.cd).toFixed(2)+'m':'—']
   ]);
+  /* DATI DIMORA */
+  drawSection('DATI DIMORA');
+  drawRow4([['Stazione',t.stazione||'—'],['Pavimentazione',t.pavimentazione||'—'],['Suolo',t.suolo||'—'],['Sito radicazione',t.sitoCon||'—']]);
+  drawRow4([['Posizione sociale',t.posizSoc||'—'],['Conflitti',t.conflitti||'—'],['Età ontogenetica',t.eta?String(t.eta):'—'],['Fattore di contatto',(t.fattoreContattoNum||(t.vta&&t.vta.fattoreContattoNum))?((t.fattoreContatto?String(t.fattoreContatto).toLowerCase()+' · ':'')+(t.fattoreContattoNum||t.vta.fattoreContattoNum)):'—']]);
+
 
   /* ══════════════════════════════════════
      4. ANALISI VTA — SEZIONI ANATOMICHE
@@ -5657,6 +5717,8 @@ async function generatePDFSingle(t) {
     rect(mL,y,pW-mL-mR,180,[248,248,248],LGRAY);
     setFont(8,'normal',GRAY); text('Spazio riservato per allegato fotografico',pW/2,y+90,{align:'center'});
   }
+
+  if(opts && opts.pdf) return;   /* file unico: numerazione e salvataggio a fine lotto */
 
   /* Numero pagine */
   const nPages = pdf.getNumberOfPages();
