@@ -733,6 +733,7 @@ function render(v){
   const c=document.getElementById('content');
   const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
   c.innerHTML = (map[v]||renderLista)();
+  if(v==='scheda') setTimeout(()=>{ try{ updateRisk(true); }catch(e){} },0);
   if(v==='misure') {
     /* Avvia sensore immediatamente (non richiede gesto su Android) */
     setTimeout(()=>{
@@ -2179,11 +2180,11 @@ function renderScheda(){
     <div class="sec">Dati dimensionali</div>
     ${dimBanner}
     <div class="fg3" style="margin-top:8px">
-      <div class="field"><label>Altezza (m)</label><input type="number" id="fh" step="0.1" placeholder="—" value="${f.h?f.h.toFixed(2):''}" oninput="G.form.h=parseFloat(this.value)||null;calcSnell()"></div>
-      <div class="field"><label>Diametro (cm)</label><input type="number" id="fdbh" step="0.1" placeholder="—" value="${f.dbh?f.dbh.toFixed(1):''}" oninput="G.form.dbh=parseFloat(this.value)||null;calcSnell()"></div>
-      <div class="field"><label>Circ. (cm)</label><input type="number" id="fcirc" step="0.1" placeholder="—" value="${f.dbh?(f.dbh*Math.PI).toFixed(1):''}" oninput="G.form.circ=parseFloat(this.value)||null"></div>
-      <div class="field"><label>Choma L (m)</label><input type="number" id="fcw" step="0.1" placeholder="—" value="${f.cw?f.cw.toFixed(2):''}" oninput="G.form.cw=parseFloat(this.value)||null;updateRisk()"></div>
-      <div class="field"><label>Chioma P (m)</label><input type="number" id="fcd" step="0.1" placeholder="—" value="${f.cd?f.cd.toFixed(2):''}" oninput="G.form.cd=parseFloat(this.value)||null;updateRisk()"></div>
+      <div class="field"><label>Altezza (m)</label><input type="number" id="fh" step="0.1" placeholder="—" value="${f.h?f.h.toFixed(2):''}" oninput="onDimInput('h',this.value)"></div>
+      <div class="field"><label>Diametro (cm)</label><input type="number" id="fdbh" step="0.1" placeholder="—" value="${f.dbh?f.dbh.toFixed(1):''}" oninput="onDimInput('dbh',this.value)"></div>
+      <div class="field"><label>Circ. (cm)</label><input type="number" id="fcirc" step="0.1" placeholder="—" value="${f.dbh?(f.dbh*Math.PI).toFixed(1):''}" oninput="onDimInput('circ',this.value)"></div>
+      <div class="field"><label>Choma L (m)</label><input type="number" id="fcw" step="0.1" placeholder="—" value="${f.cw?f.cw.toFixed(2):''}" oninput="onDimInput('cw',this.value)"></div>
+      <div class="field"><label>Chioma P (m)</label><input type="number" id="fcd" step="0.1" placeholder="—" value="${f.cd?f.cd.toFixed(2):''}" oninput="onDimInput('cd',this.value)"></div>
       <div class="field"><label>Snellezza H/D</label><input type="text" id="fsnell" readonly value="${f.h&&f.dbh?((f.h*100)/f.dbh).toFixed(1):'—'}"></div>
       <div class="field full"><label>Altezza 1° palco (m)</label><input type="number" step="0.1" placeholder="—" oninput="G.form.hPalco=parseFloat(this.value)||null"></div>
     </div>
@@ -2322,10 +2323,10 @@ function renderSchedaSpeditiva(){
     <div class="sec">Dati dimensionali</div>
     ${dimBanner}
     <div class="fg" style="margin-top:8px">
-      <div class="field"><label>Altezza (H) m</label><input type="number" step="0.1" value="${f.h||''}" oninput="autosaveField('h',parseFloat(this.value))"></div>
-      <div class="field"><label>DBH cm</label><input type="number" step="0.1" value="${f.dbh||''}" oninput="autosaveField('dbh',parseFloat(this.value))"></div>
-      <div class="field"><label>Largh. chioma m</label><input type="number" step="0.1" value="${f.cw||''}" oninput="autosaveField('cw',parseFloat(this.value));updateRisk()"></div>
-      <div class="field"><label>Prof. chioma m</label><input type="number" step="0.1" value="${f.cd||''}" oninput="autosaveField('cd',parseFloat(this.value));updateRisk()"></div>
+      <div class="field"><label>Altezza (H) m</label><input type="number" step="0.1" value="${f.h||''}" oninput="onDimInput('h',this.value)"></div>
+      <div class="field"><label>DBH cm</label><input type="number" step="0.1" value="${f.dbh||''}" oninput="onDimInput('dbh',this.value)"></div>
+      <div class="field"><label>Largh. chioma m</label><input type="number" step="0.1" value="${f.cw||''}" oninput="onDimInput('cw',this.value)"></div>
+      <div class="field"><label>Prof. chioma m</label><input type="number" step="0.1" value="${f.cd||''}" oninput="onDimInput('cd',this.value)"></div>
     </div>
   </div>
 
@@ -2852,6 +2853,21 @@ function checkPino(v){
   const el=document.getElementById('pino-banner');
   if(el) el.style.display=v.toLowerCase().includes('pinus')?'block':'none';
 }
+/* Misure dimensionali: salva, tiene allineati diametro/circonferenza e ricalcola subito FD, IR e CPC */
+function onDimInput(key,val){
+  const v=parseFloat(val), num=isFinite(v)?v:null;
+  if(key==='circ'){
+    G.form.circ=num;
+    const dbh=num?parseFloat((num/Math.PI).toFixed(1)):null;
+    autosaveField('dbh',dbh);
+    const d=document.getElementById('fdbh'); if(d) d.value=dbh===null?'':dbh;
+  } else {
+    autosaveField(key,num);
+    if(key==='dbh'){ const c=document.getElementById('fcirc'); if(c) c.value=num?(num*Math.PI).toFixed(1):''; }
+  }
+  calcSnell();
+  updateRisk();
+}
 function calcSnell(){
   const h=G.form.h,d=G.form.dbh,el=document.getElementById('fsnell');
   if(el&&h&&d) el.value=((h*100)/d).toFixed(1);
@@ -2895,7 +2911,8 @@ function crownAvg(w,d){
   if(w>0 && d>0) return (w+d)/2;
   return w>0 ? w : d;
 }
-function updateRisk(){
+function updateRisk(displayOnly){
+  const W=(k,v)=>{ if(!displayOnly) autosaveField(k,v); };
   const vta = G.form.vta || {};
   const isSpeditiva = G.form.schedaMode === 'speditiva';
   let J27, J37, J47;
@@ -2936,7 +2953,7 @@ function updateRisk(){
   const perdisplay=document.getElementById('peric-label-display');
   if(perdisplay){ perdisplay.textContent=IR>0?pericLabel:'—'; }
   /* Non sovrascrivere la pericolosità speditiva scelta dall'utente */
-  if(!isSpeditiva) autosaveField('pericolosita', IR>0?pericLabel:'');
+  if(!isSpeditiva) W('pericolosita', IR>0?pericLabel:'');
   const noMeas=!G.form.fattoreDimensionale&&!(parseFloat(G.form.h)||parseFloat(G.form.dbh));
   if(dv){
     dv.textContent=FD.toFixed(3);
@@ -2953,17 +2970,17 @@ function updateRisk(){
     else if(FD<=8.5) fdLabel='Elevato';
     else             fdLabel='Estremo';
   }
-  if(fdNumV){ fdNumV.textContent=noMeas?'—':fdRounded; fdNumV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
+  if(fdNumV){ fdNumV.textContent=noMeas?'—':FD.toFixed(1); fdNumV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
   if(fdLabelV){ fdLabelV.textContent=noMeas?'Inserisci misure nel tab Misure':fdLabel; fdLabelV.style.color=noMeas?'var(--text-muted)':'var(--text-primary)'; }
-  autosaveField('fattoreDanno', fdLabel);
+  W('fattoreDanno', fdLabel);
 
   /* Aggiorna sempre CPC in base all'IR calcolato */
-  G.form.cpc=cpc;
+  if(!displayOnly) G.form.cpc=cpc;
   if(cv){cv.textContent=cpc;cv.className='risk-val r'+cpc.replace('/','');}
   const sel=document.getElementById('cpc-select');
   if(sel) sel.value=cpc;
-  autosaveField('cpc',cpc);
-  autosaveField('indiceRischio',Math.round(IR));
+  W('cpc',cpc);
+  W('indiceRischio',Math.round(IR));
 }
 
 /* ── EXPORT MAPPA ── */
@@ -3088,7 +3105,7 @@ async function generatePDFSpeditivo(t, opts) {
   drawSection('DATI DIMENSIONALI');
   const circ=t.dbh?((t.dbh/100)*Math.PI).toFixed(2)+'m':'—';
   drawRow4([['Altezza totale (H)',t.h?t.h+'m':'—'],['DBH',t.dbh?t.dbh+'cm':'—'],['Circonferenza',circ],['Snellezza H/D', (t.h&&t.dbh)?((t.h*100)/t.dbh).toFixed(1):'—']]);
-  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ2=(dbh/100)*Math.PI;if(h>0&&circ2>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ2-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return Math.round(fd);}return '—';})();
+  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ2=(dbh/100)*Math.PI;if(h>0&&circ2>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ2-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return fd.toFixed(1);}return '—';})();
   drawRow4([['Fattore Danno (FD)',String(_fdVal)],['Chioma larghezza',t.cw?t.cw+'m':'—'],['Chioma profondità',t.cd?t.cd+'m':'—'],['Chioma media L/P',(t.cw||t.cd)?crownAvg(t.cw,t.cd).toFixed(2)+'m':'—']]);
   /* DATI DIMORA */
   drawSection('DATI DIMORA');
@@ -5520,7 +5537,7 @@ async function generatePDFSingle(t, opts) {
     ['Snellezza H/D', (t.h&&t.dbh)?((t.h*100)/t.dbh).toFixed(1):'—']
   ]);
   drawRow4([
-    ['Fattore Danno (FD)', (()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return Math.round(fd);}return t.fattoreDimensionale?Math.round(t.fattoreDimensionale):'—';})()],
+    ['Fattore Danno (FD)', (()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return fd.toFixed(1);}return t.fattoreDimensionale?Number(t.fattoreDimensionale).toFixed(1):'—';})()],
     ['Chioma larghezza',t.cw?t.cw+'m':'—'],
     ['Chioma profondità',t.cd?t.cd+'m':'—'],
     ['Chioma media L/P',(t.cw||t.cd)?crownAvg(t.cw,t.cd).toFixed(2)+'m':'—']
@@ -5602,7 +5619,7 @@ async function generatePDFSingle(t, opts) {
   const cpc = t.cpc || 'A';
   rect(mL, y, 55, 20, [245,245,245], LGRAY);
   setFont(7, 'normal', GRAY); text('Indice di Rischio (IR)', mL+3, y+5);
-  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return Math.round(fd);}return t.fattoreDimensionale?Math.round(t.fattoreDimensionale):'—';})();
+  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return fd.toFixed(1);}return t.fattoreDimensionale?Number(t.fattoreDimensionale).toFixed(1):'—';})();
   setFont(18, 'bold', BLACK); text(Math.round(IR)||'—', mL+3, y+16);
   drawCPC(cpc, mL+60, y+10);
   setFont(7, 'normal', GRAY); text('Fattore di Contatto', mL+90, y+5);
@@ -6047,7 +6064,7 @@ async function exportExcel(){
     const circM = (dbh/100)*Math.PI;
     let fd = '';
     if(h>0 && circM>0 && cw>0){
-      fd = Math.round((10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circM-100)))+10/(1+Math.exp(-0.7*(cw-6))))/3);
+      fd = Math.round(10*(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circM-100)))+10/(1+Math.exp(-0.7*(cw-6))))/3)/10;
     }
     return [
       t.id, t.data||'', t.specie||'',
