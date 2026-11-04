@@ -2932,6 +2932,54 @@ function setPericNum(n){
   const box=document.getElementById('peric-pair'); if(box) box.innerHTML=pericPairHTML(n);
   updateRisk();
 }
+
+/* Centro della sigmoide della chioma: 6 m; 12 m solo per i pini (come nel foglio Excel) */
+// Termine fusto FD: circonferenza in metri, curva logistica centro 200 cm, pendenza 0,02 (taratura v41)
+function fdTrunk(circM){return 10/(1+Math.exp(-0.02*(circM*100-200)));}
+function crownMid(specie){ return /pinus|\bpini?\b|\bpino\b/i.test(String(specie||'')) ? 12 : 6; }
+/* ── Ricalcolo in blocco di FD / IR / CPC su tutto l'archivio (stessa logica di updateRisk) ── */
+function riskForTree(t){
+  const vta=t.vta||{}, sp=t.schedaMode==='speditiva';
+  const J = sp ? (parseInt(t.pericolosita_num)||0)
+               : ((vta.per_rc_num||0)+(vta.per_fc_num||0)+(vta.per_bc_num||0));
+  if(!J) return null;                      /* nessun giudizio di pericolosità: non tocco il rilievo */
+  const FC = t.fattoreContattoNum || vta.fattoreContattoNum || 1;
+  const h=parseFloat(t.h)||0, dbh=parseFloat(t.dbh)||0, dc=crownAvg(t.cw,t.cd), circ=(dbh/100)*Math.PI;
+  const hasMeas = h>0 || dbh>0;
+  let FD = parseFloat(t.fattoreDimensionale)||0;
+  if(!FD){
+    FD = (h>0||circ>0||dc>0)
+      ? (10/(1+Math.exp(-0.4*(h-12)))+fdTrunk(circ)+10/(1+Math.exp(-0.7*(dc-crownMid(t.specie)))))/3
+      : 1;
+  }
+  const IR = J*FC*FD;
+  let lab,cpc;
+  if(IR<=30){lab='Trascurabile';cpc='A';} else if(IR<=120){lab='Basso';cpc='B';}
+  else if(IR<=300){lab='Moderato';cpc='C';} else if(IR<=600){lab='Elevato';cpc='C/D';} else {lab='Estremo';cpc='D';}
+  let fdLabel='';
+  if(hasMeas){ fdLabel = FD<=2.5?'Trascurabile':FD<=4.5?'Basso':FD<=6.5?'Moderato':FD<=8.5?'Elevato':'Estremo'; }
+  return {IR:Math.round(IR), cpc, lab, fdLabel, FD};
+}
+async function recalcArchive(){
+  const el=document.getElementById('recalc-msg');
+  const todo=G.trees.map(t=>({t,r:riskForTree(t)})).filter(x=>x.r);
+  const changed=todo.filter(({t,r})=>(t.indiceRischio||0)!==r.IR || (!t._cpcManual && t.cpc!==r.cpc));
+  if(!changed.length){ if(el){ el.textContent='Nessun rilievo da aggiornare: i valori sono già coerenti.'; el.style.color='var(--green-600)'; } return; }
+  if(!confirm(`Ricalcolare fattore di danno, indice di rischio e classe CPC per ${changed.length} rilievi?\n(Prima viene salvata una copia automatica dello stato attuale.)`)) return;
+  try{ await snapshotNow(true); }catch(e){}
+  let cpcChanged=0;
+  changed.forEach(({t,r})=>{
+    if(!t._cpcManual && t.cpc!==r.cpc){ t.cpc=r.cpc; cpcChanged++; }
+    t.indiceRischio=r.IR;
+    if(t.schedaMode!=='speditiva') t.pericolosita=r.lab;
+    if(r.fdLabel) t.fattoreDanno=r.fdLabel;
+    t._savedAt=new Date().toISOString();
+  });
+  saveTrees();
+  if(el){ el.textContent=`✓ Aggiornati ${changed.length} rilievi (classe CPC cambiata in ${cpcChanged}).`; el.style.color='var(--green-600)'; }
+}
+
+/* FD = media di tre sigmoidi come nel foglio Excel VTA: altezza (centro 12 m), circonferenza in metri = DBH/100·π (centro 100), chioma (centro 6 m; 12 m per i pini) */
 function updateRisk(displayOnly){
   const W=(k,v)=>{ if(!displayOnly) autosaveField(k,v); };
   const vta = G.form.vta || {};
@@ -2951,7 +2999,7 @@ function updateRisk(displayOnly){
     const h=parseFloat(G.form.h)||0, dbh=parseFloat(G.form.dbh)||0;
     const circ=(dbh/100)*Math.PI, dc=crownAvg(G.form.cw,G.form.cd);
     if(h>0||circ>0||dc>0){
-      FD=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;
+      FD=(10/(1+Math.exp(-0.4*(h-12)))+fdTrunk(circ)+10/(1+Math.exp(-0.7*(dc-crownMid(G.form.specie)))))/3;
     } else { FD=1; }
   }
   const IR=(J27+J37+J47)*FC*FD;
@@ -3126,7 +3174,7 @@ async function generatePDFSpeditivo(t, opts) {
   drawSection('DATI DIMENSIONALI');
   const circ=t.dbh?((t.dbh/100)*Math.PI).toFixed(2)+'m':'—';
   drawRow4([['Altezza totale (H)',t.h?t.h+'m':'—'],['DBH',t.dbh?t.dbh+'cm':'—'],['Circonferenza',circ],['Snellezza H/D', (t.h&&t.dbh)?((t.h*100)/t.dbh).toFixed(1):'—']]);
-  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ2=(dbh/100)*Math.PI;if(h>0&&circ2>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ2-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return fd.toFixed(1);}return '—';})();
+  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ2=(dbh/100)*Math.PI;if(h>0&&circ2>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+fdTrunk(circ2)+10/(1+Math.exp(-0.7*(dc-crownMid(t.specie)))))/3;return fd.toFixed(1);}return '—';})();
   drawRow4([['Fattore Danno (FD)',String(_fdVal)],['Chioma larghezza',t.cw?t.cw+'m':'—'],['Chioma profondità',t.cd?t.cd+'m':'—'],['Chioma media L/P',(t.cw||t.cd)?crownAvg(t.cw,t.cd).toFixed(2)+'m':'—']]);
   /* DATI DIMORA */
   drawSection('DATI DIMORA');
@@ -4265,6 +4313,8 @@ function renderImpostazioniView(){
   <div class="card">
     <div class="sec">Gestione dati</div>
     <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Cancella tutto l'archivio locale per ripartire da zero. I dati non potranno essere recuperati.</div>
+    <button class="btn-secondary" onclick="recalcArchive()">↻ Ricalcola FD, IR e CPC di tutto l'archivio</button>
+    <div id="recalc-msg" style="font-size:11px;margin:6px 0 10px"></div>
     <button class="btn-secondary" style="border-color:var(--red);color:var(--red)" onclick="resetArchivio()">Cancella archivio locale</button>
   </div>
   <div class="card">
@@ -5558,7 +5608,7 @@ async function generatePDFSingle(t, opts) {
     ['Snellezza H/D', (t.h&&t.dbh)?((t.h*100)/t.dbh).toFixed(1):'—']
   ]);
   drawRow4([
-    ['Fattore Danno (FD)', (()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return fd.toFixed(1);}return t.fattoreDimensionale?Number(t.fattoreDimensionale).toFixed(1):'—';})()],
+    ['Fattore Danno (FD)', (()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+fdTrunk(circ)+10/(1+Math.exp(-0.7*(dc-crownMid(t.specie)))))/3;return fd.toFixed(1);}return t.fattoreDimensionale?Number(t.fattoreDimensionale).toFixed(1):'—';})()],
     ['Chioma larghezza',t.cw?t.cw+'m':'—'],
     ['Chioma profondità',t.cd?t.cd+'m':'—'],
     ['Chioma media L/P',(t.cw||t.cd)?crownAvg(t.cw,t.cd).toFixed(2)+'m':'—']
@@ -5640,7 +5690,7 @@ async function generatePDFSingle(t, opts) {
   const cpc = t.cpc || 'A';
   rect(mL, y, 55, 20, [245,245,245], LGRAY);
   setFont(7, 'normal', GRAY); text('Indice di Rischio (IR)', mL+3, y+5);
-  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circ-100)))+10/(1+Math.exp(-0.7*(dc-6))))/3;return fd.toFixed(1);}return t.fattoreDimensionale?Number(t.fattoreDimensionale).toFixed(1):'—';})();
+  const _fdVal=(()=>{const h=parseFloat(t.h)||0,dbh=parseFloat(t.dbh)||0,dc=crownAvg(t.cw,t.cd),circ=(dbh/100)*Math.PI;if(h>0&&circ>0&&dc>0){const fd=(10/(1+Math.exp(-0.4*(h-12)))+fdTrunk(circ)+10/(1+Math.exp(-0.7*(dc-crownMid(t.specie)))))/3;return fd.toFixed(1);}return t.fattoreDimensionale?Number(t.fattoreDimensionale).toFixed(1):'—';})();
   setFont(18, 'bold', BLACK); text(Math.round(IR)||'—', mL+3, y+16);
   drawCPC(cpc, mL+60, y+10);
   setFont(7, 'normal', GRAY); text('Fattore di Contatto', mL+90, y+5);
@@ -6085,7 +6135,7 @@ async function exportExcel(){
     const circM = (dbh/100)*Math.PI;
     let fd = '';
     if(h>0 && circM>0 && cw>0){
-      fd = Math.round(10*(10/(1+Math.exp(-0.4*(h-12)))+10/(1+Math.exp(-0.04*(circM-100)))+10/(1+Math.exp(-0.7*(cw-6))))/3)/10;
+      fd = Math.round(10*(10/(1+Math.exp(-0.4*(h-12)))+fdTrunk(circM)+10/(1+Math.exp(-0.7*(cw-crownMid(t.specie)))))/3)/10;
     }
     return [
       t.id, t.data||'', t.specie||'',
