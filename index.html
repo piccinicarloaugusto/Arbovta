@@ -2936,7 +2936,7 @@ function setPericNum(n){
 /* Centro della sigmoide della chioma: 6 m; 12 m solo per i pini (come nel foglio Excel) */
 // Termine fusto FD: circonferenza in metri, curva logistica centro 200 cm, pendenza 0,02 (taratura v41)
 function fdTrunk(circM){return 10/(1+Math.exp(-0.02*(circM*100-200)));}
-function crownMid(specie){ return /pinus|\bpini?\b|\bpino\b/i.test(String(specie||'')) ? 12 : 6; }
+function crownMid(specie){ return 6; } /* v42: centro chioma 6 per tutte le specie, nessuna variante pino */
 /* ── Ricalcolo in blocco di FD / IR / CPC su tutto l'archivio (stessa logica di updateRisk) ── */
 function riskForTree(t){
   const vta=t.vta||{}, sp=t.schedaMode==='speditiva';
