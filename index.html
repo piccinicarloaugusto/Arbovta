@@ -1054,7 +1054,16 @@ function saveRilievo(){
     }
   }
 
-  /* Nuova pianta */
+  /* Nuova pianta — se il codice esiste già NON creo un duplicato */
+  const dupIdx = G.trees.findIndex(x => String(x.id) === String(data.id));
+  if(dupIdx >= 0){
+    if(!confirm('Esiste già un rilievo con codice '+data.id+'.\nSovrascrivere quello esistente con questa scheda?\n(OK = sovrascrivi, Annulla = torna alla scheda per cambiare codice)')) return;
+    G.trees[dupIdx] = { ...G.trees[dupIdx], ...data };
+    saveTrees();
+    if(window._fb) window._fb.saveTree(G.trees[dupIdx]);
+    go('lista', navTab(0)); resetNav();
+    return;
+  }
   G.trees.push(data);
   saveTrees();
   if(window._fb) window._fb.saveTree(data);
@@ -2960,6 +2969,28 @@ function riskForTree(t){
   if(hasMeas){ fdLabel = FD<=2.5?'Trascurabile':FD<=4.5?'Basso':FD<=6.5?'Moderato':FD<=8.5?'Elevato':'Estremo'; }
   return {IR:Math.round(IR), cpc, lab, fdLabel, FD};
 }
+/* Rimuove i rilievi con codice duplicato: tiene il più recente (_savedAt), gli altri vanno nel cestino locale */
+async function dedupeArchive(){
+  const el=document.getElementById('dedupe-msg');
+  const groups={};
+  G.trees.forEach((t,i)=>{ (groups[String(t.id)]=groups[String(t.id)]||[]).push({t,i}); });
+  const dups=Object.entries(groups).filter(([k,a])=>a.length>1);
+  if(!dups.length){ if(el){ el.textContent='Nessun duplicato: ogni codice compare una sola volta.'; el.style.color='var(--green-600)'; } return; }
+  const extra=dups.reduce((n,[k,a])=>n+a.length-1,0);
+  if(!confirm('Trovati '+extra+' rilievi duplicati ('+dups.map(([k,a])=>k+' ×'+a.length).join(', ')+').\nPer ogni codice tengo la versione salvata più di recente e sposto le altre nel cestino.\n(Prima viene salvata una copia automatica.)')) return;
+  try{ await snapshotNow(true); }catch(e){}
+  const drop=new Set();
+  dups.forEach(([k,a])=>{
+    const sorted=a.slice().sort((x,y)=>String(y.t._savedAt||'').localeCompare(String(x.t._savedAt||'')) || y.i-x.i);
+    sorted.slice(1).forEach((x,n)=>{
+      drop.add(x.t);
+      photoDBop('readwrite',st=>st.put({tree:stripPhotos(x.t),ts:Date.now()},k+'__dup'+(n+1)),'trash').catch(()=>{});
+    });
+  });
+  G.trees=G.trees.filter(t=>!drop.has(t));
+  saveTrees();
+  if(el){ el.textContent='✓ Rimossi '+extra+' duplicati.'; el.style.color='var(--green-600)'; }
+}
 async function recalcArchive(){
   const el=document.getElementById('recalc-msg');
   const todo=G.trees.map(t=>({t,r:riskForTree(t)})).filter(x=>x.r);
@@ -4313,6 +4344,8 @@ function renderImpostazioniView(){
   <div class="card">
     <div class="sec">Gestione dati</div>
     <div style="font-size:11px;color:var(--text-muted);margin-bottom:9px;line-height:1.6">Cancella tutto l'archivio locale per ripartire da zero. I dati non potranno essere recuperati.</div>
+    <button class="btn-secondary" onclick="dedupeArchive()">⧉ Rimuovi rilievi duplicati (stesso codice)</button>
+    <div id="dedupe-msg" style="font-size:12px;margin:4px 0"></div>
     <button class="btn-secondary" onclick="recalcArchive()">↻ Ricalcola FD, IR e CPC di tutto l'archivio</button>
     <div id="recalc-msg" style="font-size:11px;margin:6px 0 10px"></div>
     <button class="btn-secondary" style="border-color:var(--red);color:var(--red)" onclick="resetArchivio()">Cancella archivio locale</button>
