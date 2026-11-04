@@ -2358,13 +2358,14 @@ function renderSchedaSpeditiva(){
     </div>
     <div class="field" style="margin-top:8px">
       <label>Pericolosità</label>
-      <select onchange="autosaveField('pericolosita_num',parseInt(this.selectedOptions[0].dataset.num)||0);autosaveField('pericolosita',this.value);updateRisk();"
+      <select onchange="setPericClasse(this)"
         style="width:100%;box-sizing:border-box">
         <option value="" data-num="0">Seleziona...</option>
         ${[['TRASCURABILE',1],['BASSO',3],['MODERATO',5],['ELEVATO',7],['ESTREMO',9]].map(([v,n])=>
           `<option value="${v}" data-num="${n}" ${(f.pericolosita||'').toUpperCase().includes(v.substring(0,4))?'selected':''}>${v}</option>`
         ).join('')}
       </select>
+      <div id="peric-pair" style="margin-top:6px">${pericPairHTML(parseInt(f.pericolosita_num)||0)}</div>
     </div>
 
     <!-- Fattore di contatto -->
@@ -2910,6 +2911,26 @@ function crownAvg(w,d){
   w=parseFloat(w)||0; d=parseFloat(d)||0;
   if(w>0 && d>0) return (w+d)/2;
   return w>0 ? w : d;
+}
+
+/* Pericolosità speditiva: ogni classe ha un valore minore e uno maggiore (1-2, 3-4, 5-6, 7-8, 9-10) */
+function pericPairHTML(num){
+  if(!num) return '';
+  const lo = num%2===0 ? num-1 : num, hi = lo+1;
+  return `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--text-muted)">Valore nella classe:</span>`+
+    [lo,hi].map((n,i)=>`<button type="button" onclick="setPericNum(${n})" style="flex:1;padding:9px 0;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:2px solid var(--green-600);${n===num?'background:var(--green-600);color:#fff':'background:#fff;color:var(--green-700)'}">${n}<span style="font-size:10px;font-weight:500;margin-left:4px">${i===0?'minore':'maggiore'}</span></button>`).join('')+`</div>`;
+}
+function setPericClasse(sel){
+  const n = parseInt(sel.selectedOptions[0].dataset.num)||0;   /* parte dal valore minore */
+  autosaveField('pericolosita_num', n);
+  autosaveField('pericolosita', sel.value);
+  const box=document.getElementById('peric-pair'); if(box) box.innerHTML=pericPairHTML(n);
+  updateRisk();
+}
+function setPericNum(n){
+  autosaveField('pericolosita_num', n);
+  const box=document.getElementById('peric-pair'); if(box) box.innerHTML=pericPairHTML(n);
+  updateRisk();
 }
 function updateRisk(displayOnly){
   const W=(k,v)=>{ if(!displayOnly) autosaveField(k,v); };
