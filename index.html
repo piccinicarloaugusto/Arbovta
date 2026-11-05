@@ -618,7 +618,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
     <button class="nav-tab" onclick="go('scheda',this)" title="Scheda VTA">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>Scheda
     </button>
-    <button class="nav-tab" onclick="go('mappa',this)" title="Mappa e report">
+    <button class="nav-tab" onclick="go('mappa',this)" title="Mappa">
       <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>Mappa
     </button>
     <button class="nav-tab" onclick="go('impostazioni',this)" title="Impostazioni e dati">
@@ -734,7 +734,7 @@ function newRilievo(){
 ═══════════════════════════════════════ */
 function render(v){
   const c=document.getElementById('content');
-  const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa,impostazioni:()=>renderImpostazioniView()};
+  const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa,impostazioni:renderImpostazioni};
   c.innerHTML = (map[v]||renderLista)();
   if(v==='scheda') setTimeout(()=>{ try{ updateRisk(true); }catch(e){} },0);
   if(v==='misure') {
@@ -3666,21 +3666,24 @@ function useAISpecieInForm(){
 ═══════════════════════════════════════ */
 function renderMappa(){
   normalizeTreeCoords();
+  return `<div id="mv-mappa">${renderMappaView()}</div>`;
+}
+/* Impostazioni: dati e impostazioni + Report PDF + Export Excel (v46) */
+function renderImpostazioni(){
   return `
   <div class="seg">
-    <button class="seg-b active" onclick="setMapView('mappa',this)">Mappa</button>
-    <button class="seg-b" onclick="setMapView('report',this)">Report PDF</button>
-    <button class="seg-b" onclick="setMapView('excel',this)">Export Excel</button>
+    <button class="seg-b active" onclick="setSettView('impostazioni',this)">Impostazioni</button>
+    <button class="seg-b" onclick="setSettView('report',this)">Report PDF</button>
+    <button class="seg-b" onclick="setSettView('excel',this)">Export Excel</button>
   </div>
-  <div id="mv-mappa">${renderMappaView()}</div>
-  <div id="mv-report" style="display:none">${renderReportView()}</div>
-  <div id="mv-excel" style="display:none">${renderExcelView()}</div>`;
+  <div id="sv-impostazioni">${renderImpostazioniView()}</div>
+  <div id="sv-report" style="display:none">${renderReportView()}</div>
+  <div id="sv-excel" style="display:none">${renderExcelView()}</div>`;
 }
-function setMapView(v,btn){
+function setSettView(v,btn){
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  ['mappa','report','excel'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
-  if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,100));
+  if(btn) btn.classList.add('active');
+  ['impostazioni','report','excel'].forEach(id=>{const el=document.getElementById('sv-'+id);if(el)el.style.display=id===v?'block':'none';});
 }
 function renderMappaView(){
   return `
@@ -5487,7 +5490,7 @@ function updateReportPreview(treeId) {
   const t = G.trees.find(x => x.id === treeId);
   if (t) { G.form._editingId = treeId; }
   // Ri-renderizza la view report
-  const el = document.getElementById('mv-report');
+  const el = document.getElementById('sv-report');
   if (el) el.innerHTML = renderReportView();
 }
 
