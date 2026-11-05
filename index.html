@@ -471,7 +471,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot, query, where }
+    import { initializeFirestore, getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot, query, where }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
     const firebaseConfig = {
@@ -484,7 +484,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
     };
 
     const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+    /* Auto-rilevamento long polling: evita blocchi con reti/proxy che ostacolano WebChannel */
+    let db;
+    try{ db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true, ignoreUndefinedProperties:true}); }
+    catch(e){ db = getFirestore(app); }
 
     /* ── Esponi funzioni Firestore al codice globale ── */
     window._fb = {
@@ -515,7 +518,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
           await setDoc(doc(db, 'trees', String(tree.id)), treeNoPhotos);
         try{ window.markSynced && window.markSynced(tree); }catch(e){}
         return true;
-        } catch(e) { console.warn('FB saveTree:', e); return false; }
+        } catch(e) { console.warn('FB saveTree:', e); window._fbLastErr=(e&&(e.code||e.message))||'errore'; return false; }
       },
 
       /* ── FOTO: una per documento nella collezione 'photos' (immagini compresse < 1 MB) ── */
@@ -597,7 +600,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v48 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v49 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -5338,7 +5341,8 @@ function saveTrees() {
   lsSaveTrees();
   /* Salva ogni pianta modificata anche su Firebase */
   if (window._fb) {
-    G.trees.forEach(t => window._fb.saveTree(t));
+    /* solo i rilievi nuovi o modificati (prima venivano riscritti TUTTI a ogni salvataggio: quota Firestore) */
+    G.trees.forEach(t => { if(!isSynced(t)) window._fb.saveTree(t); });
   }
 }
 function saveTree(tree) {
@@ -5404,7 +5408,7 @@ async function forceSyncToFirebase() {
   };
   await Promise.all([worker(),worker(),worker(),worker()]);
   if(!bad) say(`✓ ${total} rilievi nuovi o modificati sincronizzati; ${G.trees.length-total} erano già aggiornati.`,'var(--green-600)');
-  else say(`⚠ ${done} sincronizzati, ${bad} non confermati${slow?' (connessione lenta o assente: riprova)':''}.`,'var(--red)');
+  else say(`⚠ ${done} sincronizzati, ${bad} non confermati.`+(window._fbLastErr?` Errore Firebase: ${window._fbLastErr}.`:'')+(slow?' Firebase non risponde alle scritture: controlla quota giornaliera e regole in console Firebase.':''),'var(--red)');
 }
 
 /* ── FOTO RILIEVO ── */
