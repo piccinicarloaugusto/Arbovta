@@ -127,7 +127,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
 @media (orientation:landscape){
   /* Navbar si sposta a sinistra verticalmente */
   body{flex-direction:row}
-  .topbar{display:none} /* nasconde topbar in landscape per più spazio */
+  .topbar{padding:4px 14px} /* topbar compatta: resta visibile il pulsante Nuovo */
+  .logo-icon{width:24px;height:24px}
+  .logo-icon svg{width:14px;height:14px}
+  .logo-text .name{font-size:15px}
   .navbar{
     flex-direction:column;
     width:72px;
@@ -510,7 +513,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
             /* dataUrl escluso: le immagini stanno nella collezione 'photos' */
           }))};
           await setDoc(doc(db, 'trees', String(tree.id)), treeNoPhotos);
-        } catch(e) { console.warn('FB saveTree:', e); }
+        return true;
+        } catch(e) { console.warn('FB saveTree:', e); return false; }
       },
 
       /* ── FOTO: una per documento nella collezione 'photos' (immagini compresse < 1 MB) ── */
@@ -592,7 +596,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver">v3.0 · clinometro + AI</div>
+        <div class="ver" id="app-ver">v47 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -5158,16 +5162,21 @@ async function ensureTreePhotos(t){
   }catch(e){ console.error('ensureTreePhotos',e); }
 }
 async function pushAllToCloud(statusEl){
-  if(!window._fb){ if(statusEl) statusEl.textContent='⚠ Firebase non disponibile'; return; }
-  let i=0; const n=G.trees.length;
+  const say=(t,c)=>{ if(statusEl){ statusEl.textContent=t; statusEl.style.color=c||''; } };
+  if(!window._fb){ say('⚠ Firebase non disponibile'); return; }
+  if(navigator.onLine===false){ say('⚠ Il dispositivo è offline.'); return; }
+  let i=0, bad=0; const n=G.trees.length;
+  say(`⏳ 0/${n} rilievi inviati a Firebase (con foto)...`);
   for(const t of G.trees){
-    await ensureTreePhotos(t);
-    await window._fb.saveTree(t);
-    await uploadTreePhotos(t,true);
-    i++; if(statusEl) statusEl.textContent=`⏳ ${i}/${n} rilievi inviati a Firebase (con foto)...`;
+    try{ await ensureTreePhotos(t); }catch(e){}
+    const r=await withTimeout(window._fb.saveTree(t),20000);
+    const p=await withTimeout(uploadTreePhotos(t,true),60000);
+    if(!r.ok||!p.ok) bad++;
+    i++; say(`⏳ ${i}/${n} rilievi inviati a Firebase (con foto)...`);
   }
-  await window._fb.saveProjects(G_projects);
-  if(statusEl){ statusEl.textContent=`✓ ${n} rilievi, foto e progetti ricaricati su Firebase.`; statusEl.style.color='var(--green-600)'; }
+  await withTimeout(window._fb.saveProjects(G_projects),20000);
+  if(!bad) say(`✓ ${n} rilievi, foto e progetti ricaricati su Firebase.`,'var(--green-600)');
+  else say(`⚠ ${n-bad}/${n} rilievi confermati, ${bad} no (connessione lenta?). Riprova.`,'var(--red)');
 }
 
 /* ── DATABASE LOCALE di recupero (specchio completo + snapshot + cestino) ── */
@@ -5351,34 +5360,30 @@ function loadTrees() {
   } catch(e) {}
   normalizeTreeCoords();
 }
-function forceSyncToFirebase() {
+/* Attende una promise al massimo ms millisecondi (Firestore offline non risolve mai le scritture) */
+function withTimeout(p,ms){
+  return Promise.race([Promise.resolve(p).then(v=>({ok:v!==false,v}),()=>({ok:false})), new Promise(r=>setTimeout(()=>r({ok:false,timeout:true}),ms))]);
+}
+async function forceSyncToFirebase() {
   const statusEl = document.getElementById('fb-sync-status');
-  if (!window._fb) {
-    if (statusEl) statusEl.textContent = '⚠ Firebase non disponibile — verifica la connessione.';
-    return;
-  }
-  if (!G.trees.length) {
-    if (statusEl) statusEl.textContent = '⚠ Archivio vuoto — nessuna pianta da sincronizzare.';
-    return;
-  }
-  if (statusEl) statusEl.textContent = '⏳ Sincronizzazione in corso...';
-  let done = 0;
-  const total = G.trees.length;
-  G.trees.forEach(t => {
-    window._fb.saveTree(t).then ? 
-      window._fb.saveTree(t).then(() => {
-        done++;
-        if (statusEl) statusEl.textContent = `⏳ ${done}/${total} piante sincronizzate...`;
-        if (done === total && statusEl) {
-          statusEl.textContent = `✓ ${total} piante sincronizzate con Firebase.`;
-          statusEl.style.color = 'var(--green-600)';
-        }
-      }) :
-      window._fb.saveTree(t);
-  });
-  if (statusEl && !window._fb.saveTree(G.trees[0])?.then) {
-    statusEl.textContent = `✓ ${total} piante inviate a Firebase.`;
-  }
+  const say=(t,c)=>{ if(statusEl){ statusEl.textContent=t; statusEl.style.color=c||''; } };
+  if (!window._fb) { say('⚠ Firebase non disponibile — verifica la connessione.'); return; }
+  if (!G.trees.length) { say('⚠ Archivio vuoto — nessuna pianta da sincronizzare.'); return; }
+  if (navigator.onLine===false) { say('⚠ Il dispositivo è offline: la sincronizzazione parte quando torna la connessione.'); return; }
+  const total=G.trees.length; let done=0, bad=0, slow=0;
+  say(`⏳ 0/${total} rilievi sincronizzati...`);
+  const queue=G.trees.slice();
+  const worker=async()=>{
+    while(queue.length){
+      const t=queue.shift();
+      const r=await withTimeout(window._fb.saveTree(t),20000);
+      if(r.ok) done++; else { bad++; if(r.timeout) slow++; }
+      say(`⏳ ${done+bad}/${total} rilievi elaborati...`);
+    }
+  };
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  if(!bad) say(`✓ ${total} rilievi sincronizzati con Firebase.`,'var(--green-600)');
+  else say(`⚠ ${done} sincronizzati, ${bad} non confermati${slow?' (connessione lenta o assente: riprova)':''}.`,'var(--red)');
 }
 
 /* ── FOTO RILIEVO ── */
