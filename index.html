@@ -513,6 +513,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
             /* dataUrl escluso: le immagini stanno nella collezione 'photos' */
           }))};
           await setDoc(doc(db, 'trees', String(tree.id)), treeNoPhotos);
+        try{ window.markSynced && window.markSynced(tree); }catch(e){}
         return true;
         } catch(e) { console.warn('FB saveTree:', e); return false; }
       },
@@ -596,7 +597,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v47 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v48 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -5331,6 +5332,7 @@ function mergeCloudTrees(cloudTrees){
   });
   G.trees=[...map.values()];
   normalizeTreeCoords();
+  try{ cloudTrees.forEach(t=>markSynced(t)); }catch(e){}
 }
 function saveTrees() {
   lsSaveTrees();
@@ -5360,6 +5362,24 @@ function loadTrees() {
   } catch(e) {}
   normalizeTreeCoords();
 }
+/* ── Sincronizzazione incrementale: ricordo l'impronta dell'ultima versione confermata su Firebase ── */
+function treeSig(t){
+  try{ return JSON.stringify({...t,photos:(t.photos||[]).map(p=>[p.pid||'',p.type||p.tipo||'',p.date||''])}); }catch(e){ return String(Math.random()); }
+}
+function _sigLoad(){ try{ return JSON.parse(localStorage.getItem('arborisk-fbsig')||'{}'); }catch(e){ return {}; } }
+var _fbSig=null, _fbSigT=null;
+function markSynced(t){
+  if(!_fbSig) _fbSig=_sigLoad();
+  _fbSig[String(t.id)]=treeSig(t).length+':'+hashStr(treeSig(t));
+  clearTimeout(_fbSigT); _fbSigT=setTimeout(()=>{ try{ localStorage.setItem('arborisk-fbsig',JSON.stringify(_fbSig)); }catch(e){} },800);
+}
+function hashStr(str){ let h=5381; for(let i=0;i<str.length;i++) h=((h<<5)+h+str.charCodeAt(i))|0; return (h>>>0).toString(36); }
+function isSynced(t){
+  if(!_fbSig) _fbSig=_sigLoad();
+  const k=treeSig(t); return _fbSig[String(t.id)]===k.length+':'+hashStr(k);
+}
+window.markSynced=markSynced;
+
 /* Attende una promise al massimo ms millisecondi (Firestore offline non risolve mai le scritture) */
 function withTimeout(p,ms){
   return Promise.race([Promise.resolve(p).then(v=>({ok:v!==false,v}),()=>({ok:false})), new Promise(r=>setTimeout(()=>r({ok:false,timeout:true}),ms))]);
@@ -5370,9 +5390,10 @@ async function forceSyncToFirebase() {
   if (!window._fb) { say('⚠ Firebase non disponibile — verifica la connessione.'); return; }
   if (!G.trees.length) { say('⚠ Archivio vuoto — nessuna pianta da sincronizzare.'); return; }
   if (navigator.onLine===false) { say('⚠ Il dispositivo è offline: la sincronizzazione parte quando torna la connessione.'); return; }
-  const total=G.trees.length; let done=0, bad=0, slow=0;
-  say(`⏳ 0/${total} rilievi sincronizzati...`);
-  const queue=G.trees.slice();
+  const queue=G.trees.filter(t=>!isSynced(t));
+  const total=queue.length; let done=0, bad=0, slow=0;
+  if(!total){ say(`✓ Nessuna modifica da sincronizzare: tutti i ${G.trees.length} rilievi sono già su Firebase.`,'var(--green-600)'); return; }
+  say(`⏳ 0/${total} rilievi da sincronizzare (su ${G.trees.length}, gli altri sono già aggiornati)...`);
   const worker=async()=>{
     while(queue.length){
       const t=queue.shift();
@@ -5382,7 +5403,7 @@ async function forceSyncToFirebase() {
     }
   };
   await Promise.all([worker(),worker(),worker(),worker()]);
-  if(!bad) say(`✓ ${total} rilievi sincronizzati con Firebase.`,'var(--green-600)');
+  if(!bad) say(`✓ ${total} rilievi nuovi o modificati sincronizzati; ${G.trees.length-total} erano già aggiornati.`,'var(--green-600)');
   else say(`⚠ ${done} sincronizzati, ${bad} non confermati${slow?' (connessione lenta o assente: riprova)':''}.`,'var(--red)');
 }
 
