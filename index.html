@@ -621,6 +621,9 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
     <button class="nav-tab" onclick="go('mappa',this)" title="Mappa e report">
       <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>Mappa
     </button>
+    <button class="nav-tab" onclick="go('impostazioni',this)" title="Impostazioni e dati">
+      <svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 000-2l2-1.5-2-3.4-2.4 1a7.4 7.4 0 00-1.7-1L15 3.5h-4l-.4 2.6a7.4 7.4 0 00-1.7 1l-2.4-1-2 3.4 2 1.5a7.5 7.5 0 000 2l-2 1.5 2 3.4 2.4-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.4 1 2-3.4-2-1.5zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/></svg>Impost.
+    </button>
   </div>
 
   <!-- CONTENT -->
@@ -731,7 +734,7 @@ function newRilievo(){
 ═══════════════════════════════════════ */
 function render(v){
   const c=document.getElementById('content');
-  const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa};
+  const map={lista:renderLista,specie:renderSpecie,misure:renderMisure,scheda:renderScheda,mappa:renderMappa,impostazioni:()=>renderImpostazioniView()};
   c.innerHTML = (map[v]||renderLista)();
   if(v==='scheda') setTimeout(()=>{ try{ updateRisk(true); }catch(e){} },0);
   if(v==='misure') {
@@ -2664,7 +2667,14 @@ function autosave(key, value) {
     if(window._fb) window._fb.saveTree(G.trees[idx]);
   }
 }
+/* lat/lng devono essere numeri: una stringa rompeva la schermata Mappa (toFixed) */
+function normalizeTreeCoords(){
+  (G.trees||[]).forEach(t=>{
+    ['lat','lng'].forEach(k=>{ if(typeof t[k]==='string'){ const v=parseFloat(t[k]); t[k]=isFinite(v)?v:0; } });
+  });
+}
 function autosaveField(key, value) {
+  if(key==='lat'||key==='lng'){ const v=parseFloat(value); value=isFinite(v)?v:0; }
   G.form[key] = value; /* aggiorna sempre G.form, anche per nuovi rilievi */
   if(!G.form._editingId) return;
   const idx = G.trees.findIndex(x => x.id === G.form._editingId);
@@ -3655,22 +3665,21 @@ function useAISpecieInForm(){
    5. MAPPA + REPORT
 ═══════════════════════════════════════ */
 function renderMappa(){
+  normalizeTreeCoords();
   return `
   <div class="seg">
     <button class="seg-b active" onclick="setMapView('mappa',this)">Mappa</button>
     <button class="seg-b" onclick="setMapView('report',this)">Report PDF</button>
     <button class="seg-b" onclick="setMapView('excel',this)">Export Excel</button>
-    <button class="seg-b" onclick="setMapView('impostazioni',this)">Impostazioni</button>
   </div>
   <div id="mv-mappa">${renderMappaView()}</div>
   <div id="mv-report" style="display:none">${renderReportView()}</div>
-  <div id="mv-excel" style="display:none">${renderExcelView()}</div>
-  <div id="mv-impostazioni" style="display:none">${renderImpostazioniView()}</div>`;
+  <div id="mv-excel" style="display:none">${renderExcelView()}</div>`;
 }
 function setMapView(v,btn){
   document.querySelectorAll('#content .seg-b').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['mappa','report','excel','impostazioni'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
+  ['mappa','report','excel'].forEach(id=>{const el=document.getElementById('mv-'+id);if(el)el.style.display=id===v?'block':'none';});
   if(v==='mappa') ensureLeaflet(()=>setTimeout(initLeafletMap,100));
 }
 function renderMappaView(){
@@ -3731,7 +3740,7 @@ function renderMappaView(){
       <span class="cpc-badge c${(t.cpc||'A').replace('/','')}" style="font-size:9px;padding:2px 5px">CPC ${t.cpc}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.specie}</div>
-        <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:1px">#${t.id} · ${t.lat.toFixed(5)}, ${t.lng.toFixed(5)}</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:1px">#${t.id} · ${Number(t.lat).toFixed(5)}, ${Number(t.lng).toFixed(5)}</div>
       </div>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </div>`).join('')}
@@ -4167,7 +4176,7 @@ function exportCSV() {
 
 function copyCoords() {
   const georef = G.trees.filter(t=>t.lat&&t.lng);
-  const text = georef.map(t=>`#${t.id} ${t.specie}: ${t.lat.toFixed(6)}, ${t.lng.toFixed(6)}`).join('\n');
+  const text = georef.map(t=>`#${t.id} ${t.specie}: ${Number(t.lat).toFixed(6)}, ${Number(t.lng).toFixed(6)}`).join('\n');
   navigator.clipboard?.writeText(text).then(()=>{
     showExportFeedback(`${georef.length} coordinate copiate negli appunti.`, true);
   }).catch(()=>showExportFeedback('Copia non disponibile — usa Esporta CSV.', false));
@@ -5309,6 +5318,7 @@ function mergeCloudTrees(cloudTrees){
     map.set(String(t.id),t);
   });
   G.trees=[...map.values()];
+  normalizeTreeCoords();
 }
 function saveTrees() {
   lsSaveTrees();
@@ -5336,6 +5346,7 @@ function loadTrees() {
       }
     }
   } catch(e) {}
+  normalizeTreeCoords();
 }
 function forceSyncToFirebase() {
   const statusEl = document.getElementById('fb-sync-status');
