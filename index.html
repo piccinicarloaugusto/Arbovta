@@ -600,7 +600,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v49 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v51 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -4446,6 +4446,7 @@ function renderImpostazioniView(){
     </div>
     <div id="fb-sync-status" style="font-size:11px;color:var(--text-muted);margin-bottom:8px"></div>
     <button class="btn-secondary" onclick="forceSyncToFirebase()">☁ Sincronizza con Firebase</button>
+    <button class="btn-primary" style="margin-bottom:7px;width:100%" onclick="downloadFromFirebase(document.getElementById('fb-sync-status'))">⬇ Scarica da Firebase su questo dispositivo</button>
     <button class="btn-secondary" style="margin-top:7px" onclick="pushAllToCloud(document.getElementById('fb-sync-status'))">☁ Ricarica tutto su Firebase (rilievi + foto + progetti)</button>
   </div>
   <div class="card">
@@ -4910,12 +4911,116 @@ function showGinveFeedback(msg, ok) {
 }
 
 /* ═══════════════════════════════════════
+   SINCRONIZZAZIONE AUTOMATICA FIREBASE (v51)
+   - ogni modifica locale riceve un timestamp (_savedAt)
+   - all'avvio e in tempo reale: vince la versione con timestamp più recente
+   - i rilievi nuovi o modificati localmente vengono inviati a Firebase
+═══════════════════════════════════════ */
+var _baseSig={}, _autoSyncOn=false, _autoUnsub=null, _syncBusy=false, _syncAgain=false, _syncTries=0, _projMerged=false;
+function _sigNoStamp(t){ return hashStr(treeSig({...t,_savedAt:''})); }
+function initBaseSigs(){ G.trees.forEach(t=>{ _baseSig[String(t.id)]=_sigNoStamp(t); }); }
+function stampChanged(){
+  const now=new Date().toISOString();
+  G.trees.forEach(t=>{
+    const id=String(t.id), sg=_sigNoStamp(t);
+    if(_baseSig[id]===undefined){ _baseSig[id]=sg; if(!t._savedAt) t._savedAt=now; return; }
+    if(_baseSig[id]!==sg){ t._savedAt=now; _baseSig[id]=sg; }
+  });
+}
+function setSyncDot(state,msg){
+  const dot=document.getElementById('fb-dot'); if(!dot) return;
+  dot.style.background={ok:'#6ee87a',busy:'#f5c542',err:'#e85a5a'}[state]||'#555';
+  dot.title=msg||'Firebase';
+  window._syncMsg=msg||'';
+}
+function applyCloudTrees(cloud){
+  const editing=(G.form&&G.form._editingId)?String(G.form._editingId):null;
+  const map=new Map(G.trees.map(t=>[String(t.id),t]));
+  let added=0, updated=0;
+  cloud.forEach(c=>{
+    if(!c||c.id===undefined) return;
+    const id=String(c.id), loc=map.get(id);
+    if(!loc){ map.set(id,c); _baseSig[id]=_sigNoStamp(c); markSynced(c); added++; return; }
+    if(editing===id) return;
+    const lt=String(loc._savedAt||''), ct=String(c._savedAt||'');
+    if(ct>lt || (!ct&&!lt&&isSynced(loc)&&treeSig(loc)!==treeSig(c))){
+      if(hasPhotoData(loc.photos)&&!hasPhotoData(c.photos)) c.photos=loc.photos;
+      map.set(id,c); _baseSig[id]=_sigNoStamp(c); markSynced(c); updated++;
+    } else if(lt===ct && (lt || treeSig(loc)===treeSig(c))){
+      markSynced(loc);     /* stesso timestamp: già allineato */
+    }                      /* altrimenti la copia locale è più recente: resta da inviare */
+  });
+  if(added||updated){
+    G.trees=[...map.values()]; normalizeTreeCoords();
+    try{ localStorage.setItem('arbovta-trees', JSON.stringify(G.trees.map(stripPhotos))); }catch(e){}
+    syncPhotosToDB(); scheduleMirror();
+  }
+  return {added,updated};
+}
+async function mergeCloudProjectsAuto(){
+  const pr=await withTimeout(window._fb.loadProjects(),30000);
+  if(!pr.ok||!Array.isArray(pr.v)) return;
+  const before=JSON.stringify(G_projects);
+  pr.v.forEach(fc=>{
+    const local=G_projects.find(c=>c.id===fc.id);
+    if(!local){ G_projects.push(fc); return; }
+    fc.progetti.forEach(fp=>{
+      const lp=local.progetti.find(p=>p.id===fp.id);
+      if(!lp) local.progetti.push(fp);
+      else fp.rilievi.forEach(x=>{ if(!lp.rilievi.includes(x)) lp.rilievi.push(x); });
+    });
+  });
+  if(JSON.stringify(G_projects)!==before || JSON.stringify(G_projects)!==JSON.stringify(pr.v)) saveProjects();
+}
+async function pushUnsyncedQuiet(){
+  const queue=G.trees.filter(t=>!isSynced(t)); let bad=0;
+  const worker=async()=>{ while(queue.length){ const t=queue.shift(); const r=await withTimeout(window._fb.saveTree(t),20000); if(!r.ok) bad++; } };
+  await Promise.all([worker(),worker(),worker()]);
+  return bad;
+}
+async function onCloudSnapshot(cloud){
+  if(_syncBusy){ _syncAgain=cloud; return; }
+  _syncBusy=true;
+  try{
+    setSyncDot('busy','Sincronizzazione Firebase...');
+    const r=applyCloudTrees(cloud);
+    if(!_projMerged){ _projMerged=true; await mergeCloudProjectsAuto(); }
+    const bad=await pushUnsyncedQuiet();
+    const tag=document.activeElement&&document.activeElement.tagName;
+    if(r.added||r.updated){
+      const act=[...document.querySelectorAll('.nav-tab')].findIndex(b=>b.classList.contains('active'));
+      if(act===0 && !['INPUT','TEXTAREA','SELECT'].includes(tag)) render('lista');
+    }
+    const hh=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    if(bad) setSyncDot('err',`${bad} rilievi non inviati a Firebase (riprova più tardi)`);
+    else setSyncDot('ok',`Firebase sincronizzato alle ${hh}`+(r.added||r.updated?` (${r.added} nuovi, ${r.updated} aggiornati da altri dispositivi)`:''));
+  }catch(e){ console.warn('autosync',e); setSyncDot('err','Errore sincronizzazione: '+(e.message||e)); }
+  _syncBusy=false;
+  if(_syncAgain){ const c=_syncAgain; _syncAgain=false; onCloudSnapshot(c); }
+}
+function autoSyncStart(){
+  if(_autoSyncOn) return;
+  if(!window._fb||!window._fbReady||!window._fb.listenAll){ if(++_syncTries<20) setTimeout(autoSyncStart,1500); else setSyncDot('err','Firebase non disponibile'); return; }
+  if(navigator.onLine===false){ setSyncDot('err','Offline: sincronizzo appena torna la connessione'); return; }
+  _autoSyncOn=true; setSyncDot('busy','Connessione a Firebase...');
+  let got=false;
+  setTimeout(()=>{ if(!got) setSyncDot('err','Firebase non risponde (connessione lenta o quota esaurita)'); },60000);
+  try{ _autoUnsub=window._fb.listenAll(c=>{ got=true; onCloudSnapshot(c); }); }
+  catch(e){ _autoSyncOn=false; setSyncDot('err','Errore: '+e.message); }
+}
+function autoSyncRestart(){ try{ if(_autoUnsub) _autoUnsub(); }catch(e){} _autoUnsub=null; _autoSyncOn=false; _projMerged=false; _syncTries=0; autoSyncStart(); }
+window.addEventListener('online',()=>setTimeout(autoSyncRestart,1000));
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && _autoSyncOn && !_syncBusy){ pushUnsyncedQuiet().catch(()=>{}); } });
+
+/* ═══════════════════════════════════════
    AVVIO
 ═══════════════════════════════════════ */
 loadTrees();   /* Prima carica i dati salvati */
+initBaseSigs();
 render('lista'); /* Poi renderizza con i dati */
 try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 setTimeout(hydratePhotos,0);   /* dopo che tutte le definizioni sono caricate */
+setTimeout(autoSyncStart,2000); /* sincronizzazione automatica con Firebase */
 
 /* ═══════════════════════════════════════
    PWA — Service Worker + Install
@@ -5088,6 +5193,7 @@ function stripPhotos(t){
 }
 /* Scrive su localStorage l'archivio SENZA immagini; le immagini vanno in IndexedDB */
 function lsSaveTrees(){
+  try{ stampChanged(); }catch(e){}
   let ok=true;
   try { localStorage.setItem('arbovta-trees', JSON.stringify(G.trees.map(stripPhotos))); }
   catch(e){ ok=false; console.error('localStorage pieno:', e); }
@@ -5367,15 +5473,20 @@ function loadTrees() {
   normalizeTreeCoords();
 }
 /* ── Sincronizzazione incrementale: ricordo l'impronta dell'ultima versione confermata su Firebase ── */
-function treeSig(t){
-  try{ return JSON.stringify({...t,photos:(t.photos||[]).map(p=>[p.pid||'',p.type||p.tipo||'',p.date||''])}); }catch(e){ return String(Math.random()); }
+function stableStr(o){
+  if(Array.isArray(o)) return '['+o.map(stableStr).join(',')+']';
+  if(o&&typeof o==='object') return '{'+Object.keys(o).sort().filter(k=>o[k]!==undefined&&typeof o[k]!=='function').map(k=>JSON.stringify(k)+':'+stableStr(o[k])).join(',')+'}';
+  return JSON.stringify(o)===undefined?'null':JSON.stringify(o);
 }
-function _sigLoad(){ try{ return JSON.parse(localStorage.getItem('arborisk-fbsig')||'{}'); }catch(e){ return {}; } }
+function treeSig(t){
+  try{ return stableStr({...t,photos:(t.photos||[]).map(p=>[p.pid||'',p.type||p.tipo||'',p.date||''])}); }catch(e){ return String(Math.random()); }
+}
+function _sigLoad(){ try{ return JSON.parse(localStorage.getItem('arborisk-fbsig2')||'{}'); }catch(e){ return {}; } }
 var _fbSig=null, _fbSigT=null;
 function markSynced(t){
   if(!_fbSig) _fbSig=_sigLoad();
   _fbSig[String(t.id)]=treeSig(t).length+':'+hashStr(treeSig(t));
-  clearTimeout(_fbSigT); _fbSigT=setTimeout(()=>{ try{ localStorage.setItem('arborisk-fbsig',JSON.stringify(_fbSig)); }catch(e){} },800);
+  clearTimeout(_fbSigT); _fbSigT=setTimeout(()=>{ try{ localStorage.setItem('arborisk-fbsig2',JSON.stringify(_fbSig)); }catch(e){} },800);
 }
 function hashStr(str){ let h=5381; for(let i=0;i<str.length;i++) h=((h<<5)+h+str.charCodeAt(i))|0; return (h>>>0).toString(36); }
 function isSynced(t){
@@ -5383,6 +5494,64 @@ function isSynced(t){
   const k=treeSig(t); return _fbSig[String(t.id)]===k.length+':'+hashStr(k);
 }
 window.markSynced=markSynced;
+
+/* Scarica rilievi e progetti da Firebase su questo dispositivo (senza sovrascrivere modifiche locali più recenti) */
+async function downloadFromFirebase(statusEl){
+  const say=(t,c)=>{ if(statusEl){ statusEl.textContent=t; statusEl.style.color=c||''; } };
+  if(!window._fb){ say('⚠ Firebase non disponibile — verifica la connessione.'); return; }
+  if(navigator.onLine===false){ say('⚠ Il dispositivo è offline.'); return; }
+  say('⏳ Download dei rilievi da Firebase...');
+  const r=await withTimeout(window._fb.loadAll(),90000);
+  if(!r.ok||!Array.isArray(r.v)){ say('⚠ Firebase non ha risposto (connessione lenta o quota esaurita). Riprova più tardi.','var(--red)'); return; }
+  const cloud=r.v;
+  if(!cloud.length){ say('⚠ Nessun rilievo trovato su Firebase.'); return; }
+  try{ await snapshotNow(true); }catch(e){}
+  const map=new Map(G.trees.map(t=>[String(t.id),t]));
+  let added=0, updated=0, keptLocal=0;
+  cloud.forEach(c=>{
+    const id=String(c.id), loc=map.get(id);
+    if(!loc){ map.set(id,c); added++; markSynced(c); return; }
+    const lt=String(loc._savedAt||''), ct=String(c._savedAt||'');
+    if(lt && lt>ct){ keptLocal++; return; }          /* la copia locale è più recente: la tengo */
+    if(hasPhotoData(loc.photos) && !hasPhotoData(c.photos)) c.photos=loc.photos;
+    if(JSON.stringify(stripPhotos(loc))!==JSON.stringify(stripPhotos(c))) updated++;
+    map.set(id,c); markSynced(c);
+  });
+  G.trees=[...map.values()];
+  normalizeTreeCoords();
+  lsSaveTrees();
+  say('⏳ Download dei progetti...');
+  const pr=await withTimeout(window._fb.loadProjects(),30000);
+  if(pr.ok && Array.isArray(pr.v) && pr.v.length){
+    const localIds=new Set(G_projects.map(c=>c.id));
+    pr.v.forEach(fc=>{
+      if(!localIds.has(fc.id)){ G_projects.push(fc); return; }
+      const local=G_projects.find(c=>c.id===fc.id);
+      fc.progetti.forEach(fp=>{
+        const lp=local.progetti.find(p=>p.id===fp.id);
+        if(!lp) local.progetti.push(fp);
+        else fp.rilievi.forEach(x=>{ if(!lp.rilievi.includes(x)) lp.rilievi.push(x); });
+      });
+    });
+    saveProjects();
+  }
+  scheduleMirror();
+  say(`✓ Scaricati da Firebase: ${added} nuovi, ${updated} aggiornati${keptLocal?`, ${keptLocal} locali più recenti mantenuti`:''}. Ora ${G.trees.length} rilievi su questo dispositivo.`,'var(--green-600)');
+  const nPh=G.trees.filter(t=>t.photos&&t.photos.length&&!hasPhotoData(t.photos)).length;
+  if(nPh && confirm(`Scaricare ora anche le foto di ${nPh} rilievi? (Se non lo fai, si scaricano da sole quando apri ciascun rilievo.)`)){
+    let i=0;
+    for(const t of G.trees){
+      if(t.photos&&t.photos.length&&!hasPhotoData(t.photos)){
+        await withTimeout(ensureTreePhotos(t),60000);
+        i++; say(`⏳ Foto: ${i}/${nPh} rilievi...`);
+      }
+    }
+    say(`✓ Rilievi e foto scaricati (${G.trees.length} rilievi, foto di ${nPh}).`,'var(--green-600)');
+  }
+  const finalMsg=statusEl?statusEl.textContent:'';
+  render('impostazioni');
+  const el2=document.getElementById('fb-sync-status'); if(el2){ el2.textContent=finalMsg; el2.style.color='var(--green-600)'; }
+}
 
 /* Attende una promise al massimo ms millisecondi (Firestore offline non risolve mai le scritture) */
 function withTimeout(p,ms){
