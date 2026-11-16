@@ -1,5 +1,5 @@
 /* ArboRisk Service Worker v118 — Offline first */
-const CACHE = 'arborisk-v51';
+const CACHE = 'arborisk-v52';
 
 const PRECACHE = [
   '/',

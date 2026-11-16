@@ -503,7 +503,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
         try {
           const snap = await getDoc(doc(db, 'meta', 'projects'));
           if(snap.exists()) return JSON.parse(snap.data().data || '[]');
-        } catch(e) { console.warn('FB loadProjects:', e); }
+        } catch(e) { console.warn('FB loadProjects:', e); return undefined; }
         return null;
       },
 
@@ -600,7 +600,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v51 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v52 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -657,7 +657,7 @@ try { G_projects = JSON.parse(localStorage.getItem('arbovta-projects') || '[]');
 function saveProjects(){
   try { localStorage.setItem('arbovta-projects', JSON.stringify(G_projects)); } catch(e) {}
   /* Salva anche su Firebase */
-  if(window._fb) window._fb.saveProjects(G_projects);
+  if(window._fb && window._projPushOK) window._fb.saveProjects(G_projects);   /* mai prima del merge con Firebase: evita di sovrascrivere i progetti del cloud */
   if(typeof mirrorProjects==='function') mirrorProjects();
 }
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
@@ -4957,20 +4957,43 @@ function applyCloudTrees(cloud){
   }
   return {added,updated};
 }
-async function mergeCloudProjectsAuto(){
-  const pr=await withTimeout(window._fb.loadProjects(),30000);
-  if(!pr.ok||!Array.isArray(pr.v)) return;
-  const before=JSON.stringify(G_projects);
-  pr.v.forEach(fc=>{
-    const local=G_projects.find(c=>c.id===fc.id);
-    if(!local){ G_projects.push(fc); return; }
-    fc.progetti.forEach(fp=>{
-      const lp=local.progetti.find(p=>p.id===fp.id);
-      if(!lp) local.progetti.push(fp);
-      else fp.rilievi.forEach(x=>{ if(!lp.rilievi.includes(x)) lp.rilievi.push(x); });
+function normName(s){ return String(s||'').trim().toLowerCase(); }
+/* Unisce i progetti remoti in quelli locali (per id oppure per nome); ritorna true se cambia qualcosa */
+function mergeProjectLists(local,remote){
+  let changed=false;
+  (remote||[]).forEach(fc=>{
+    const lc=local.find(c=>c.id===fc.id)||local.find(c=>normName(c.nome)===normName(fc.nome));
+    if(!lc){ local.push(JSON.parse(JSON.stringify(fc))); changed=true; return; }
+    (fc.progetti||[]).forEach(fp=>{
+      const lp=lc.progetti.find(p=>p.id===fp.id)||lc.progetti.find(p=>normName(p.nome)===normName(fp.nome));
+      if(!lp){ lc.progetti.push(JSON.parse(JSON.stringify(fp))); changed=true; return; }
+      (fp.rilievi||[]).forEach(x=>{ if(!lp.rilievi.map(String).includes(String(x))){ lp.rilievi.push(String(x)); changed=true; } });
     });
   });
-  if(JSON.stringify(G_projects)!==before || JSON.stringify(G_projects)!==JSON.stringify(pr.v)) saveProjects();
+  return changed;
+}
+/* I rilievi che non stanno in nessun progetto finiscono in "Rilievi non assegnati" così restano visibili nell'Archivio */
+function refreshUnassigned(){
+  const UC='_unassigned_c', UP='_unassigned_p', assigned=new Set();
+  G_projects.forEach(cl=>{ if(cl.id!==UC) cl.progetti.forEach(pr=>pr.rilievi.forEach(x=>assigned.add(String(x)))); });
+  const orphans=G.trees.map(t=>String(t.id)).filter(id=>!assigned.has(id));
+  const uc=G_projects.find(c=>c.id===UC);
+  if(!orphans.length){ if(uc){ G_projects=G_projects.filter(c=>c.id!==UC); return true; } return false; }
+  if(!uc){ G_projects.push({id:UC,nome:'Rilievi non assegnati',progetti:[{id:UP,nome:'Da assegnare',data:'',rilievi:orphans}]}); return true; }
+  const up=uc.progetti[0]||(uc.progetti[0]={id:UP,nome:'Da assegnare',data:'',rilievi:[]});
+  const same=JSON.stringify(up.rilievi)===JSON.stringify(orphans);
+  up.rilievi=orphans; return !same;
+}
+async function mergeCloudProjectsAuto(){
+  const pr=await withTimeout(window._fb.loadProjects(),30000);
+  if(!pr.ok||pr.v===undefined) return false;          /* errore/timeout: non scrivo nulla sul cloud */
+  let changed=false;
+  if(Array.isArray(pr.v)) changed=mergeProjectLists(G_projects,pr.v);
+  window._projPushOK=true;
+  if(refreshUnassigned()) changed=true;
+  const cloudStr=Array.isArray(pr.v)?JSON.stringify(pr.v):'';
+  if(changed || JSON.stringify(G_projects)!==cloudStr) saveProjects();
+  return changed;
 }
 async function pushUnsyncedQuiet(){
   const queue=G.trees.filter(t=>!isSynced(t)); let bad=0;
@@ -4984,7 +5007,8 @@ async function onCloudSnapshot(cloud){
   try{
     setSyncDot('busy','Sincronizzazione Firebase...');
     const r=applyCloudTrees(cloud);
-    if(!_projMerged){ _projMerged=true; await mergeCloudProjectsAuto(); }
+    if(!_projMerged){ await mergeCloudProjectsAuto(); _projMerged=!!window._projPushOK; }
+    else if(refreshUnassigned()) saveProjects();
     const bad=await pushUnsyncedQuiet();
     const tag=document.activeElement&&document.activeElement.tagName;
     if(r.added||r.updated){
@@ -5017,6 +5041,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 ═══════════════════════════════════════ */
 loadTrees();   /* Prima carica i dati salvati */
 initBaseSigs();
+try{ if(G.trees.length && refreshUnassigned()) saveProjects(); }catch(e){}
 render('lista'); /* Poi renderizza con i dati */
 try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 setTimeout(hydratePhotos,0);   /* dopo che tutte le definizioni sono caricate */
@@ -5521,20 +5546,7 @@ async function downloadFromFirebase(statusEl){
   normalizeTreeCoords();
   lsSaveTrees();
   say('⏳ Download dei progetti...');
-  const pr=await withTimeout(window._fb.loadProjects(),30000);
-  if(pr.ok && Array.isArray(pr.v) && pr.v.length){
-    const localIds=new Set(G_projects.map(c=>c.id));
-    pr.v.forEach(fc=>{
-      if(!localIds.has(fc.id)){ G_projects.push(fc); return; }
-      const local=G_projects.find(c=>c.id===fc.id);
-      fc.progetti.forEach(fp=>{
-        const lp=local.progetti.find(p=>p.id===fp.id);
-        if(!lp) local.progetti.push(fp);
-        else fp.rilievi.forEach(x=>{ if(!lp.rilievi.includes(x)) lp.rilievi.push(x); });
-      });
-    });
-    saveProjects();
-  }
+  await mergeCloudProjectsAuto();
   scheduleMirror();
   say(`✓ Scaricati da Firebase: ${added} nuovi, ${updated} aggiornati${keptLocal?`, ${keptLocal} locali più recenti mantenuti`:''}. Ora ${G.trees.length} rilievi su questo dispositivo.`,'var(--green-600)');
   const nPh=G.trees.filter(t=>t.photos&&t.photos.length&&!hasPhotoData(t.photos)).length;
@@ -6679,6 +6691,7 @@ function confirmImport(clId, prId){
 }
 
 function migrateProjects(){
+  return; /* v52: niente più clienti/progetti di esempio (sovrascrivevano quelli reali su Firebase) */
   if(G_projects.length>0) return;
   const cTV={id:genId(),nome:'Tommaso Villirillo',progetti:[
     {id:genId(),nome:'Via Scassicarli',data:'2026-04-10',rilievi:['3211','3212','3213','3214']},
