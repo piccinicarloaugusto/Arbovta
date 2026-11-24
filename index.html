@@ -612,7 +612,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v57 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v58 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -1683,7 +1683,13 @@ function renderMisure(){
   <!-- ── PANNELLO DIAMETRO ── -->
   <div class="card" id="cpanel-dbh" style="${cl.param==='dbh'?'':'display:none'}">
     <div class="sec">Diametro tronco (DBH a 1.30 m)</div>
-    <div class="step-hint">Mettiti a <b>2–5 m</b> dal tronco. Punta il mirino sul <b>bordo sinistro</b> a 1,30 m di altezza, poi <b>ruota</b> sul bordo destro. Più sei vicino, più il dato è preciso.</div>
+    <div class="step-hint"><b>Metodo A — foto con riferimento (più preciso, errore ~2–4%).</b> Tieni un oggetto di lunghezza nota (asta, metro pieghevole, foglio A4) <b>appoggiato al tronco</b> a 1,30 m, inquadra tutto frontalmente e scatta; poi tocca i due bordi del tronco e i due estremi dell'oggetto. Per la correzione prospettica misura prima la distanza dal tronco con 📐.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text-muted)">Lunghezza oggetto</span>
+      <input type="number" class="dist-in" id="ref-len-in" value="${cl.refLen||refLenDefault()}" min="1" max="500" step="0.1" oninput="setRefLen(this.value)" style="width:80px"> <span style="font-size:12px">cm</span>
+    </div>
+    <button class="cap-btn cap-ready" onclick="startDbhRef()"><span class="cap-icon">📏</span><span>Foto con riferimento</span></button>
+    <div class="step-hint" style="margin-top:12px"><b>Metodo B — sensori (rapido, meno preciso).</b> Mettiti a <b>2–5 m</b> dal tronco. Punta il mirino sul <b>bordo sinistro</b> a 1,30 m, poi <b>ruota</b> sul bordo destro. Tieni fermo il tablet: la cattura viene rifiutata se si muove. <b>Ripeti più volte</b>: il valore è la media della serie.${(cl.dbhRuns&&cl.dbhRuns.length)?` <b>Serie: ${cl.dbhRuns.length} misure</b> · <a href="#" onclick="event.preventDefault();G.clino.dbhRuns=[];G.clino.meas.dbh=null;delete G.clino.q.dbh;renderClino()">azzera serie</a>`:''}</div>
     <button class="cap-btn ${cl.captured.dbh_l!==undefined?'cap-done':'cap-ready'}" onclick="captureA('dbh_l')">
       <span class="cap-icon">${cl.captured.dbh_l!==undefined?'✓':'◉'}</span>
       <span>${cl.captured.dbh_l!==undefined?'Bordo sx: '+fa(cl.captured.dbh_l):'Cattura — Bordo sinistro'}</span>
@@ -1752,7 +1758,7 @@ function renderMisure(){
     <div class="sec">Risultati clinometro</div>
     <div class="mets">
       <div class="met ${cl.meas.h  ?'live':''}"><div class="met-v" id="cmv-h">${cl.meas.h  ?cl.meas.h.toFixed(2):'—'}</div><div class="met-l">Altezza totale (m)</div><div id="q-h" style="font-size:10px;margin-top:2px">${clQualStored('h','m',2)}</div></div>
-      <div class="met ${cl.meas.dbh?'live':''}"><div class="met-v" id="cmv-dbh">${cl.meas.dbh?cl.meas.dbh.toFixed(1):'—'}</div><div class="met-l">Diametro fusto (cm)</div><div id="q-dbh" style="font-size:10px;margin-top:2px">${clQualStored('dbh','cm',1)}</div></div>
+      <div class="met ${cl.meas.dbh?'live':''}"><div class="met-v" id="cmv-dbh">${cl.meas.dbh?cl.meas.dbh.toFixed(1):'—'}</div><div class="met-l">Diametro fusto (cm)</div><div id="q-dbh" style="font-size:10px;margin-top:2px">${clQualStored('dbh','cm',1)}${dbhNote()}</div></div>
       <div class="met ${cl.meas.cw ?'live':''}"><div class="met-v" id="cmv-cw">${cl.meas.cw ?cl.meas.cw.toFixed(2):'—'}</div><div class="met-l">Larghezza chioma (m)</div><div id="q-cw" style="font-size:10px;margin-top:2px">${clQualStored('cw','m',2)}</div></div>
       <div class="met ${cl.meas.cd ?'live':''}"><div class="met-v" id="cmv-cd">${cl.meas.cd ?cl.meas.cd.toFixed(2):'—'}</div><div class="met-l">Profondità chioma (m)</div><div id="q-cd" style="font-size:10px;margin-top:2px">${clQualStored('cd','m',2)}</div></div>
       <div class="met" style="background:var(--surface-2)">
@@ -1820,7 +1826,8 @@ function clQualStored(k,unit,dec){
    - Distanza dall'albero misurata con l'angolo verso la base (h telefono / tan α).
    - Per ogni misura una stima dell'incertezza (bontà del dato).
    ═══════════════════════════════════════════════════════════ */
-const CL_ERR_DEG = 0.6;   /* incertezza tipica di una singola cattura (°) */
+const CL_ERR_DEG = 0.6;   /* incertezza tipica di una singola cattura, elevazione (°) */
+const CL_ERR_AZ  = 1.0;   /* incertezza tipica di una singola cattura, direzione/azimut (°) */
 const clRad = a => a*Math.PI/180;
 function clAngDiff(a,b){ let d=Math.abs(a-b)%360; return d>180?360-d:d; }
 function calcHeight(d,top,base){ return d*(Math.tan(clRad(top))-Math.tan(clRad(base))); }
@@ -1828,8 +1835,8 @@ function calcWidth(d,delta){ return 2*d*Math.tan(clRad(delta)/2); }
 function calcDiam(dSurf,delta){ const s=Math.sin(clRad(delta)/2); return s>=0.999 ? null : 2*dSurf*s/(1-s); }  /* m — cilindro, d = distanza dalla superficie */
 function calcDist(h0,el){ return h0/Math.tan(clRad(Math.abs(el))); }
 function errHeight(d,top,base){ const e=clRad(CL_ERR_DEG); return Math.hypot(d*e/Math.pow(Math.cos(clRad(top)),2), d*e/Math.pow(Math.cos(clRad(base)),2)); }
-function errWidth(d,delta){ const e=CL_ERR_DEG*Math.SQRT2; return Math.abs(calcWidth(d,delta+e)-calcWidth(d,Math.max(0.01,delta-e)))/2; }
-function errDiam(d,delta){ const e=CL_ERR_DEG*Math.SQRT2; const a=calcDiam(d,delta+e), b=calcDiam(d,Math.max(0.01,delta-e)); return (a===null||b===null)?Infinity:Math.abs(a-b)/2; }
+function errWidth(d,delta){ const e=CL_ERR_AZ*Math.SQRT2; return Math.abs(calcWidth(d,delta+e)-calcWidth(d,Math.max(0.01,delta-e)))/2; }
+function errDiam(d,delta){ const e=CL_ERR_AZ*Math.SQRT2; const a=calcDiam(d,delta+e), b=calcDiam(d,Math.max(0.01,delta-e)); return (a===null||b===null)?Infinity:Math.abs(a-b)/2; }
 function errDist(h0,el){ const a=Math.abs(el), e=CL_ERR_DEG; return Math.abs(calcDist(h0,Math.max(0.3,a-e))-calcDist(h0,a+e))/2; }
 function clinoQuality(rel){
   if(!isFinite(rel)) return {t:'Inaffidabile',c:'#b91c1c'};
@@ -1881,21 +1888,32 @@ function onOrientation(e){
   c.az = hasAz ? (Math.atan2(v.x,v.y)*180/Math.PI+360)%360 : null;
   const now=Date.now(), buf=c._buf||(c._buf=[]);
   buf.push({t:now, el:el, hx:hasAz?v.x/hn:null, hy:hasAz?v.y/hn:null});
-  while(buf.length && now-buf[0].t>800) buf.shift();
+  while(buf.length && now-buf[0].t>1800) buf.shift();
   updateClinoDisplay();
   updateClinoFSAngle(c.angle);
 }
-/* Media delle ultime letture (~0,3 s): riduce il tremolio della mano */
-function readClino(){
+/* Media delle letture nella finestra [now-win-skip, now-skip].
+   Per la cattura si escludono gli ultimi ~250 ms (il tocco sullo schermo scuote il dispositivo)
+   e si calcola la dispersione (dev. standard) per sapere se il dispositivo era fermo. */
+function readClino(win,skip){
+  win=win||300; skip=skip||0;
   const c=G.clino, now=Date.now();
-  const buf=(c._buf||[]).filter(s=>now-s.t<=300);
-  if(!buf.length) return {el:c.angle||0, az:(c.az===undefined?null:c.az), n:0};
+  const buf=(c._buf||[]).filter(s=>now-s.t<=win+skip && now-s.t>=skip);
+  if(!buf.length) return {el:c.angle||0, az:(c.az===undefined?null:c.az), n:0, sdEl:null, sdAz:null};
   const el=buf.reduce((a,s)=>a+s.el,0)/buf.length;
+  const sdEl=Math.sqrt(buf.reduce((a,s)=>a+(s.el-el)*(s.el-el),0)/buf.length);
   const h=buf.filter(s=>s.hx!==null);
-  let az=null;
-  if(h.length){ const sx=h.reduce((a,s)=>a+s.hx,0), sy=h.reduce((a,s)=>a+s.hy,0); az=(Math.atan2(sx,sy)*180/Math.PI+360)%360; }
-  return {el:parseFloat(el.toFixed(2)), az:az, n:buf.length};
+  let az=null, sdAz=null;
+  if(h.length){
+    const sx=h.reduce((a,s)=>a+s.hx,0), sy=h.reduce((a,s)=>a+s.hy,0);
+    az=(Math.atan2(sx,sy)*180/Math.PI+360)%360;
+    const am=Math.atan2(sx,sy);
+    sdAz=Math.sqrt(h.reduce((a,q)=>{ let d=Math.atan2(q.hx,q.hy)-am; d=Math.atan2(Math.sin(d),Math.cos(d)); return a+d*d; },0)/h.length)*180/Math.PI;
+  }
+  return {el:parseFloat(el.toFixed(2)), az:az, n:buf.length, sdEl:sdEl, sdAz:sdAz};
 }
+/* true se il dispositivo si è mosso troppo (n campioni sufficienti e dispersione > soglia) */
+function clShaky(r){ return r.n>=5 && (r.sdEl>0.8 || (r.sdAz!=null && r.sdAz>0.8)); }
 function updateClinoDisplay(){
   const a=G.clino.angle;
   const ae=document.getElementById('cl-angle');
@@ -1932,6 +1950,11 @@ function updateOverlayInfo(){
   } else if(t==='cw_l'||t==='cd_l'||t==='dbh_l'){
     html = r.az===null ? '⚠ direzione non disponibile su questo dispositivo' : `direzione ${Math.round(r.az)}°`;
   }
+  const rs=readClino(600,0);
+  if(rs.n>=5){
+    const ok=!clShaky(rs) && rs.sdEl<=0.5 && (rs.sdAz==null||rs.sdAz<=0.5);
+    html += (html?' &nbsp;':'') + (ok?'<span style="color:#6eff6e">● fermo</span>':'<span style="color:#ffb347">● tieni fermo</span>');
+  }
   el.innerHTML=html;
 }
 
@@ -1963,8 +1986,8 @@ async function startClinoCamera(firstTarget, distTarget){
     </div>
     <div class="cam-fullscreen-bar">
       <button class="cam-fullscreen-close" onclick="closeClinoFullscreen()">✕</button>
+      <div class="cam-fullscreen-label" id="fs-clino-label" style="flex:1;text-align:center;padding:0 16px">${hints[firstTarget]||'Inquadra e cattura'}</div>
       <button class="cam-fullscreen-snap" onclick="captureFromOverlay()" style="background:#6eff6e"></button>
-      <div class="cam-fullscreen-label" id="fs-clino-label">${hints[firstTarget]||'Inquadra e cattura'}</div>
     </div>`;
   overlay._pendingTarget = firstTarget;
   overlay._distTarget = (firstTarget==='dist') ? (distTarget||'dist') : null;
@@ -1991,7 +2014,14 @@ function captureFromOverlay(){
   const c=G.clino;
   /* Misura della distanza: d = h / tan(α), scritta direttamente nel campo */
   if(overlay._distTarget){
-    const r=readClino(), h0=c.phoneH||1.3;
+    const r=readClino(900,250), h0=c.phoneH||1.3;
+    if(clShaky(r) && !(c._refuseT && Date.now()-c._refuseT<4000)){
+      c._refuseT=Date.now();
+      const lb=document.getElementById('fs-clino-label');
+      if(lb) lb.innerHTML='⚠ Troppo movimento: tieni fermo e ripremi';
+      return;
+    }
+    c._refuseT=0;
     if(r.el>-3){
       const lbl=document.getElementById('fs-clino-label');
       if(lbl) lbl.innerHTML='⚠ Inclina di più verso la base del tronco (almeno −3°)';
@@ -2008,7 +2038,7 @@ function captureFromOverlay(){
   }
   const target = overlay._pendingTarget;
   if(!target) return;
-  captureA(target);
+  if(captureA(target)===false) return;
   const nextMap = {base:'top', cw_l:'cw_r', cd_l:'cd_r', dbh_l:'dbh_r'};
   overlay._pendingTarget = nextMap[target] || null;
   updateOverlayInfo();
@@ -2025,7 +2055,7 @@ function renderClino(){
 
 function resetClino(){
   const c=G.clino;
-  c.captured={}; c.capAz={}; c.distInfo={};
+  c.captured={}; c.capAz={}; c.distInfo={}; c.capSd={}; c.dbhRuns=[]; c.dbhSrc=null; c.dbhRef=null;
   c.meas={h:null,dbh:null,cw:null,cd:null};
   c.q={};
   renderClino();
@@ -2051,14 +2081,27 @@ function captureA(target){
     dbh_l:'Ruota il telefono sul <b>bordo destro</b> del tronco e cattura'};
   if(firstOfGroup[target] && !document.getElementById('cam-fs-overlay')){
     startClinoCamera(target);
-    return;
+    return true;
   }
-  const r=readClino(), c=G.clino;
+  const r=readClino(900,250), c=G.clino;
+  const lbl = document.getElementById('fs-clino-label');
+  if(clShaky(r) && !(c._refuseT && Date.now()-c._refuseT<4000)){
+    c._refuseT=Date.now();
+    if(lbl) lbl.innerHTML='⚠ Troppo movimento (±'+Math.max(r.sdEl||0,r.sdAz||0).toFixed(1)+'°): tieni fermo e ripremi';
+    return false;
+  }
+  c._refuseT=0;
   c.captured[target]=parseFloat(r.el.toFixed(1));
   c.capAz[target]=r.az;
+  (c.capSd=c.capSd||{})[target]={el:r.sdEl,az:r.sdAz};
+  if(target==='dbh_l'){ c.dbhSrc='sens'; delete c.captured.dbh_r; delete c.capAz.dbh_r; }
+  if(target==='dbh_r'){
+    c.dbhSrc='sens';
+    const a1=c.capAz.dbh_l, a2=c.capAz.dbh_r;
+    if(a1!=null && a2!=null) (c.dbhRuns=c.dbhRuns||[]).push(clAngDiff(a1,a2));
+  }
   recalcAll();
   const nxt = {base:'top', cw_l:'cw_r', cd_l:'cd_r', dbh_l:'dbh_r'}[target];
-  const lbl = document.getElementById('fs-clino-label');
   if(lbl && nxt) lbl.innerHTML = labelNext[target];
   if(lastOfGroup[target]){
     if(lbl) lbl.innerHTML='✓ Misura completata';
@@ -2066,6 +2109,7 @@ function captureA(target){
   } else {
     renderClino();
   }
+  return true;
 }
 
 function setDist(d){ setDistFor('dist',d); }
@@ -2107,19 +2151,20 @@ function recalcAll(){
     c.q[k]={abs:e,val:c.meas[k],delta:dl};
     set('cmv-'+k,c.meas[k].toFixed(2)); set('q-'+k,clQualHTML(e,c.meas[k],'m',2)+` <span style="color:var(--text-muted)">Δ${dl.toFixed(1)}°</span>`);
   });
-  /* Diametro: cilindro visto da distanza dD (dalla superficie del tronco) */
-  if(c.captured.dbh_l!==undefined && c.captured.dbh_r!==undefined){
-    const a1=c.capAz.dbh_l, a2=c.capAz.dbh_r;
-    if(a1==null||a2==null){ set('q-dbh','<span style="color:#b91c1c">direzione non disponibile</span>'); }
-    else {
-      const dl=clAngDiff(a1,a2), m=calcDiam(dD,dl);
-      if(m!==null){
-        c.meas.dbh=parseFloat((m*100).toFixed(1));
-        const e=errDiam(dD,dl)*100;
-        c.q.dbh={abs:e,val:c.meas.dbh,delta:dl};
-        set('cmv-dbh',c.meas.dbh.toFixed(1)); set('cmv-circ',(c.meas.dbh*Math.PI).toFixed(1));
-        set('q-dbh',clQualHTML(e,c.meas.dbh,'cm',1)+` <span style="color:var(--text-muted)">Δ${dl.toFixed(1)}°</span>`+(e/c.meas.dbh>0.2?'<br><span style="color:#b45309">Avvicinati al tronco (2–5 m) per un dato migliore</span>':''));
-      }
+  /* Diametro (sensori): cilindro visto da distanza dD (dalla superficie del tronco).
+     Il valore è la media di tutte le misure della serie (c.dbhRuns = rotazioni Δ). */
+  if(c.dbhSrc!=='ref' && c.dbhRuns && c.dbhRuns.length){
+    const ds=c.dbhRuns.slice();
+    const vals=ds.map(dl=>calcDiam(dD,dl)).filter(m=>m!==null).map(m=>m*100);
+    if(vals.length){
+      const n=vals.length, mean=vals.reduce((a,b)=>a+b,0)/n;
+      const sd=n>1?Math.sqrt(vals.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(n-1)):0;
+      const dMean=ds.reduce((a,b)=>a+b,0)/ds.length;
+      c.meas.dbh=parseFloat(mean.toFixed(1));
+      const e=Math.max(errDiam(dD,dMean)*100/Math.sqrt(n), n>1?sd/Math.sqrt(n):0);
+      c.q.dbh={abs:e,val:c.meas.dbh,delta:dMean,n:n,sd:sd};
+      set('cmv-dbh',c.meas.dbh.toFixed(1)); set('cmv-circ',(c.meas.dbh*Math.PI).toFixed(1));
+      set('q-dbh',clQualHTML(e,c.meas.dbh,'cm',1)+dbhNote()+(e/c.meas.dbh>0.2?'<br><span style="color:#b45309">Avvicinati (2–5 m), ripeti la misura o usa la foto con riferimento</span>':''));
     }
   }
   if(c.meas.cw&&c.meas.cd) set('cmv-ca',((c.meas.cw+c.meas.cd)/2).toFixed(2));
@@ -2129,8 +2174,187 @@ function recalcAll(){
     fbox.innerHTML=`H = d × (tan α<sub>cima</sub> − tan α<sub>base</sub>) &nbsp;| d = ${d} m<br>
       α_cima = ${fa(c.captured.top)}° · α_base = ${fa(c.captured.base)}° → <b>H = ${c.meas.h?c.meas.h.toFixed(2)+' m':'—'}</b><br>
       Chioma = 2·d·tan(Δ/2) &nbsp;| Δ = rotazione orizzontale tra i due bordi<br>
-      Diametro = 2·r, r = d·sin(Δ/2)/(1−sin(Δ/2)) &nbsp;| d tronco = ${dD} m`;
+      Diametro (sensori) = 2·r, r = d·sin(Δ/2)/(1−sin(Δ/2)) &nbsp;| d tronco = ${dD} m<br>
+      Diametro (foto) = Ø<sub>px</sub> / L<sub>px</sub> × L<sub>rif</sub>`;
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   DIAMETRO — FOTO CON OGGETTO DI RIFERIMENTO
+   Ø = (larghezza tronco in px / lunghezza riferimento in px) × lunghezza riferimento.
+   Indipendente da sensori e da distanza. Se la distanza dal tronco è stata misurata,
+   si corregge l'effetto prospettico (il riferimento appoggiato al tronco sta più vicino
+   all'obiettivo dell'asse del tronco): Ø = Ø_stim / (1 − Ø_stim / (2·d)).
+   ═══════════════════════════════════════════════════════════ */
+function refLenDefault(){ try{ const v=parseFloat(localStorage.getItem('arborisk-reflen')); if(v>0) return v; }catch(e){} return 30; }
+function setRefLen(v){
+  const n=parseFloat(String(v).replace(',','.'));
+  if(n>0){ G.clino.refLen=n; try{ localStorage.setItem('arborisk-reflen',String(n)); }catch(e){} }
+}
+function dbhNote(){
+  const c=G.clino; if(!c.meas.dbh) return '';
+  if(c.dbhSrc==='ref'){
+    const r=c.dbhRef||{};
+    return ' <span style="color:var(--text-muted)">· foto+riferimento'+(r.corr?' (corretto)':' (senza correzione prospettica)')+'</span>';
+  }
+  const q=c.q&&c.q.dbh;
+  if(c.dbhSrc==='sens' && q && q.n) return ' <span style="color:var(--text-muted)">· sensori n='+q.n+(q.n>1?' · SD ±'+q.sd.toFixed(1)+' cm':'')+'</span>';
+  return '';
+}
+async function startDbhRef(){
+  const c=G.clino;
+  if(!(c.refLen>0)) c.refLen=refLenDefault();
+  const ov=document.createElement('div');
+  ov.id='cam-ref-overlay'; ov.className='cam-fullscreen';
+  ov.innerHTML=`
+    <video id="ref-video" autoplay playsinline muted style="flex:1;width:100%;height:100%;object-fit:contain;background:#000"></video>
+    <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;max-width:92vw">
+      <div style="background:rgba(0,0,0,0.6);color:#fff;font-size:14px;padding:6px 14px;border-radius:8px">Oggetto di riferimento (${c.refLen} cm) appoggiato al tronco, tablet frontale e fermo</div>
+    </div>
+    <div class="cam-fullscreen-bar">
+      <button class="cam-fullscreen-close" onclick="closeDbhRef()">✕</button>
+      <div class="cam-fullscreen-label" style="flex:1;text-align:center;padding:0 16px">Inquadra tronco e oggetto, poi scatta</div>
+      <button class="cam-fullscreen-snap" onclick="snapDbhRef()" style="background:#6eff6e"></button>
+    </div>`;
+  document.body.appendChild(ov);
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:3840},height:{ideal:2160}},audio:false});
+    c._refStream=stream;
+    const v=document.getElementById('ref-video'); if(v){ v.srcObject=stream; v.play(); }
+  }catch(e){
+    const l=ov.querySelector('.cam-fullscreen-label'); if(l) l.textContent='Fotocamera non disponibile: '+(e&&e.message||e);
+  }
+}
+function closeDbhRef(){
+  const c=G.clino, ov=document.getElementById('cam-ref-overlay');
+  if(c._refStream){ c._refStream.getTracks().forEach(t=>t.stop()); c._refStream=null; }
+  if(ov) ov.remove();
+}
+function snapDbhRef(){
+  const ov=document.getElementById('cam-ref-overlay'), v=document.getElementById('ref-video');
+  if(!ov||!v||!v.videoWidth) return;
+  const img=document.createElement('canvas'); img.width=v.videoWidth; img.height=v.videoHeight;
+  img.getContext('2d').drawImage(v,0,0);
+  const c=G.clino;
+  if(c._refStream){ c._refStream.getTracks().forEach(t=>t.stop()); c._refStream=null; }
+  ov._img=img; ov._pts=[];
+  ov.innerHTML=`
+    <canvas id="ref-cv" style="position:absolute;inset:0;width:100%;height:100%;touch-action:none"></canvas>
+    <canvas id="ref-loupe" width="150" height="150" style="position:absolute;top:80px;left:12px;border:2px solid #6eff6e;border-radius:50%;display:none;pointer-events:none;background:#000"></canvas>
+    <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;max-width:94vw">
+      <div id="ref-msg" style="background:rgba(0,0,0,0.65);color:#fff;font-size:15px;padding:6px 14px;border-radius:8px"></div>
+      <div id="ref-res" style="margin-top:6px;background:rgba(0,0,0,0.65);color:#6eff6e;font-size:16px;font-weight:700;padding:5px 12px;border-radius:8px;display:none"></div>
+    </div>
+    <div class="cam-fullscreen-bar" style="gap:8px">
+      <button class="cam-fullscreen-close" onclick="closeDbhRef()">✕</button>
+      <button class="btn-secondary" style="margin:0;padding:10px 12px" onclick="refUndo()">↶ Annulla punto</button>
+      <button class="btn-secondary" style="margin:0;padding:10px 12px" onclick="closeDbhRef();startDbhRef()">📷 Rifai foto</button>
+      <div style="flex:1"></div>
+      <button class="btn-primary" id="ref-ok" style="margin:0;padding:12px 20px;opacity:0.4" onclick="refConfirm()">Calcola ✓</button>
+    </div>`;
+  const cv=document.getElementById('ref-cv'), lp=document.getElementById('ref-loupe');
+  const st={drag:null, W:0, H:0, s:1, ox:0, oy:0, dpr:window.devicePixelRatio||1};
+  ov._st=st;
+  const layout=()=>{
+    const r=cv.getBoundingClientRect(); st.W=r.width; st.H=r.height;
+    cv.width=Math.round(r.width*st.dpr); cv.height=Math.round(r.height*st.dpr);
+    st.s=Math.min(st.W/img.width, st.H/img.height);
+    st.ox=(st.W-img.width*st.s)/2; st.oy=(st.H-img.height*st.s)/2;
+    refRedraw();
+  };
+  window.addEventListener('resize',layout); ov._layout=layout;
+  const xy=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  cv.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    const p=xy(e), pts=ov._pts; let best=-1, bd=1e9;
+    pts.forEach((q,i)=>{ const d=Math.hypot(st.ox+q.x*st.s-p.x, st.oy+q.y*st.s-p.y); if(d<bd){bd=d;best=i;} });
+    if(best>=0 && bd<70){
+      st.drag={i:best, dx:st.ox+pts[best].x*st.s-p.x, dy:st.oy+pts[best].y*st.s-p.y};
+    } else if(pts.length<4){
+      const q={x:(p.x-st.ox)/st.s, y:(p.y-st.oy)/st.s};
+      if(q.x<0||q.y<0||q.x>img.width||q.y>img.height) return;
+      pts.push(q); st.drag={i:pts.length-1, dx:0, dy:0};
+    }
+    try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    refRedraw();
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(!st.drag) return;
+    const p=xy(e), q=ov._pts[st.drag.i];
+    q.x=Math.max(0,Math.min(img.width,(p.x+st.drag.dx-st.ox)/st.s));
+    q.y=Math.max(0,Math.min(img.height,(p.y+st.drag.dy-st.oy)/st.s));
+    refRedraw();
+  });
+  const up=()=>{ st.drag=null; lp.style.display='none'; refRedraw(); };
+  cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+  layout();
+}
+function refUndo(){ const ov=document.getElementById('cam-ref-overlay'); if(!ov||!ov._pts) return; ov._pts.pop(); refRedraw(); }
+function refCalc(){
+  const ov=document.getElementById('cam-ref-overlay'); if(!ov||!ov._pts||ov._pts.length<4) return null;
+  const c=G.clino, p=ov._pts, L=c.refLen>0?c.refLen:refLenDefault();
+  const pxT=Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y), pxR=Math.hypot(p[3].x-p[2].x,p[3].y-p[2].y);
+  if(pxT<2||pxR<2) return null;
+  const dEst=pxT/pxR*L;                                 /* cm */
+  const Ds=c.distDBH, measured=!!(c.distInfo&&c.distInfo.distDBH)&&Ds>0;
+  let dTrue=dEst, corr=false;
+  if(measured){
+    const den=1-(dEst/100)/(2*Ds);
+    if(den>0.5){ dTrue=dEst/den; corr=true; }
+  }
+  /* incertezza: ±2 px per punto, ±1 mm sul riferimento, ±2% (corretto) o ±6% (non corretto) sulla prospettiva */
+  const sp=2*Math.SQRT2;
+  const rel=Math.hypot(sp/pxT, sp/pxR, 0.1/L, corr?0.02:0.06);
+  return {pxT,pxR,dEst,dTrue,corr,rel,L};
+}
+function refRedraw(){
+  const ov=document.getElementById('cam-ref-overlay'); if(!ov||!ov._st) return;
+  const cv=document.getElementById('ref-cv'); if(!cv) return;
+  const st=ov._st, img=ov._img, pts=ov._pts, g=cv.getContext('2d');
+  g.setTransform(st.dpr,0,0,st.dpr,0,0);
+  g.fillStyle='#000'; g.fillRect(0,0,st.W,st.H);
+  g.drawImage(img,st.ox,st.oy,img.width*st.s,img.height*st.s);
+  const S=q=>({x:st.ox+q.x*st.s, y:st.oy+q.y*st.s});
+  const line=(a,b,col)=>{ const A=S(a),B=S(b); g.strokeStyle=col; g.lineWidth=2; g.beginPath(); g.moveTo(A.x,A.y); g.lineTo(B.x,B.y); g.stroke(); };
+  if(pts.length>=2) line(pts[0],pts[1],'#6eff6e');
+  if(pts.length>=4) line(pts[2],pts[3],'#ffd23c');
+  pts.forEach((q,i)=>{
+    const A=S(q), col=i<2?'#6eff6e':'#ffd23c';
+    g.strokeStyle=col; g.lineWidth=2; g.beginPath(); g.arc(A.x,A.y,11,0,7); g.stroke();
+    g.fillStyle=col; g.beginPath(); g.arc(A.x,A.y,2.5,0,7); g.fill();
+  });
+  const msgs=['1/4 · tocca il bordo SINISTRO del tronco','2/4 · tocca il bordo DESTRO del tronco','3/4 · tocca il PRIMO estremo dell\'oggetto di riferimento','4/4 · tocca il SECONDO estremo dell\'oggetto','Trascina i punti per rifinire (anche da lato), poi Calcola'];
+  const m=document.getElementById('ref-msg'); if(m) m.textContent=msgs[Math.min(pts.length,4)];
+  const res=document.getElementById('ref-res'), ok=document.getElementById('ref-ok'), r=refCalc();
+  if(res){
+    if(r){ res.style.display='block'; res.textContent='Ø ≈ '+r.dTrue.toFixed(1)+' cm  (±'+(r.rel*100).toFixed(0)+'%)'+(r.corr?'':' · distanza non misurata'); }
+    else res.style.display='none';
+  }
+  if(ok) ok.style.opacity=r?1:0.4;
+  /* lente d'ingrandimento sul punto trascinato */
+  const lp=document.getElementById('ref-loupe');
+  if(lp && st.drag){
+    const q=pts[st.drag.i], lg=lp.getContext('2d'), half=20;
+    lp.style.display='block';
+    const A=S(q); lp.style.left = (A.x<220&&A.y<260) ? 'auto':'12px'; lp.style.right = (A.x<220&&A.y<260) ? '12px':'auto';
+    lg.fillStyle='#000'; lg.fillRect(0,0,150,150);
+    lg.imageSmoothingEnabled=false;
+    lg.drawImage(img,q.x-half,q.y-half,half*2,half*2,0,0,150,150);
+    lg.strokeStyle='#6eff6e'; lg.lineWidth=1;
+    lg.beginPath(); lg.moveTo(75,0); lg.lineTo(75,150); lg.moveTo(0,75); lg.lineTo(150,75); lg.stroke();
+  }
+}
+function refConfirm(){
+  const r=refCalc(); if(!r) return;
+  const c=G.clino, ov=document.getElementById('cam-ref-overlay');
+  c.meas.dbh=parseFloat(r.dTrue.toFixed(1));
+  c.dbhSrc='ref';
+  c.dbhRef={dEst:r.dEst,dTrue:r.dTrue,corr:r.corr,refLen:r.L,pxT:r.pxT,pxR:r.pxR};
+  c.q.dbh={abs:r.dTrue*r.rel,val:c.meas.dbh};
+  if(ov&&ov._layout) window.removeEventListener('resize',ov._layout);
+  closeDbhRef();
+  renderClino();
 }
 
 function transferToScheda(){
