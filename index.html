@@ -529,19 +529,19 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
             dataUrl: p.dataUrl
           });
           return true;
-        } catch(e) { console.warn('FB savePhoto:', e); return false; }
+        } catch(e) { console.warn('FB savePhoto:', e); window._fbLastErr=(e&&(e.code||e.message))||'errore'; return false; }
       },
       async loadPhotos(treeId) {
         try {
           const snap = await getDocs(query(collection(db, 'photos'), where('treeId', '==', treeId)));
           return snap.docs.map(d => d.data());
-        } catch(e) { console.warn('FB loadPhotos:', e); return null; }
+        } catch(e) { console.warn('FB loadPhotos:', e); window._fbLastErr=(e&&(e.code||e.message))||'errore'; return null; }
       },
       async listPhotoIds(treeId) {
         try {
           const snap = await getDocs(query(collection(db, 'photos'), where('treeId', '==', treeId)));
           return snap.docs.map(d => d.data().pid);
-        } catch(e) { return null; }
+        } catch(e) { window._fbLastErr=(e&&(e.code||e.message))||'errore'; return null; }
       },
       async deletePhoto(treeId, pid) {
         try { await deleteDoc(doc(db, 'photos', treeId + '__' + pid)); } catch(e) {}
@@ -600,7 +600,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v53 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v54 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -5590,7 +5590,8 @@ async function uploadMissingPhotos(statusEl){
   if(navigator.onLine===false){ say('⚠ Il dispositivo è offline.'); return; }
   const list=G.trees.filter(t=>t.photos&&t.photos.length);
   if(!list.length){ say('Nessun rilievo con foto su questo dispositivo.'); return; }
-  let n=0, up=0, already=0, fail=0, noLocal=0;
+  let n=0, up=0, already=0, fail=0, noLocal=0, consecFail=0;
+  window._fbLastErr='';
   for(const t of list){
     n++; say(`⏳ Foto: rilievo ${n}/${list.length} (inviate ${up}, già presenti ${already})...`);
     try{ await withTimeout(ensureTreePhotos(t),30000); }catch(e){}
@@ -5599,7 +5600,12 @@ async function uploadMissingPhotos(statusEl){
     let pidAssigned=false;
     local.forEach(p=>{ if(!p.pid){ p.pid=genId(); pidAssigned=true; } });
     const r=await withTimeout(window._fb.listPhotoIds(String(t.id)),20000);
-    if(!r.ok||!Array.isArray(r.v)){ fail+=local.length; continue; }
+    if(!r.ok||!Array.isArray(r.v)){
+      fail+=local.length; consecFail++;
+      if(consecFail>=3){ say('⚠ Firebase rifiuta l\'accesso alle foto (errore: '+(window._fbLastErr||(r.timeout?'nessuna risposta':'sconosciuto'))+'). Se è "permission-denied", vanno aggiornate le regole di Firestore per la raccolta "photos". Interrotto dopo 3 tentativi.','var(--red)'); return; }
+      continue;
+    }
+    consecFail=0;
     const have=new Set(r.v);
     for(const p of local){
       if(have.has(p.pid)){ already++; continue; }
