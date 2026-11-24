@@ -507,6 +507,18 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
         return null;
       },
 
+      async loadDeleted() {
+        try {
+          const snap = await getDoc(doc(db, 'meta', 'deleted'));
+          if(snap.exists()) return JSON.parse(snap.data().data || '{}');
+        } catch(e) { console.warn('FB loadDeleted:', e); return undefined; }
+        return {};
+      },
+      async saveDeleted(obj) {
+        try { await setDoc(doc(db, 'meta', 'deleted'), { data: JSON.stringify(obj), ts: Date.now() }); return true; }
+        catch(e) { console.warn('FB saveDeleted:', e); return false; }
+      },
+
       async saveTree(tree) {
         try {
           /* Escludi le foto dal salvataggio Firebase (troppo grandi per il limite 1MB) */
@@ -600,7 +612,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v54 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v57 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -909,19 +921,65 @@ function filterTrees(q){
   </div>`).join('');
 }
 
-function deleteTree(id){
-  const t = G.trees.find(x => x.id === id);
+/* Rilievi eliminati: l'eliminazione si propaga agli altri dispositivi tramite un elenco su Firebase (meta/deleted) */
+var _tomb=(function(){ try{ return JSON.parse(localStorage.getItem('arborisk-deleted')||'{}'); }catch(e){ return {}; } })();
+function _tombSave(){ try{ localStorage.setItem('arborisk-deleted',JSON.stringify(_tomb)); }catch(e){} }
+function removeTreeLocally(t){
+  G.trees = G.trees.filter(x => String(x.id) !== String(t.id));
+  delete _mirrorSig[String(t.id)];
+  photoDBop('readwrite',st=>st.put({tree:stripPhotos(t),ts:Date.now()},String(t.id)),'trash').catch(()=>{});
+  photoDBop('readwrite',st=>st.delete(String(t.id)),'trees').catch(()=>{});
+  G_projects.forEach(cl=>cl.progetti.forEach(pr=>{ pr.rilievi=pr.rilievi.filter(x=>String(x)!==String(t.id)); }));
+}
+async function syncTombstones(){
+  if(!window._fb||!window._fb.loadDeleted) return;
+  const r=await withTimeout(window._fb.loadDeleted(),20000);
+  if(!r.ok||!r.v||typeof r.v!=='object') return;
+  let changedLocal=false, changedCloud=false;
+  Object.keys(r.v).forEach(id=>{ if(!_tomb[id]||_tomb[id]<r.v[id]){ _tomb[id]=r.v[id]; changedLocal=true; } });
+  const lim=new Date(Date.now()-365*864e5).toISOString();
+  Object.keys(_tomb).forEach(id=>{ if(_tomb[id]<lim){ delete _tomb[id]; changedCloud=true; } });
+  Object.keys(_tomb).forEach(id=>{ if(!r.v[id]||r.v[id]<_tomb[id]) changedCloud=true; });
+  if(changedLocal||changedCloud){ _tombSave(); }
+  if(changedCloud) await withTimeout(window._fb.saveDeleted(_tomb),20000);
+}
+/* Applica le eliminazioni arrivate da altri dispositivi (solo se il rilievo non è stato modificato dopo l'eliminazione) */
+function applyTombstones(){
+  const editing=(G.form&&G.form._editingId)?String(G.form._editingId):null;
+  let n=0;
+  G.trees.slice().forEach(t=>{
+    const ts=_tomb[String(t.id)]; if(!ts) return;
+    if(String(t.id)===editing) return;
+    if(String(t._savedAt||'')>ts) return;          /* ricreato o modificato dopo l'eliminazione */
+    removeTreeLocally(t); n++;
+  });
+  if(n){ saveTrees(); saveProjects(); }
+  return n;
+}
+function deleteTree(id,opts){
+  opts=opts||{};
+  const t = G.trees.find(x => String(x.id) === String(id));
   if(!t) return;
-  if(!confirm(`Eliminare il rilievo #${t.id} — ${t.specie}?\nQuesta operazione non è reversibile.`)) return;
-  G.trees = G.trees.filter(x => x.id !== id);
-  /* cestino locale: il rilievo (e le sue foto, che restano in IndexedDB) si possono recuperare dalle Impostazioni */
-  delete _mirrorSig[String(id)];
-  photoDBop('readwrite',st=>st.put({tree:stripPhotos(t),ts:Date.now()},String(id)),'trash').catch(()=>{});
-  photoDBop('readwrite',st=>st.delete(String(id)),'trees').catch(()=>{});
+  if(!confirm(`Eliminare il rilievo #${t.id} — ${t.specie||''}?\nVerrà eliminato anche dagli altri dispositivi collegati.\nSu questo dispositivo resta recuperabile dal cestino (Impostazioni → Database locale).`)) return;
+  removeTreeLocally(t);
+  _tomb[String(t.id)]=new Date().toISOString(); _tombSave();
   saveTrees();
-  /* Elimina anche da Firebase */
-  if (window._fb) window._fb.deleteTree(id);
-  render('lista');
+  saveProjects();
+  if (window._fb){
+    window._fb.deleteTree(t.id);
+    if(window._fb.saveDeleted) syncTombstones().catch(()=>{});
+  }
+  if(!opts.stay) render('lista');
+}
+/* Elimina dalla mappa: chiude il popup e toglie il pin */
+function deleteTreeFromMap(id){
+  const before=G.trees.length;
+  deleteTree(id,{stay:true});
+  if(G.trees.length<before){
+    try{ leafletMap.closePopup(); }catch(e){}
+    const i=treeMarkers.findIndex(m=>String(m.id)===String(id));
+    if(i>=0){ try{ leafletMap.removeLayer(treeMarkers[i].marker); }catch(e){} treeMarkers.splice(i,1); }
+  }
 }
 function openTree(id){
   const t = G.trees.find(x => x.id === id);
@@ -3705,6 +3763,12 @@ function renderMappaView(){
         <button class="btn-sm" id="btn-fit" onclick="fitAllTrees()" style="font-size:10px;padding:4px 8px">⌖ Tutto</button>
       </div>
     </div>
+    <div style="position:relative;margin-bottom:8px">
+      <input id="map-search" type="search" autocomplete="off" placeholder="🔍 Cerca rilievo sulla mappa (codice o specie)…"
+        oninput="mapSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();mapSearchGo();}"
+        style="width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border:1px solid var(--border);border-radius:var(--r-md);background:#fff">
+      <div id="map-search-res" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:1000;background:#fff;border:1px solid var(--border);border-radius:var(--r-md);box-shadow:0 6px 18px rgba(0,0,0,.15);max-height:280px;overflow-y:auto;margin-top:2px"></div>
+    </div>
     <div id="leaflet-map" style="height:75dvh;min-height:420px;border-radius:var(--r-md);overflow:hidden;border:0.5px solid var(--border);z-index:0"></div>
     <div class="map-legend" style="margin-top:8px">
       ${[['CPC A','#2563EB'],['CPC B','#16A34A'],['CPC C','#CA8A04'],['CPC C/D','#EA580C'],['CPC D','#DC2626']].map(([l,c])=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${c}"></div>${l}</div>`).join('')}
@@ -3983,6 +4047,10 @@ function addTreeMarker(t) {
           style="flex:1;padding:8px 4px;font-size:12px;
           background:#f0f4e8;color:#3B6D11;border:0.5px solid #639922;
           border-radius:6px;cursor:pointer;min-height:36px">✎ Modifica</button>
+        <button data-action="delete" data-id="${t.id}"
+          style="flex:none;padding:8px 10px;font-size:13px;
+          background:#fff;color:#b3261e;border:0.5px solid #e0a39e;
+          border-radius:6px;cursor:pointer;min-height:36px" title="Elimina rilievo">🗑</button>
       </div>
     </div>
   `, { maxWidth: 230, closeButton: true });
@@ -4001,6 +4069,8 @@ function addTreeMarker(t) {
         } else if (action === 'edit') {
           leafletMap.closePopup();
           setTimeout(() => openTree(id), 100);
+        } else if (action === 'delete') {
+          deleteTreeFromMap(id);
         }
       });
     });
@@ -4014,6 +4084,45 @@ function addTreeMarker(t) {
 
   marker.addTo(leafletMap);
   treeMarkers.push({ id: t.id, marker });
+}
+
+/* ── Ricerca di un rilievo sulla mappa con zoom automatico (v56) ── */
+var _mapSearchHits=[];
+function mapSearchInput(q){
+  const box=document.getElementById('map-search-res'); if(!box) return;
+  q=String(q||'').trim().toLowerCase().replace(/^#/,'');
+  if(!q){ box.style.display='none'; _mapSearchHits=[]; return; }
+  const hits=G.trees.filter(t=>String(t.id).toLowerCase().includes(q)||String(t.specie||'').toLowerCase().includes(q));
+  hits.sort((a,b)=>{
+    const ea=String(a.id).toLowerCase()===q?0:String(a.id).toLowerCase().startsWith(q)?1:2;
+    const eb=String(b.id).toLowerCase()===q?0:String(b.id).toLowerCase().startsWith(q)?1:2;
+    return ea-eb || String(a.id).localeCompare(String(b.id),undefined,{numeric:true});
+  });
+  _mapSearchHits=hits.filter(hasCoords);
+  const col={A:'#2563EB',B:'#16A34A',C:'#CA8A04','C/D':'#EA580C',D:'#DC2626'};
+  box.innerHTML=hits.slice(0,10).map(t=>{
+    const ok=hasCoords(t);
+    return `<div ${ok?`onclick="mapFlyTo('${String(t.id).replace(/'/g,"\\'")}')"`:''} style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:0.5px solid var(--border);font-size:13px;cursor:${ok?'pointer':'default'};opacity:${ok?1:.45}">
+      <span style="width:10px;height:10px;border-radius:50%;background:${col[t.cpc]||'#888'};flex:none"></span>
+      <b>#${t.id}</b><span style="flex:1;font-style:italic;color:#555">${t.specie||'—'}</span>${ok?'':'<em style="font-size:10px">senza GPS</em>'}</div>`;
+  }).join('')||'<div style="padding:10px 12px;font-size:12px;color:var(--text-muted)">Nessun rilievo trovato</div>';
+  box.style.display='block';
+}
+function mapSearchGo(){ if(_mapSearchHits.length) mapFlyTo(String(_mapSearchHits[0].id)); }
+function mapFlyTo(id){
+  const box=document.getElementById('map-search-res'); if(box) box.style.display='none';
+  const inp=document.getElementById('map-search'); if(inp){ inp.value='#'+id; inp.blur(); }
+  if(!leafletMap) return;
+  const found=treeMarkers.find(m=>String(m.id)===String(id));
+  const t=G.trees.find(x=>String(x.id)===String(id));
+  if(!found||!t||!hasCoords(t)) return;
+  const ll=found.marker.getLatLng();
+  leafletMap.closePopup();
+  leafletMap.flyTo(ll,21,{duration:0.9});
+  /* cerchio pulsante di evidenziazione per qualche secondo */
+  const ring=L.circleMarker(ll,{radius:26,color:'#fff',weight:3,fillColor:'#ffeb3b',fillOpacity:.35}).addTo(leafletMap);
+  setTimeout(()=>{ try{ leafletMap.removeLayer(ring); }catch(e){} },4000);
+  leafletMap.once('moveend',()=>{ try{ found.marker.openPopup(); }catch(e){} });
 }
 
 function startMoveTree(id) {
@@ -4459,8 +4568,8 @@ function renderImpostazioniView(){
     </div>
     <div id="ldb-status" style="font-size:12px;margin-bottom:8px;line-height:1.6">Lettura...</div>
     <button class="btn-secondary" onclick="restoreMissingFromLocal()">↩ Recupera rilievi mancanti dal database locale</button>
-    <div style="font-size:11px;font-weight:600;margin:12px 0 4px">Copie automatiche</div>
-    <div id="ldb-snaps"></div>
+    <details style="margin-top:12px"><summary style="font-size:11px;font-weight:600;cursor:pointer">Copie di sicurezza (ultime 5 automatiche + 3 prima di un'operazione)</summary>
+    <div id="ldb-snaps" style="margin-top:4px"></div></details>
     <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
       <button class="btn-secondary" onclick="downloadFullBackup()">⬇ Scarica backup completo</button>
       <label class="btn-secondary" style="cursor:pointer">⬆ Importa backup<input type="file" accept=".json,application/json" style="display:none" onchange="importFullBackup(event)"></label>
@@ -5005,11 +5114,16 @@ async function pushUnsyncedQuiet(){
   return bad;
 }
 async function onCloudSnapshot(cloud){
+  cloud=cloud||[];
   if(_syncBusy){ _syncAgain=cloud; return; }
   _syncBusy=true;
   try{
     setSyncDot('busy','Sincronizzazione Firebase...');
+    await syncTombstones();
+    cloud=cloud.filter(c=>!(c&&_tomb[String(c.id)]&&String(c._savedAt||'')<=_tomb[String(c.id)]));
     const r=applyCloudTrees(cloud);
+    const nDel=applyTombstones();
+    if(nDel){ r.updated+=nDel; }
     if(!_projMerged){ await mergeCloudProjectsAuto(); _projMerged=!!window._projPushOK; }
     else if(refreshUnassigned()) saveProjects();
     const bad=await pushUnsyncedQuiet();
@@ -5349,10 +5463,17 @@ async function snapshotNow(force){
     if(G.trees.length < 0.5*maxCount) return false;   /* non sovrascrive buone copie con uno stato impoverito */
   }
   const ts=Date.now();
-  const snap={ts,count:G.trees.length,trees:G.trees.map(stripPhotos),projects:JSON.parse(JSON.stringify(G_projects||[]))};
+  const trees=G.trees.map(stripPhotos), projects=JSON.parse(JSON.stringify(G_projects||[]));
+  const sig=hashStr(JSON.stringify(trees)+JSON.stringify(projects));
+  const newest=snaps.filter(Boolean).sort((x,y)=>y.ts-x.ts)[0];
+  if(newest && newest.sig===sig) return false;          /* identica alla copia più recente: non ne creo un'altra */
+  const snap={ts,count:G.trees.length,trees,projects,sig,kind:force?'op':'auto'};
   await photoDBop('readwrite',st=>st.put(snap,ts),'snapshots');
-  const all=keys.concat([ts]).map(Number).sort((a,b)=>a-b);
-  while(all.length>10){ const old=all.shift(); await photoDBop('readwrite',st=>st.delete(old),'snapshots'); }
+  /* conservo le ultime 5 copie automatiche e le ultime 3 fatte prima di un'operazione (ricalcolo, duplicati, ripristino...) */
+  const all=snaps.filter(Boolean).concat([snap]).sort((x,y)=>y.ts-x.ts);
+  const keepAuto=all.filter(x=>x.kind!=='op').slice(0,5), keepOp=all.filter(x=>x.kind==='op').slice(0,3);
+  const keep=new Set(keepAuto.concat(keepOp).map(x=>x.ts));
+  for(const x of all){ if(!keep.has(x.ts)) await photoDBop('readwrite',st=>st.delete(x.ts),'snapshots'); }
   return true;
 }
 function maybeSnapshot(){ return snapshotNow(false); }
@@ -5376,7 +5497,7 @@ async function refreshLocalDBStatus(){
     el.innerHTML=`Nel database locale: <b>${st.mirror}</b> rilievi, foto di <b>${st.photoTrees}</b> rilievi.<br>
       Mancanti nell'archivio attuale: <b style="color:${st.missing.length?'var(--red)':'inherit'}">${st.missing.length}</b>${st.trash.length?` — nel cestino: <b>${st.trash.length}</b>`:''}.`;
     const sl=document.getElementById('ldb-snaps');
-    if(sl) sl.innerHTML = st.snaps.length ? st.snaps.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px"><span>${fmt(s.ts)} — ${s.count} rilievi</span><button class="btn-secondary" style="padding:3px 9px;font-size:11px" onclick="restoreSnapshot(${s.ts})">Ripristina</button></div>`).join('') : '<div style="font-size:11px;color:var(--text-muted)">Nessuna copia automatica ancora (si crea ogni 12 ore).</div>';
+    if(sl) sl.innerHTML = st.snaps.length ? st.snaps.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px"><span>${fmt(s.ts)} — ${s.count} rilievi <em style="color:var(--text-muted)">(${s.kind==='op'?'prima di un\'operazione':'automatica'})</em></span><button class="btn-secondary" style="padding:3px 12px;font-size:11px;width:auto;flex:none;margin:0" onclick="restoreSnapshot(${s.ts})">Ripristina</button></div>`).join('') : '<div style="font-size:11px;color:var(--text-muted)">Nessuna copia automatica ancora (si crea ogni 12 ore).</div>';
   }catch(e){ el.textContent='Database locale non disponibile: '+e.message; }
 }
 function ldbMsg(m,ok){ const el=document.getElementById('ldb-msg'); if(el){ el.textContent=m; el.style.color=ok?'var(--green-600)':'var(--red)'; } }
@@ -6449,7 +6570,7 @@ function renderRilievi(){
         <span class="cpc-badge c${(t.cpc||'A').replace('/','')}" style="flex-shrink:0">CPC ${t.cpc}</span>
       </div>
       <button onclick="showMoveRilievo('${t.id}')" style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Sposta">⇄</button>
-      <button onclick="removeRilievo('${t.id}')" style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border);background:#fff;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Rimuovi">✕</button>
+      <button onclick="deleteTree('${t.id}')" style="flex-shrink:0;margin-left:4px;width:32px;height:32px;border-radius:50%;border:0.5px solid #e0a39e;background:#fff;color:#b3261e;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Elimina rilievo">🗑</button>
     </div>`).join('')}
   </div>`;
 }
