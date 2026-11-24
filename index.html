@@ -600,7 +600,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);displ
       </div>
       <div class="logo-text">
         <div class="name">ArboRisk</div>
-        <div class="ver" id="app-ver">v52 · rilievi VTA</div>
+        <div class="ver" id="app-ver">v53 · rilievi VTA</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -4447,6 +4447,9 @@ function renderImpostazioniView(){
     <div id="fb-sync-status" style="font-size:11px;color:var(--text-muted);margin-bottom:8px"></div>
     <button class="btn-secondary" onclick="forceSyncToFirebase()">☁ Sincronizza con Firebase</button>
     <button class="btn-primary" style="margin-bottom:7px;width:100%" onclick="downloadFromFirebase(document.getElementById('fb-sync-status'))">⬇ Scarica da Firebase su questo dispositivo</button>
+    <button class="btn-secondary" style="margin-bottom:7px;width:100%" onclick="downloadAllPhotos(document.getElementById('fb-sync-status'))">📷 Scarica foto da Firebase</button>
+    <button class="btn-secondary" style="margin-bottom:7px;width:100%" onclick="uploadMissingPhotos(document.getElementById('fb-sync-status'))">📷 Invia foto mancanti a Firebase</button>
+    <button class="btn-secondary" style="margin-bottom:7px;width:100%" onclick="pushProjectsNow(document.getElementById('fb-sync-status'))">⇅ Invia clienti e progetti a Firebase</button>
     <button class="btn-secondary" style="margin-top:7px" onclick="pushAllToCloud(document.getElementById('fb-sync-status'))">☁ Ricarica tutto su Firebase (rilievi + foto + progetti)</button>
   </div>
   <div class="card">
@@ -5563,6 +5566,80 @@ async function downloadFromFirebase(statusEl){
   const finalMsg=statusEl?statusEl.textContent:'';
   render('impostazioni');
   const el2=document.getElementById('fb-sync-status'); if(el2){ el2.textContent=finalMsg; el2.style.color='var(--green-600)'; }
+}
+
+/* ── Foto e progetti: invio/scarico mirati con diagnostica (v53) ── */
+function shrinkDataUrl(d,maxLen){
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{
+      let q=0.8, sc=Math.min(1,1600/Math.max(im.width,im.height)), out=d;
+      for(let i=0;i<6;i++){
+        const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(im.width*sc)); c.height=Math.max(1,Math.round(im.height*sc));
+        c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+        out=c.toDataURL('image/jpeg',q); if(out.length<=maxLen) break; q-=0.1; sc*=0.85;
+      }
+      res(out);
+    };
+    im.onerror=()=>res(d); im.src=d;
+  });
+}
+async function uploadMissingPhotos(statusEl){
+  const say=(t,c)=>{ if(statusEl){ statusEl.textContent=t; statusEl.style.color=c||''; } };
+  if(!window._fb||!window._fb.listPhotoIds){ say('⚠ Firebase non disponibile.'); return; }
+  if(navigator.onLine===false){ say('⚠ Il dispositivo è offline.'); return; }
+  const list=G.trees.filter(t=>t.photos&&t.photos.length);
+  if(!list.length){ say('Nessun rilievo con foto su questo dispositivo.'); return; }
+  let n=0, up=0, already=0, fail=0, noLocal=0;
+  for(const t of list){
+    n++; say(`⏳ Foto: rilievo ${n}/${list.length} (inviate ${up}, già presenti ${already})...`);
+    try{ await withTimeout(ensureTreePhotos(t),30000); }catch(e){}
+    const local=(t.photos||[]).filter(p=>p&&p.dataUrl);
+    if(!local.length){ noLocal++; continue; }
+    let pidAssigned=false;
+    local.forEach(p=>{ if(!p.pid){ p.pid=genId(); pidAssigned=true; } });
+    const r=await withTimeout(window._fb.listPhotoIds(String(t.id)),20000);
+    if(!r.ok||!Array.isArray(r.v)){ fail+=local.length; continue; }
+    const have=new Set(r.v);
+    for(const p of local){
+      if(have.has(p.pid)){ already++; continue; }
+      let d=p.dataUrl; if(d.length>900000) d=await shrinkDataUrl(d,900000);
+      const rr=await withTimeout(window._fb.savePhoto(String(t.id),{...p,dataUrl:d}),60000);
+      if(rr.ok){ up++; p.cloud=1; } else fail++;
+    }
+    if(pidAssigned) await withTimeout(window._fb.saveTree(t),20000);
+  }
+  syncPhotosToDB();
+  const msg=`Foto: ${up} inviate, ${already} già presenti su Firebase, ${fail} non riuscite; ${noLocal} rilievi senza immagini su questo dispositivo.`;
+  if(fail) say('⚠ '+msg+(window._fbLastErr?' Errore: '+window._fbLastErr:'')+' Riprova più tardi.','var(--red)');
+  else say('✓ '+msg,'var(--green-600)');
+}
+async function downloadAllPhotos(statusEl){
+  const say=(t,c)=>{ if(statusEl){ statusEl.textContent=t; statusEl.style.color=c||''; } };
+  if(!window._fb||!window._fb.loadPhotos){ say('⚠ Firebase non disponibile.'); return; }
+  if(navigator.onLine===false){ say('⚠ Il dispositivo è offline.'); return; }
+  const list=G.trees.filter(t=>t.photos&&t.photos.length&&!hasPhotoData(t.photos));
+  if(!list.length){ say('✓ Tutte le foto note sono già su questo dispositivo.','var(--green-600)'); return; }
+  let n=0, ok=0; const miss=[];
+  for(const t of list){
+    n++; say(`⏳ Foto: rilievo ${n}/${list.length} (scaricati ${ok})...`);
+    await withTimeout(ensureTreePhotos(t),60000);
+    if(hasPhotoData(t.photos)) ok++; else miss.push(String(t.id));
+  }
+  lsSaveTrees();
+  if(miss.length) say(`⚠ Foto scaricate per ${ok} rilievi. Per ${miss.length} rilievi le foto NON sono su Firebase (${miss.slice(0,8).join(', ')}${miss.length>8?'…':''}): vanno inviate dal dispositivo che le ha (pulsante "Invia foto mancanti").`,'var(--red)');
+  else say(`✓ Foto scaricate per ${ok} rilievi.`,'var(--green-600)');
+}
+async function pushProjectsNow(statusEl){
+  const say=(t,c)=>{ if(statusEl){ statusEl.textContent=t; statusEl.style.color=c||''; } };
+  if(!window._fb){ say('⚠ Firebase non disponibile.'); return; }
+  say('⏳ Unione con i progetti di Firebase...');
+  await mergeCloudProjectsAuto();
+  if(!window._projPushOK){ say('⚠ Impossibile leggere i progetti da Firebase: non scrivo nulla. Riprova.','var(--red)'); return; }
+  const r=await withTimeout(window._fb.saveProjects(G_projects),20000);
+  const nr=G_projects.reduce((n,c)=>n+c.progetti.reduce((m,p)=>m+p.rilievi.length,0),0);
+  const txt=r.ok?`✓ ${G_projects.length} clienti con ${nr} rilievi assegnati inviati a Firebase.`:'⚠ Invio dei progetti non confermato. Riprova.';
+  render('impostazioni'); const e=document.getElementById('fb-sync-status'); if(e){ e.textContent=txt; e.style.color=r.ok?'var(--green-600)':'var(--red)'; }
 }
 
 /* Attende una promise al massimo ms millisecondi (Firestore offline non risolve mai le scritture) */
